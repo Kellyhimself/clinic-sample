@@ -1,103 +1,215 @@
-import Image from "next/image";
+// app/page.tsx
+import Image from 'next/image';
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { CalendarDays, Pill, Phone, ShieldCheck, LogIn } from 'lucide-react';
+import { getSupabaseClient } from '@/lib/supabase';
 
-export default function Home() {
+export default async function HomePage() {
+  const supabase = await getSupabaseClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (user) {
+    redirect('/dashboard');
+  }
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <main className="bg-gray-50 min-h-screen">
+      <section className="bg-gradient-to-r from-blue-500 to-teal-500 text-white py-8 md:py-12">
+        <div className="container mx-auto text-center">
+          <h1 className="text-3xl md:text-4xl font-bold mb-2 md:mb-4">
+            Welcome to Vision & Smile Clinic
+          </h1>
+          <p className="text-base md:text-lg mb-4 md:mb-6">
+            Your one-stop solution for dental and optical care in Kenya.
+          </p>
+          <div className="flex flex-col md:flex-row justify-center gap-4">
+            <Button size="lg" variant="secondary">
+              Book an Appointment
+            </Button>
+            <Link href="/login">
+              <Button
+                size="lg"
+                variant="outline"
+                className="text-gray-300 border-white hover:bg-white hover:text-teal-500"
+              >
+                <LogIn className="mr-2" /> Staff Login
+              </Button>
+            </Link>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+      </section>
+
+      <section className="py-12 container mx-auto">
+        <h2 className="text-2xl md:text-3xl font-semibold text-center mb-8">
+          Our Services
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card>
+            <CardContent className="flex flex-col items-center p-6">
+              <Image
+                src="/images/dental-care.webp"
+                alt="Dental Care"
+                width={500}
+                height={160}
+                className="w-full h-40 object-cover rounded-md mb-4"
+              />
+              <h3 className="text-lg md:text-xl font-semibold">Dental Care</h3>
+              <p className="text-gray-600 text-center">
+                Comprehensive dental checkups, cleanings, and treatments.
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="flex flex-col items-center p-6">
+              <Image
+                src="/images/lady.webp"
+                alt="Optical Care"
+                width={500}
+                height={160}
+                className="w-full h-40 object-cover rounded-md mb-4"
+              />
+              <h3 className="text-lg md:text-xl font-semibold">Optical Care</h3>
+              <p className="text-gray-600 text-center">
+                Eye exams, glasses, and contact lens services.
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="flex flex-col items-center p-6">
+              <Image
+                src="/images/mzae.webp"
+                alt="General Health"
+                width={500}
+                height={160}
+                className="w-full h-40 object-cover rounded-md mb-4"
+              />
+              <h3 className="text-lg md:text-xl font-semibold">General Health</h3>
+              <p className="text-gray-600 text-center">
+                Routine checkups and health consultations.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      <section className="py-12 bg-gray-100">
+        <div className="container mx-auto">
+          <h2 className="text-2xl md:text-3xl font-semibold text-center mb-8">
+            Book an Appointment
+          </h2>
+          <Card className="max-w-lg mx-auto">
+            <CardContent className="p-6">
+              <form className="space-y-4">
+                <div>
+                  <Label htmlFor="name">Full Name</Label>
+                  <Input id="name" placeholder="John Doe" />
+                </div>
+                <div>
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <Input id="phone" placeholder="+254 700 123 456" />
+                </div>
+                <div>
+                  <Label htmlFor="service">Service Requested</Label>
+                  <Input id="service" placeholder="e.g., Dental Checkup" />
+                </div>
+                <Button type="submit" className="w-full">
+                  <CalendarDays className="mr-2" /> Submit Booking
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      <section className="py-12 container mx-auto">
+        <h2 className="text-2xl md:text-3xl font-semibold text-center mb-8">
+          Request Prescription Refill
+        </h2>
+        <Card className="max-w-lg mx-auto">
+          <CardContent className="p-6">
+            <form className="space-y-4">
+              <div>
+                <Label htmlFor="refillName">Full Name</Label>
+                <Input id="refillName" placeholder="John Doe" />
+              </div>
+              <div>
+                <Label htmlFor="refillPhone">Phone Number</Label>
+                <Input id="refillPhone" placeholder="+254 700 123 456" />
+              </div>
+              <div>
+                <Label htmlFor="refillDetails">Prescription Details</Label>
+                <Textarea
+                  id="refillDetails"
+                  placeholder="e.g., Medication name, dosage"
+                />
+              </div>
+              <Button type="submit" className="w-full">
+                <Pill className="mr-2" /> Submit Refill Request
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="py-12 bg-gray-100">
+        <div className="container mx-auto">
+          <h2 className="text-2xl md:text-3xl font-semibold text-center mb-8">
+            Supported Health Insurance Providers
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <Card>
+              <CardContent className="flex items-center justify-center p-4">
+                <ShieldCheck className="mr-2 text-blue-500" />
+                <p className="font-semibold">NHIF</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="flex items-center justify-center p-4">
+                <ShieldCheck className="mr-2 text-blue-500" />
+                <p className="font-semibold">AAR Insurance</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="flex items-center justify-center p-4">
+                <ShieldCheck className="mr-2 text-blue-500" />
+                <p className="font-semibold">Jubilee Insurance</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="flex items-center justify-center p-4">
+                <ShieldCheck className="mr-2 text-blue-500" />
+                <p className="font-semibold">Britam</p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      <footer className="bg-gray-800 text-white py-6">
+        <div className="container mx-auto text-center">
+          <p>
+            Contact us: <Phone className="inline mr-2" /> +254 700 123 456
+          </p>
+          <p>© 2025 Vision & Smile Clinic. All rights reserved.</p>
+          <p className="mt-2 text-sm">
+            Developed by Kelly |{' '}
+            <a href="mailto:kituikelly@gmail.com" className="underline hover:text-teal-300">
+              kituikelly@gmail.com
+            </a>{' '}
+            |{' '}
+            <a href="https://wa.me/254748306871" className="underline hover:text-teal-300">
+              +254 748 306 871
+            </a>
+          </p>
+        </div>
       </footer>
-    </div>
+    </main>
   );
 }
