@@ -1,11 +1,13 @@
 // lib/supabase.ts
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { Database } from '@/types/supabase'; // Adjust path to your generated types
 
-export async function getSupabaseClient() {
+export async function getSupabaseClient(): Promise<SupabaseClient<Database>> {
   const cookieStore = await cookies();
 
-  return createServerClient(
+  return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {

@@ -15,27 +15,36 @@ export type Database = {
           id: string
           notes: string | null
           patient_id: string | null
+          payment_method: string | null
+          payment_status: string | null
           service_id: string | null
           status: string | null
           time: string
+          transaction_id: string | null
         }
         Insert: {
           date: string
           id?: string
           notes?: string | null
           patient_id?: string | null
+          payment_method?: string | null
+          payment_status?: string | null
           service_id?: string | null
           status?: string | null
           time: string
+          transaction_id?: string | null
         }
         Update: {
           date?: string
           id?: string
           notes?: string | null
           patient_id?: string | null
+          payment_method?: string | null
+          payment_status?: string | null
           service_id?: string | null
           status?: string | null
           time?: string
+          transaction_id?: string | null
         }
         Relationships: [
           {
@@ -259,6 +268,27 @@ export type Database = {
           phone_number?: string | null
           role?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      receipts: {
+        Row: {
+          appointment_id: string
+          created_at: string | null
+          id: string
+          receipt_text: string
+        }
+        Insert: {
+          appointment_id: string
+          created_at?: string | null
+          id?: string
+          receipt_text: string
+        }
+        Update: {
+          appointment_id?: string
+          created_at?: string | null
+          id?: string
+          receipt_text?: string
         }
         Relationships: []
       }
