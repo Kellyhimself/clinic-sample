@@ -7,14 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { setUserRole } from '@/lib/authActions';
 import { useRouter } from 'next/navigation';
+import { Profile } from '@/types/supabase'; // Import the global Profile type
 
-type Profile = {
-  id: string;
-  email: string;
-  full_name: string;
-  phone_number: string;
-  role: string;
-};
 
 interface RoleUpdateDialogProps {
   user: Profile;

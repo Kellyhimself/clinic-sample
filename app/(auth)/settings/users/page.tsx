@@ -22,7 +22,6 @@ export default async function UsersPage() {
   }
 
   const profiles = await fetchAllProfiles();
-  console.log('Fetched profiles:', profiles); // Debug log
 
   return (
     <div className="container mx-auto py-8">

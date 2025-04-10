@@ -51,6 +51,24 @@ export async function login(formData: FormData) {
   if (error) throw error;
 }
 
+export async function fetchUserRole(): Promise<string> {
+  const supabase = await getSupabaseClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) throw new Error('User not authenticated');
+
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (profileError || !profile) {
+    console.error('Profile fetch error:', profileError?.message);
+    return 'patient'; // Default to patient if profile fetch fails
+  }
+
+  return profile.role || 'patient';
+}
 export async function setUserRole(formData: FormData) {
   const supabase = await getSupabaseClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();

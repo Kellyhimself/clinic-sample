@@ -30,16 +30,18 @@ export default async function HomePage() {
             Your one-stop solution for dental and optical care in Kenya.
           </p>
           <div className="flex flex-col md:flex-row justify-center gap-4">
+            <Link href="/bookAppointment">
             <Button size="lg" variant="secondary">
               Book an Appointment
             </Button>
+            </Link>
             <Link href="/login">
               <Button
                 size="lg"
                 variant="outline"
                 className="text-gray-300 border-white hover:bg-white hover:text-teal-500"
               >
-                <LogIn className="mr-2" /> Staff Login
+                <LogIn className="mr-2" /> Login
               </Button>
             </Link>
           </div>

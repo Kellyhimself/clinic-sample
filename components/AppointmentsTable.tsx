@@ -1,19 +1,28 @@
+// components/AppointmentsTable.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useReactTable, getCoreRowModel, getSortedRowModel, flexRender, ColumnDef, Row, SortingState } from '@tanstack/react-table';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  getFilteredRowModel,
+  flexRender,
+  ColumnDef,
+  SortingState,
+  ColumnFiltersState,
+  Row,
+} from '@tanstack/react-table';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowUpDown } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowUpDown, X } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase client with public URL and anon key
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
 type Appointment = {
   id: string;
@@ -21,7 +30,7 @@ type Appointment = {
   time: string;
   status: 'pending' | 'confirmed' | 'cancelled';
   notes: string;
-  services: { name: string; price: number; duration: number };
+  services: { name: string; price: number; duration: number } | null;
   profiles: { full_name: string };
   payment_status?: 'unpaid' | 'paid' | 'refunded';
   payment_method?: 'mpesa' | 'cash' | 'bank';
@@ -46,108 +55,73 @@ export default function AppointmentsTable({
   const isAdminOrStaff = userRole === 'admin' || userRole === 'staff';
   const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments);
   const [sorting, setSorting] = useState<SortingState>([{ id: 'date', desc: true }]);
-  const [timeFilter, setTimeFilter] = useState('');
-  const [receipt, setReceipt] = useState<string | null>(null);
-  const [mpesaStatus, setMpesaStatus] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState<'time' | 'patient' | 'service'>('time');
+  const [filterValue, setFilterValue] = useState('');
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [paymentResult, setPaymentResult] = useState<string | null>(null);
 
-  // Real-time subscription to appointments table
   useEffect(() => {
-    console.log('Setting up real-time subscription...');
+    console.log('Initial appointments:', appointments);
     const channel = supabase
       .channel('appointments-channel')
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'appointments' },
-        async (payload) => {
-          console.log('Received real-time update:', payload);
-          const updatedRaw = payload.new;
-          const { data, error } = await supabase
-            .from('appointments')
-            .select('*, services(name, price, duration), profiles(full_name)')
-            .eq('id', updatedRaw.id)
-            .single();
-          if (error) {
-            console.error('Fetch error:', error);
-            return;
-          }
-          const updatedAppointment: Appointment = {
-            ...data,
-            services: data.services || { name: 'Custom', price: 0, duration: 0 },
-            profiles: data.profiles || { full_name: 'Unknown' },
-          };
-          console.log('Transformed appointment:', updatedAppointment);
-          setAppointments((prev) =>
-            prev.map((appt) => (appt.id === updatedAppointment.id ? updatedAppointment : appt))
-          );
-        }
-      )
-      .subscribe((status) => {
-        console.log('Subscription status:', status);
-        if (status === 'SUBSCRIBED') {
-          console.log('Real-time subscription active');
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('Subscription failed');
-        }
-      });
-  
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'appointments' }, async (payload) => {
+        const updatedAppointment = (await supabase
+          .from('appointments')
+          .select('*, services(name, price, duration), profiles(full_name)')
+          .eq('id', payload.new.id)
+          .single()).data as Appointment;
+        setAppointments((prev) => prev.map((appt) => (appt.id === updatedAppointment.id ? updatedAppointment : appt)));
+      })
+      .subscribe();
     return () => {
-      console.log('Cleaning up subscription...');
       supabase.removeChannel(channel);
     };
   }, []);
 
-  const filteredAppointments = timeFilter
-    ? appointments.filter((appt) => appt.time.toLowerCase().includes(timeFilter.toLowerCase()))
-    : appointments;
-
-  const handleCashPayment = async (formData: FormData) => {
-    const result = await processCashPayment(formData);
-    if (result.success && result.receipt) setReceipt(result.receipt);
-  };
-
-  const downloadReceipt = (receiptText: string) => {
-    const blob = new Blob([receiptText], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `receipt-${Date.now()}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const columns: ColumnDef<Appointment>[] = [
+  const baseColumns: ColumnDef<Appointment>[] = [
     {
       accessorKey: 'date',
       header: ({ column }) => (
         <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
-          Date <ArrowUpDown className="ml-2 h-4 w-4" />
+          Date <ArrowUpDown className="ml-1 h-3 w-3" />
         </Button>
       ),
-      cell: ({ row }) => <span>{new Date(row.original.date).toLocaleDateString()}</span>,
+      cell: ({ row }) => new Date(row.original.date).toLocaleDateString(),
     },
     {
       accessorKey: 'time',
       header: ({ column }) => (
         <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
-          Time <ArrowUpDown className="ml-2 h-4 w-4" />
+          Time <ArrowUpDown className="ml-1 h-3 w-3" />
         </Button>
       ),
+      filterFn: (row: Row<Appointment>, id: string, filterValue: unknown) =>
+        String(row.getValue(id) ?? '').toLowerCase().includes(String(filterValue).toLowerCase()),
     },
     {
       accessorKey: 'services.name',
+      id: 'services.name', // Explicitly set id
       header: 'Service',
+      cell: ({ row }) => row.original.services?.name || 'Custom',
+      filterFn: (row: Row<Appointment>, id: string, filterValue: unknown) =>
+        String(row.getValue(id) ?? 'Custom').toLowerCase().includes(String(filterValue).toLowerCase()),
     },
-    ...(isAdminOrStaff
-      ? [
-          {
-            accessorKey: 'profiles.full_name',
-            header: 'Patient',
-          },
-        ]
-      : []),
+    {
+      accessorKey: 'profiles.full_name',
+      id: 'profiles.full_name', // Explicitly set id
+      header: 'Patient',
+      enableHiding: !isAdminOrStaff, // Hide if not admin/staff
+      filterFn: (row: Row<Appointment>, id: string, filterValue: unknown) =>
+        String(row.getValue(id) ?? '').toLowerCase().includes(String(filterValue).toLowerCase()),
+    },
     {
       accessorKey: 'status',
-      header: 'Status',
+      header: ({ column }) => (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
+          Status <ArrowUpDown className="ml-1 h-3 w-3" />
+        </Button>
+      ),
       cell: ({ row }) => (
         <Badge
           variant={
@@ -164,162 +138,289 @@ export default function AppointmentsTable({
     },
     {
       accessorKey: 'payment_status',
-      header: 'Payment Status',
-      cell: ({ row }) => (
-        <span>
-          {row.original.payment_status || 'N/A'}{' '}
-          {row.original.payment_method ? `(${row.original.payment_method})` : ''}
-        </span>
+      header: ({ column }) => (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
+          Payment <ArrowUpDown className="ml-1 h-3 w-3" />
+        </Button>
       ),
+      cell: ({ row }) =>
+        `${row.original.payment_status || 'N/A'} ${
+          row.original.payment_method ? `(${row.original.payment_method})` : ''
+        }`,
     },
-    ...(isAdminOrStaff
-      ? [
-          {
-            id: 'actions',
-            header: 'Actions',
-            cell: ({ row }: { row: Row<Appointment> }) => {
-              return (
-                <div className="flex gap-2">
-                  {row.original.status === 'pending' && (
-                    <>
-                      <form action={confirmAppointment}>
-                        <input type="hidden" name="id" value={row.original.id} />
-                        <Button variant="outline" size="sm" type="submit">
-                          Confirm
-                        </Button>
-                      </form>
-                      <form action={cancelAppointment}>
-                        <input type="hidden" name="id" value={row.original.id} />
-                        <Button variant="outline" size="sm" type="submit">
-                          Cancel
-                        </Button>
-                      </form>
-                    </>
-                  )}
-                  {row.original.status === 'confirmed' && row.original.payment_status === 'unpaid' && (
-                    <div className="flex flex-col gap-2">
-                      <form
-                        action={async (formData: FormData) => {
-                          try {
-                            const result = await processMpesaPayment(formData);
-                            setMpesaStatus(`M-Pesa payment initiated. Checkout ID: ${result.checkoutRequestId}`);
-                            setTimeout(() => setMpesaStatus(null), 5000);
-                          } catch (error) {
-                            console.error('M-Pesa payment failed:', error);
-                            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-                            setMpesaStatus(`Payment failed: ${errorMessage}`);
-                          }
-                        }}
-                        className="flex gap-2"
-                      >
-                        <input type="hidden" name="id" value={row.original.id} />
-                        <input type="hidden" name="amount" value={row.original.services.price.toString()} />
-                        <Input type="text" name="phone" placeholder="2547XXXXXXXX" required className="w-32" />
-                        <Button variant="outline" size="sm" type="submit">
-                          Pay with M-Pesa (KSh {row.original.services.price})
-                        </Button>
-                      </form>
-                      <form action={handleCashPayment} className="flex gap-2">
-                        <input type="hidden" name="id" value={row.original.id} />
-                        <Input type="text" name="receiptNumber" placeholder="Receipt # (optional)" className="w-32" />
-                        <Button variant="outline" size="sm" type="submit">
-                          Mark as Cash Paid (KSh {row.original.services.price})
-                        </Button>
-                      </form>
-                    </div>
-                  )}
-                  {row.original.payment_status === 'paid' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={async () => {
-                        const response = await fetch(`/api/receipt?appointmentId=${row.original.id}`);
-                        const receiptText = await response.text();
-                        setReceipt(receiptText);
-                      }}
-                    >
-                      View Receipt
-                    </Button>
-                  )}
-                </div>
-              );
-            },
-          },
-        ]
-      : []),
   ];
 
-  const table = useReactTable<Appointment>({
-    data: filteredAppointments,
+  const actionColumn: ColumnDef<Appointment>[] = isAdminOrStaff
+    ? [
+        {
+          id: 'actions',
+          header: 'Actions',
+          cell: ({ row }: { row: Row<Appointment> }) => (
+            <div className="flex gap-2 flex-wrap">
+              {row.original.status === 'pending' && (
+                <>
+                  <form action={confirmAppointment}>
+                    <input type="hidden" name="id" value={row.original.id} />
+                    <Button variant="outline" size="sm" type="submit" className="text-xs">
+                      Confirm
+                    </Button>
+                  </form>
+                  <form action={cancelAppointment}>
+                    <input type="hidden" name="id" value={row.original.id} />
+                    <Button variant="destructive" size="sm" type="submit" className="text-xs">
+                      Cancel
+                    </Button>
+                  </form>
+                </>
+              )}
+              {row.original.status === 'confirmed' && row.original.payment_status === 'unpaid' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => setSelectedAppointment(row.original)}
+                >
+                  Pay Now
+                </Button>
+              )}
+              {row.original.payment_status === 'paid' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  onClick={async () => {
+                    const response = await fetch(`/api/receipt?appointmentId=${row.original.id}`);
+                    setPaymentResult(await response.text());
+                  }}
+                >
+                  Receipt
+                </Button>
+              )}
+            </div>
+          ),
+        },
+      ]
+    : [];
+
+  const columns = [...baseColumns, ...actionColumn];
+
+  const table = useReactTable({
+    data: appointments,
     columns,
-    state: { sorting },
+    state: { sorting, columnFilters },
     onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
   });
 
+  // Debug column registration
+  useEffect(() => {
+    console.log('Registered columns:', table.getAllColumns().map((col) => col.id));
+  }, [table]);
+
+  const handleFilterChange = (value: string) => {
+    console.log('Filter input changed to:', value);
+    setFilterValue(value);
+    const columnId =
+      filterType === 'time' ? 'time' : filterType === 'patient' ? 'profiles.full_name' : 'services.name';
+    setColumnFilters(value ? [{ id: columnId, value }] : []);
+  };
+
+  const handlePayment = async (formData: FormData, method: 'mpesa' | 'cash') => {
+    try {
+      if (method === 'mpesa') {
+        const result = await processMpesaPayment(formData);
+        if (result.success) {
+          setPaymentResult(`M-Pesa Payment Initiated. Checkout ID: ${result.checkoutRequestId}`);
+          setTimeout(() => setSelectedAppointment(null), 2000);
+        } else {
+          setPaymentResult('M-Pesa Payment failed. Please try again.');
+        }
+      } else {
+        const result = await processCashPayment(formData);
+        if (result.success) {
+          setPaymentResult(result.receipt || 'Cash Payment Recorded');
+          setTimeout(() => setSelectedAppointment(null), 2000);
+        } else {
+          setPaymentResult('Cash Payment failed. Please try again.');
+        }
+      }
+    } catch (error) {
+      setPaymentResult(`Payment error: ${(error as Error).message}`);
+    }
+  };
+
+  const downloadReceipt = (receiptText: string) => {
+    const blob = new Blob([receiptText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `receipt-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
-    <div className="rounded-md border">
-      {isAdminOrStaff && (
-        <div className="p-4">
-          <Input
-            placeholder="Filter by time (e.g., 10:00)"
-            value={timeFilter}
-            onChange={(e) => setTimeFilter(e.target.value)}
-            className="max-w-sm"
-          />
-        </div>
-      )}
-      <Table>
-        <TableHeader>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <TableHead key={header.id}>
-                  {flexRender(header.column.columnDef.header, header.getContext())}
-                </TableHead>
-              ))}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows.length ? (
-            table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={columns.length} className="text-center">
-                No appointments found.
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-      {(receipt || mpesaStatus) && (
-        <div className="mt-4 p-4 border rounded-md">
-          {receipt && <pre>{receipt}</pre>}
-          {mpesaStatus && <p>{mpesaStatus}</p>}
-          <div className="flex gap-2">
-            {receipt && <Button onClick={() => downloadReceipt(receipt)}>Download Receipt</Button>}
-            <Button
-              variant="outline"
-              onClick={() => {
-                setReceipt(null);
-                setMpesaStatus(null);
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50 p-4 md:p-6">
+      <div className="max-w-full mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
+        {isAdminOrStaff && (
+          <div className="p-4 border-b flex flex-col sm:flex-row gap-4">
+            <Select
+              value={filterType}
+              onValueChange={(value) => {
+                console.log('Filter type changed to:', value);
+                setFilterType(value as 'time' | 'patient' | 'service');
+                setColumnFilters(
+                  filterValue
+                    ? [
+                        {
+                          id: value === 'time' ? 'time' : value === 'patient' ? 'profiles.full_name' : 'services.name',
+                          value: filterValue,
+                        },
+                      ]
+                    : []
+                );
               }}
             >
-              Close
-            </Button>
+              <SelectTrigger className="w-[180px] text-sm border-gray-300 focus:border-blue-500">
+                <SelectValue placeholder="Select filter" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="time">Time</SelectItem>
+                <SelectItem value="patient">Patient</SelectItem>
+                <SelectItem value="service">Service</SelectItem>
+              </SelectContent>
+            </Select>
+            <input
+              type="text"
+              placeholder={`Filter by ${filterType} (e.g., ${
+                filterType === 'time' ? '10:00' : filterType === 'patient' ? 'staff3' : 'Dental'
+              })`}
+              value={filterValue}
+              onChange={(e) => handleFilterChange(e.target.value)}
+              className="max-w-xs text-sm border-gray-300 focus:border-blue-500 p-2 rounded"
+            />
           </div>
+        )}
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id} className="bg-gray-50">
+                  {headerGroup.headers.map((header) => (
+                    <TableHead
+                      key={header.id}
+                      className={`text-xs font-medium text-gray-700 ${
+                        header.id === 'date' ||
+                        header.id === 'profiles.full_name' ||
+                        header.id === 'payment_status'
+                          ? 'hidden sm:table-cell'
+                          : ''
+                      }`}
+                    >
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow key={row.id} className="hover:bg-gray-100">
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell
+                        key={cell.id}
+                        className={`text-sm text-gray-900 ${
+                          cell.column.id === 'date' ||
+                          cell.column.id === 'profiles.full_name' ||
+                          cell.column.id === 'payment_status'
+                            ? 'hidden sm:table-cell'
+                            : ''
+                        }`}
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="text-center text-sm text-gray-500 py-4">
+                    No appointments found.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </div>
-      )}
+      </div>
+      <Dialog open={!!selectedAppointment} onOpenChange={(open) => !open && setSelectedAppointment(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-gray-900">Process Payment</DialogTitle>
+            <Button variant="ghost" className="absolute right-4 top-4" onClick={() => setSelectedAppointment(null)}>
+              <X className="h-4 w-4" />
+            </Button>
+          </DialogHeader>
+          {selectedAppointment && (
+            <div className="space-y-4 p-4">
+              <p className="text-sm text-gray-600">
+                Service: {selectedAppointment.services?.name || 'Custom'} (KSh{' '}
+                {selectedAppointment.services?.price || 0})
+              </p>
+              <form action={(formData) => handlePayment(formData, 'mpesa')} className="space-y-2">
+                <input type="hidden" name="id" value={selectedAppointment.id} />
+                <input
+                  type="hidden"
+                  name="amount"
+                  value={selectedAppointment.services?.price?.toString() || '0'}
+                />
+                <Input type="text" name="phone" placeholder="2547XXXXXXXX" required className="text-sm" />
+                <Button type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm">
+                  Pay with M-Pesa
+                </Button>
+              </form>
+              <form action={(formData) => handlePayment(formData, 'cash')} className="space-y-2">
+                <input type="hidden" name="id" value={selectedAppointment.id} />
+                <Input type="text" name="receiptNumber" placeholder="Receipt # (optional)" className="text-sm" />
+                <Button type="submit" className="w-full bg-teal-500 hover:bg-teal-600 text-white text-sm">
+                  Mark as Cash Paid
+                </Button>
+              </form>
+              {paymentResult && <p className="text-sm text-center text-gray-700">{paymentResult}</p>}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+      <Dialog open={!!paymentResult && !selectedAppointment} onOpenChange={(open) => !open && setPaymentResult(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-gray-900">Payment Receipt</DialogTitle>
+          </DialogHeader>
+          <div className="p-4">
+            <pre className="text-sm text-gray-700 bg-gray-50 rounded p-4 whitespace-pre-wrap">
+              {paymentResult}
+            </pre>
+            <div className="flex gap-2 mt-4">
+              <Button
+                onClick={() => paymentResult && downloadReceipt(paymentResult)}
+                className="bg-blue-500 hover:bg-blue-600 text-white text-sm"
+              >
+                Download Receipt
+              </Button>
+              <Button
+                onClick={() => setPaymentResult(null)}
+                className="bg-gray-500 hover:bg-gray-600 text-white text-sm"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

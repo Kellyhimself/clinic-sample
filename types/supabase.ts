@@ -504,3 +504,8 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
+export type Profile = Pick<
+  Database['public']['Tables']['profiles']['Row'],
+  'id' | 'email' | 'full_name' | 'phone_number' | 'role'
+>;

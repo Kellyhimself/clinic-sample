@@ -11,9 +11,8 @@ import { User } from '@supabase/supabase-js';
 interface AuthenticatedLayoutProps {
   children: React.ReactNode;
   handleLogout: () => Promise<void>;
-  userRole: string;
+  userRole: string; // Still passed for Sidebar
   user: User;
-  profile: { role: string };
 }
 
 export default function AuthenticatedLayout({
@@ -21,10 +20,9 @@ export default function AuthenticatedLayout({
   handleLogout,
   userRole,
   user,
-  profile, // eslint-disable-line @typescript-eslint/no-unused-vars
 }: AuthenticatedLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  console.log('AuthenticatedLayout userRole:', userRole); // Debug log
+
   return (
     <div className="flex h-screen">
       <div

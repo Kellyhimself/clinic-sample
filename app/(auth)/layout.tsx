@@ -18,7 +18,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
     .eq('id', user.id)
     .single();
 
-  let userRole = 'patient';
+  let initialUserRole = 'patient';
   if (profileError || !profile) {
     const { error: insertError } = await supabase
       .from('profiles')
@@ -34,10 +34,8 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
       redirect('/login');
     }
   } else if (profile?.role) {
-    userRole = profile.role;
+    initialUserRole = profile.role;
   }
-
-  console.log('AuthLayout userRole:', userRole);
 
   async function handleLogout() {
     'use server';
@@ -49,11 +47,11 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
   return (
     <AuthenticatedLayout
       handleLogout={handleLogout}
-      userRole={userRole}
+      userRole={initialUserRole} // Renamed to initialUserRole
       user={user}
-      profile={profile || { role: 'patient' }}
+      
     >
-      {children} {/* Pass children as-is, no prop injection */}
+      {children} {/* Unchanged, passes all children as-is */}
     </AuthenticatedLayout>
   );
 }
