@@ -30,10 +30,10 @@ export default async function AppointmentsPage() {
   }
 
   const userRole = profile?.role || "patient";
-  console.log("AppointmentsPage - Determined userRole:", userRole);
+  
 
   const appointments = await fetchAppointments(userRole);
-  console.log('Appointments passed to table:', appointments);
+  
 
   async function confirmAppointment(formData: FormData) {
     "use server";

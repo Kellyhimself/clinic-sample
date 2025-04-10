@@ -1,12 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useReactTable, getCoreRowModel, getSortedRowModel, flexRender, ColumnDef, Row, SortingState } from '@tanstack/react-table';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowUpDown } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase client with public URL and anon key
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 type Appointment = {
   id: string;
@@ -22,7 +29,7 @@ type Appointment = {
 };
 
 export default function AppointmentsTable({
-  appointments,
+  appointments: initialAppointments,
   userRole,
   confirmAppointment,
   cancelAppointment,
@@ -37,10 +44,57 @@ export default function AppointmentsTable({
   processCashPayment: (formData: FormData) => Promise<{ success: boolean; receipt?: string }>;
 }) {
   const isAdminOrStaff = userRole === 'admin' || userRole === 'staff';
+  const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments);
   const [sorting, setSorting] = useState<SortingState>([{ id: 'date', desc: true }]);
   const [timeFilter, setTimeFilter] = useState('');
   const [receipt, setReceipt] = useState<string | null>(null);
   const [mpesaStatus, setMpesaStatus] = useState<string | null>(null);
+
+  // Real-time subscription to appointments table
+  useEffect(() => {
+    console.log('Setting up real-time subscription...');
+    const channel = supabase
+      .channel('appointments-channel')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'appointments' },
+        async (payload) => {
+          console.log('Received real-time update:', payload);
+          const updatedRaw = payload.new;
+          const { data, error } = await supabase
+            .from('appointments')
+            .select('*, services(name, price, duration), profiles(full_name)')
+            .eq('id', updatedRaw.id)
+            .single();
+          if (error) {
+            console.error('Fetch error:', error);
+            return;
+          }
+          const updatedAppointment: Appointment = {
+            ...data,
+            services: data.services || { name: 'Custom', price: 0, duration: 0 },
+            profiles: data.profiles || { full_name: 'Unknown' },
+          };
+          console.log('Transformed appointment:', updatedAppointment);
+          setAppointments((prev) =>
+            prev.map((appt) => (appt.id === updatedAppointment.id ? updatedAppointment : appt))
+          );
+        }
+      )
+      .subscribe((status) => {
+        console.log('Subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('Real-time subscription active');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('Subscription failed');
+        }
+      });
+  
+    return () => {
+      console.log('Cleaning up subscription...');
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const filteredAppointments = timeFilter
     ? appointments.filter((appt) => appt.time.toLowerCase().includes(timeFilter.toLowerCase()))
@@ -83,10 +137,14 @@ export default function AppointmentsTable({
       accessorKey: 'services.name',
       header: 'Service',
     },
-    ...(isAdminOrStaff ? [{
-      accessorKey: 'profiles.full_name',
-      header: 'Patient',
-    }] : []),
+    ...(isAdminOrStaff
+      ? [
+          {
+            accessorKey: 'profiles.full_name',
+            header: 'Patient',
+          },
+        ]
+      : []),
     {
       accessorKey: 'status',
       header: 'Status',
@@ -114,71 +172,81 @@ export default function AppointmentsTable({
         </span>
       ),
     },
-    ...(isAdminOrStaff ? [{
-      id: 'actions',
-      header: 'Actions',
-      cell: ({ row }: { row: Row<Appointment> }) => {
-
-        return (
-          <div className="flex gap-2">
-            {row.original.status === 'pending' && (
-              <>
-                <form action={confirmAppointment}>
-                  <input type="hidden" name="id" value={row.original.id} />
-                  <Button variant="outline" size="sm" type="submit">Confirm</Button>
-                </form>
-                <form action={cancelAppointment}>
-                  <input type="hidden" name="id" value={row.original.id} />
-                  <Button variant="outline" size="sm" type="submit">Cancel</Button>
-                </form>
-              </>
-            )}
-            {row.original.status === 'confirmed' && row.original.payment_status === 'unpaid' && (
-              <div className="flex flex-col gap-2">
-                <form action={async (formData: FormData) => {
-                  try {
-                    const result = await processMpesaPayment(formData);
-                    setMpesaStatus(`M-Pesa payment initiated. Checkout ID: ${result.checkoutRequestId}`);
-                    setTimeout(() => setMpesaStatus(null), 5000);
-                  } catch (error) {
-                    console.error('M-Pesa payment failed:', error);
-                    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-                    setMpesaStatus(`Payment failed: ${errorMessage}`);
-                  }
-                }} className="flex gap-2">
-                  <input type="hidden" name="id" value={row.original.id} />
-                  <input type="hidden" name="amount" value={row.original.services.price.toString()} />
-                  <Input type="text" name="phone" placeholder="2547XXXXXXXX" required className="w-32" />
-                  <Button variant="outline" size="sm" type="submit">
-                    Pay with M-Pesa (KSh {row.original.services.price})
-                  </Button>
-                </form>
-                <form action={handleCashPayment} className="flex gap-2">
-                  <input type="hidden" name="id" value={row.original.id} />
-                  <Input type="text" name="receiptNumber" placeholder="Receipt # (optional)" className="w-32" />
-                  <Button variant="outline" size="sm" type="submit">
-                    Mark as Cash Paid (KSh {row.original.services.price})
-                  </Button>
-                </form>
-              </div>
-            )}
-            {row.original.payment_status === 'paid' && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  const response = await fetch(`/api/receipt?appointmentId=${row.original.id}`);
-                  const receiptText = await response.text();
-                  setReceipt(receiptText);
-                }}
-              >
-                View Receipt
-              </Button>
-            )}
-          </div>
-        );
-      },
-    }] : []),
+    ...(isAdminOrStaff
+      ? [
+          {
+            id: 'actions',
+            header: 'Actions',
+            cell: ({ row }: { row: Row<Appointment> }) => {
+              return (
+                <div className="flex gap-2">
+                  {row.original.status === 'pending' && (
+                    <>
+                      <form action={confirmAppointment}>
+                        <input type="hidden" name="id" value={row.original.id} />
+                        <Button variant="outline" size="sm" type="submit">
+                          Confirm
+                        </Button>
+                      </form>
+                      <form action={cancelAppointment}>
+                        <input type="hidden" name="id" value={row.original.id} />
+                        <Button variant="outline" size="sm" type="submit">
+                          Cancel
+                        </Button>
+                      </form>
+                    </>
+                  )}
+                  {row.original.status === 'confirmed' && row.original.payment_status === 'unpaid' && (
+                    <div className="flex flex-col gap-2">
+                      <form
+                        action={async (formData: FormData) => {
+                          try {
+                            const result = await processMpesaPayment(formData);
+                            setMpesaStatus(`M-Pesa payment initiated. Checkout ID: ${result.checkoutRequestId}`);
+                            setTimeout(() => setMpesaStatus(null), 5000);
+                          } catch (error) {
+                            console.error('M-Pesa payment failed:', error);
+                            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                            setMpesaStatus(`Payment failed: ${errorMessage}`);
+                          }
+                        }}
+                        className="flex gap-2"
+                      >
+                        <input type="hidden" name="id" value={row.original.id} />
+                        <input type="hidden" name="amount" value={row.original.services.price.toString()} />
+                        <Input type="text" name="phone" placeholder="2547XXXXXXXX" required className="w-32" />
+                        <Button variant="outline" size="sm" type="submit">
+                          Pay with M-Pesa (KSh {row.original.services.price})
+                        </Button>
+                      </form>
+                      <form action={handleCashPayment} className="flex gap-2">
+                        <input type="hidden" name="id" value={row.original.id} />
+                        <Input type="text" name="receiptNumber" placeholder="Receipt # (optional)" className="w-32" />
+                        <Button variant="outline" size="sm" type="submit">
+                          Mark as Cash Paid (KSh {row.original.services.price})
+                        </Button>
+                      </form>
+                    </div>
+                  )}
+                  {row.original.payment_status === 'paid' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        const response = await fetch(`/api/receipt?appointmentId=${row.original.id}`);
+                        const receiptText = await response.text();
+                        setReceipt(receiptText);
+                      }}
+                    >
+                      View Receipt
+                    </Button>
+                  )}
+                </div>
+              );
+            },
+          },
+        ]
+      : []),
   ];
 
   const table = useReactTable<Appointment>({
@@ -240,7 +308,13 @@ export default function AppointmentsTable({
           {mpesaStatus && <p>{mpesaStatus}</p>}
           <div className="flex gap-2">
             {receipt && <Button onClick={() => downloadReceipt(receipt)}>Download Receipt</Button>}
-            <Button variant="outline" onClick={() => { setReceipt(null); setMpesaStatus(null); }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setReceipt(null);
+                setMpesaStatus(null);
+              }}
+            >
               Close
             </Button>
           </div>

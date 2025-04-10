@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/lib/supabase';
-import { SupabaseClient } from '@supabase/supabase-js';
+/* import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '@/types/supabase';
-
+ */
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const appointmentId = searchParams.get('appointmentId');
@@ -23,7 +23,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  console.log('M-Pesa Callback Response:', body);
+  console.log('M-Pesa Callback Response:', JSON.stringify(body, null, 2));
+
+  if (!body.Body || !body.Body.stkCallback) {
+    console.error('Invalid callback structure:', body);
+    return NextResponse.json({ error: 'Invalid M-Pesa callback structure' }, { status: 400 });
+  }
 
   const { ResultCode, CheckoutRequestID, CallbackMetadata } = body.Body.stkCallback;
 
@@ -31,16 +36,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing CheckoutRequestID' }, { status: 400 });
   }
 
-  const supabase: SupabaseClient<Database> = await getSupabaseClient();
+  const supabase = await getSupabaseClient();
 
   if (ResultCode === 0) {
-    const metadata = CallbackMetadata.Item.reduce(
+    const metadata = CallbackMetadata?.Item?.reduce(
       (acc: Record<string, string | number>, item: { Name: string; Value: string | number }) => {
         acc[item.Name] = item.Value;
         return acc;
       },
       {}
-    );
+    ) || {};
 
     const { MpesaReceiptNumber } = metadata;
 
