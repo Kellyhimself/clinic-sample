@@ -1,3 +1,4 @@
+// components/Sidebar.tsx
 'use client';
 
 import { usePathname } from 'next/navigation';
@@ -5,9 +6,9 @@ import Link from 'next/link';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Home, Calendar, Users, Settings, ChevronDown } from 'lucide-react';
+import { Home, Calendar, Users, Settings, ChevronDown, Pill, BarChart, Package, ShoppingCart, FileText } from 'lucide-react';
 
-interface SubNavItem { label: string; href: string; }
+interface SubNavItem { label: string; href: string; icon?: React.ReactNode; }
 interface NavItem { label: string; href: string; icon: React.ReactNode; subItems?: SubNavItem[]; }
 
 export default function Sidebar({ userRole }: { userRole: string }) {
@@ -22,16 +23,39 @@ export default function Sidebar({ userRole }: { userRole: string }) {
     { label: 'Settings', href: '/settings', icon: <Settings size={18} />, subItems: [{ label: 'Manage Users', href: '/settings/users' }] },
   ];
 
-  const staffAdminNavItems: NavItem[] = [
+  const staffNavItems: NavItem[] = [
     { label: 'Appointments', href: '/appointments', icon: <Calendar size={18} />, subItems: [{ label: 'View Appointments', href: '/appointments' }] },
     { label: 'Patients', href: '/dashboard/patients', icon: <Users size={18} /> },
+  ];
+
+  const doctorNavItems: NavItem[] = [
+    { label: 'Patients', href: '/patients', icon: <Users size={18} />, subItems: [{ label: 'View Summaries', href: '/patients' }] },
+  ];
+
+  const pharmacyNavItems: NavItem[] = [
+    {
+      label: 'Pharmacy',
+      href: '/pharmacy',
+      icon: <Pill size={18} />,
+      subItems: [
+        { label: 'Record Sale', href: '/pharmacy/sales', icon: <Pill size={18} /> },
+        { label: 'Reports', href: '/pharmacy/reports', icon: <BarChart size={18} /> },
+        { label: 'Restock', href: '/pharmacy/restock', icon: <Package size={18} /> },
+        { label: 'Purchase Orders', href: '/pharmacy/purchase-orders', icon: <ShoppingCart size={18} /> },
+        { label: 'Audit Logs', href: '/pharmacy/audit-logs', icon: <FileText size={18} /> },
+      ],
+    },
   ];
 
   const navItems: NavItem[] = [
     ...baseNavItems,
     ...(userRole === 'admin' ? adminNavItems : []),
-    ...(userRole === 'admin' || userRole === 'staff' ? staffAdminNavItems : []),
-    ...(userRole === 'admin' || userRole === 'staff' ? [{ label: 'Other Features', href: '/dashboard/other-features', icon: <ChevronDown size={18} />, subItems: [{ label: 'Feature 1', href: '/dashboard/other-features/feature1' }, { label: 'Feature 2', href: '/dashboard/other-features/feature2' }] }] : []),
+    ...(userRole === 'admin' || userRole === 'staff' ? staffNavItems : []),
+    ...(userRole === 'admin' || userRole === 'doctor' ? doctorNavItems : []),
+    ...(userRole === 'admin' || userRole === 'pharmacist' ? pharmacyNavItems : []),
+    ...(userRole === 'admin' || userRole === 'staff'
+      ? [{ label: 'Other Features', href: '/dashboard/other-features', icon: <ChevronDown size={18} />, subItems: [{ label: 'Feature 1', href: '/dashboard/other-features/feature1' }, { label: 'Feature 2', href: '/dashboard/other-features/feature2' }] }]
+      : []),
   ];
 
   return (
@@ -56,6 +80,7 @@ export default function Sidebar({ userRole }: { userRole: string }) {
                     {item.subItems.map((subItem) => (
                       <DropdownMenuItem key={subItem.label} asChild>
                         <Link href={subItem.href} className={`flex items-center p-2 text-gray-700 hover:bg-blue-50 ${pathname === subItem.href ? 'bg-blue-100' : ''}`}>
+                          {subItem.icon && <span className="mr-2">{subItem.icon}</span>}
                           {subItem.label}
                         </Link>
                       </DropdownMenuItem>
