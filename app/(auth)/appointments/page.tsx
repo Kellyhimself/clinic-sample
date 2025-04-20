@@ -4,7 +4,7 @@ import {
   processMpesaPayment,
   processCashPayment,
 } from "@/lib/authActions";
-import { getSupabaseClient } from "@/lib/supabase";
+import { getSupabaseClient } from '@/lib/supabase-server';
 import AppointmentsTable from "@/components/AppointmentsTable";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -37,7 +37,7 @@ export default async function AppointmentsPage() {
 
   async function confirmAppointment(formData: FormData) {
     "use server";
-    const supabase: SupabaseClient<Database> = await import("@/lib/supabase").then((m) => m.getSupabaseClient());
+    const supabase = await getSupabaseClient();
     const id = formData.get("id") as string;
     await supabase.from("appointments").update({ status: "confirmed" }).eq("id", id);
     revalidatePath("/appointments");
@@ -45,14 +45,25 @@ export default async function AppointmentsPage() {
 
   async function cancelAppointment(formData: FormData) {
     "use server";
-    const supabase: SupabaseClient<Database> = await import("@/lib/supabase").then((m) => m.getSupabaseClient());
+    const supabase = await getSupabaseClient();
     const id = formData.get("id") as string;
     await supabase.from("appointments").update({ status: "cancelled" }).eq("id", id);
     revalidatePath("/appointments");
   }
 
-  const handleMpesaPayment = processMpesaPayment;
-  const handleCashPayment = processCashPayment;
+  async function handleMpesaPayment(formData: FormData) {
+    "use server";
+    const result = await processMpesaPayment(formData);
+    revalidatePath("/appointments");
+    return result;
+  }
+
+  async function handleCashPayment(formData: FormData) {
+    "use server";
+    const result = await processCashPayment(formData);
+    revalidatePath("/appointments");
+    return result;
+  }
 
   return (
     <div className="container mx-auto">

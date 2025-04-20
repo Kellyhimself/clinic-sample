@@ -12,7 +12,6 @@ export default function AddMedicationForm() {
     description: '',
     unit_price: 0,
     quantity_in_stock: 0,
-    reorder_level: 0,
     expiry_date: '',
   });
 
@@ -34,7 +33,6 @@ export default function AddMedicationForm() {
         description: '',
         unit_price: 0,
         quantity_in_stock: 0,
-        reorder_level: 0,
         expiry_date: '',
       });
     } else {
@@ -109,17 +107,6 @@ export default function AddMedicationForm() {
           type="number"
           value={formData.quantity_in_stock}
           onChange={(e) => setFormData({ ...formData, quantity_in_stock: Number(e.target.value) })}
-          className="w-full border p-2 rounded"
-          required
-          min="0"
-        />
-      </div>
-      <div className="mb-4">
-        <label className="block text-sm font-medium">Reorder Level</label>
-        <input
-          type="number"
-          value={formData.reorder_level}
-          onChange={(e) => setFormData({ ...formData, reorder_level: Number(e.target.value) })}
           className="w-full border p-2 rounded"
           required
           min="0"

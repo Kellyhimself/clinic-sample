@@ -1,7 +1,7 @@
 // API route to provide session
 // app/api/auth/session/route.ts
 import { NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/lib/supabase';
+import { getSupabaseClient } from '@/lib/supabase-server';
 
 export async function GET() {
   const supabase = await getSupabaseClient();

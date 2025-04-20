@@ -1,30 +1,40 @@
 // app/api/pharmacy/audit-logs/route.ts
 import { NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/lib/supabase';
-import { fetchUserRole } from '@/lib/authActions';
+import { getSupabaseClient } from '@/lib/supabase-server';
 
-export async function GET(request: Request) {
-  const supabase = await getSupabaseClient();
-  const role = await fetchUserRole();
-  if (role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+export async function GET() {
+  try {
+    const supabase = await getSupabaseClient();
+    
+    const { data, error } = await supabase
+      .from('audit_logs')
+      .select(`
+        id,
+        action,
+        table_name,
+        record_id,
+        old_data,
+        new_data,
+        created_at,
+        created_by,
+        profiles:created_by (
+          id,
+          full_name
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching audit logs:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Error fetching audit logs:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch audit logs' },
+      { status: 500 }
+    );
   }
-
-  const { searchParams } = new URL(request.url);
-  const table_name = searchParams.get('table_name');
-
-  let query = supabase
-    .from('audit_logs')
-    .select('*, user:profiles(full_name)')
-    .order('created_at', { ascending: false });
-
-  if (table_name) query = query.eq('table_name', table_name);
-
-  const { data, error } = await query;
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json(data);
 }

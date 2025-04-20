@@ -1,5 +1,5 @@
 // app/(auth)/layout.tsx
-import { getSupabaseClient } from '@/lib/supabase';
+import { getSupabaseClient } from '@/lib/supabase-server';
 import { redirect } from 'next/navigation';
 import AuthenticatedLayout from '@/components/AuthenticatedLayout';
 import { User } from '@supabase/supabase-js';

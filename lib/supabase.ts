@@ -1,35 +1,50 @@
+'use client';
+
 // lib/supabase.ts
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import { SupabaseClient } from '@supabase/supabase-js';
-import { Database } from '@/types/supabase'; // Adjust path to your generated types
+import { createBrowserClient } from '@supabase/ssr';
+import { Database } from '@/types/supabase';
 
-export async function getSupabaseClient(): Promise<SupabaseClient<Database>> {
-  const cookieStore = await cookies();
-
-  return createServerClient<Database>(
+// Client-side client
+export const createClient = () => {
+  return createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          try {
-            cookieStore.set({ name, value, ...options });
-          } catch (error) {
-            console.error(`Failed to set cookie ${name}:`, error);
-          }
-        },
-        remove(name: string, options: CookieOptions) {
-          try {
-            cookieStore.set({ name, value: '', ...options, maxAge: 0 });
-          } catch (error) {
-            console.error(`Failed to remove cookie ${name}:`, error);
-          }
-        },
-      },
-    }
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
+};
+
+// Export a default client for backward compatibility
+export const supabase = createClient();
+
+export interface PatientSummaryData {
+  id: string;
+  full_name: string;
+  phone_number: string | null;
+  date_of_birth: string | null;
+  gender: string | null;
+  address: string | null;
+  prescriptions: Array<{
+    id: string;
+    medication_name: string;
+    dosage: string;
+    quantity: number;
+    prescription_date: string;
+  }>;
+  purchases: Array<{
+    id: string;
+    quantity: number;
+    unit_price: number;
+    sale_date: string;
+    medication: {
+      name: string;
+    };
+  }>;
+  medical_records: Array<{
+    id: string;
+    diagnosis: string;
+    treatment: string;
+    record_date: string;
+    doctor: {
+      full_name: string;
+    };
+  }>;
 }

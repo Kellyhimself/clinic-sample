@@ -1,71 +1,6 @@
 // app/patients/[id]/page.tsx
-import { getSupabaseClient } from '@/lib/supabase';
-import { fetchUserRole } from '@/lib/authActions';
-
-interface PatientSummaryData {
-  id: string;
-  full_name: string;
-  prescriptions: { id: string; medication_name: string; dosage: string; quantity: number; prescription_date: string }[];
-  purchases: { id: string; quantity: number; unit_price: number; sale_date: string; medication: { name: string } }[];
-  medical_records: { id: string; diagnosis: string; treatment: string; record_date: string; doctor: { full_name: string } }[];
-}
-
-async function fetchPatientSummary(patientId: string): Promise<PatientSummaryData> {
-  const supabase = await getSupabaseClient();
-  const { data, error } = await supabase
-    .from('patient_summary')
-    .select('*')
-    .eq('id', patientId)
-    .single();
-
-  if (error) throw new Error(error.message);
-
-  const { data: prescriptions, error: prescError } = await supabase
-    .from('prescriptions')
-    .select('id, medication_name, dosage, quantity, prescription_date')
-    .eq('patient_id', patientId);
-
-  const { data: rawPurchases, error: purchError } = await supabase
-    .from('sales')
-    .select('id, quantity, unit_price, sale_date, medication:medication_id(name)')
-    .eq('patient_id', patientId);
-
-  const { data: rawMedicalRecords, error: recordError } = await supabase
-    .from('medical_records')
-    .select('id, diagnosis, treatment, record_date, doctor:doctor_id(full_name)')
-    .eq('patient_id', patientId);
-
-  if (prescError || purchError || recordError) {
-    throw new Error(
-      prescError?.message || purchError?.message || recordError?.message || 'Failed to fetch patient data'
-    );
-  }
-
-  // Transform purchases to match the expected type
-  const purchases = (rawPurchases || []).map((purchase) => ({
-    id: purchase.id,
-    quantity: purchase.quantity,
-    unit_price: purchase.unit_price,
-    sale_date: purchase.sale_date,
-    medication: purchase.medication && purchase.medication.length > 0 ? { name: purchase.medication[0].name } : { name: 'Unknown' },
-  }));
-
-  // Transform medical_records to match the expected type
-  const medical_records = (rawMedicalRecords || []).map((record) => ({
-    id: record.id,
-    diagnosis: record.diagnosis,
-    treatment: record.treatment,
-    record_date: record.record_date,
-    doctor: record.doctor && record.doctor.length > 0 ? { full_name: record.doctor[0].full_name } : { full_name: 'Unknown' },
-  }));
-
-  return {
-    ...(data as Omit<PatientSummaryData, 'prescriptions' | 'purchases' | 'medical_records'>),
-    prescriptions: prescriptions || [],
-    purchases,
-    medical_records,
-  };
-}
+import { fetchUserRole, fetchPatientSummary } from '@/lib/authActions';
+import { PatientSummaryData } from '@/lib/supabase';
 
 export default async function Page({ params }: { params: { id: string } }) {
   const role = await fetchUserRole();
@@ -73,58 +8,84 @@ export default async function Page({ params }: { params: { id: string } }) {
     return <div className="p-4 text-red-500">Access denied</div>;
   }
 
-  const summary = await fetchPatientSummary(params.id);
+  const patientSummary = await fetchPatientSummary(params.id) as PatientSummaryData;
+  if (!patientSummary) {
+    return <div className="p-4 text-red-500">Patient not found</div>;
+  }
 
   return (
     <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">Patient Summary: {summary.full_name}</h1>
-
       <div className="mb-6">
-        <h2 className="text-lg font-semibold mb-2">Prescriptions</h2>
-        {summary.prescriptions.length > 0 ? (
-          <ul className="list-disc pl-5">
-            {summary.prescriptions.map((presc) => (
-              <li key={presc.id}>
-                {presc.medication_name} - {presc.dosage}, {presc.quantity} units on{' '}
-                {new Date(presc.prescription_date).toLocaleDateString()}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>No prescriptions found.</p>
-        )}
+        <h1 className="text-2xl font-bold">{patientSummary.full_name}</h1>
+        <p className="text-gray-600">ID: {patientSummary.id}</p>
+        <p className="text-gray-600">Phone: {patientSummary.phone_number || 'N/A'}</p>
+        <p className="text-gray-600">
+          DOB: {patientSummary.date_of_birth ? new Date(patientSummary.date_of_birth).toLocaleDateString() : 'N/A'}
+        </p>
+        <p className="text-gray-600">Gender: {patientSummary.gender || 'N/A'}</p>
+        <p className="text-gray-600">Address: {patientSummary.address || 'N/A'}</p>
       </div>
 
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold mb-2">Purchases</h2>
-        {summary.purchases.length > 0 ? (
-          <ul className="list-disc pl-5">
-            {summary.purchases.map((purchase) => (
-              <li key={purchase.id}>
-                {purchase.medication.name} - {purchase.quantity} units at KSh {purchase.unit_price} on{' '}
-                {new Date(purchase.sale_date).toLocaleDateString()}
-              </li>
+      <div className="grid gap-6">
+        <section>
+          <h2 className="text-xl font-semibold mb-4">Prescriptions</h2>
+          <div className="grid gap-4">
+            {patientSummary.prescriptions.map((prescription) => (
+              <div key={prescription.id} className="border rounded-lg p-4">
+                <h3 className="font-medium">Prescription #{prescription.id}</h3>
+                <p className="text-sm text-gray-600">
+                  Date: {new Date(prescription.prescription_date).toLocaleDateString()}
+                </p>
+                <div className="mt-2">
+                  <h4 className="font-medium">Medication:</h4>
+                  <p className="text-sm">
+                    {prescription.medication_name} - {prescription.dosage} x {prescription.quantity}
+                  </p>
+                </div>
+              </div>
             ))}
-          </ul>
-        ) : (
-          <p>No purchases found.</p>
-        )}
-      </div>
+          </div>
+        </section>
 
-      <div>
-        <h2 className="text-lg font-semibold mb-2">Medical Records</h2>
-        {summary.medical_records.length > 0 ? (
-          <ul className="list-disc pl-5">
-            {summary.medical_records.map((record) => (
-              <li key={record.id}>
-                {record.diagnosis} - {record.treatment} by {record.doctor.full_name} on{' '}
-                {new Date(record.record_date).toLocaleDateString()}
-              </li>
+        <section>
+          <h2 className="text-xl font-semibold mb-4">Purchases</h2>
+          <div className="grid gap-4">
+            {patientSummary.purchases.map((purchase) => (
+              <div key={purchase.id} className="border rounded-lg p-4">
+                <h3 className="font-medium">Purchase #{purchase.id}</h3>
+                <p className="text-sm text-gray-600">
+                  Date: {new Date(purchase.sale_date).toLocaleDateString()}
+                </p>
+                <p className="text-sm text-gray-600">
+                  Total: ${(purchase.quantity * purchase.unit_price).toFixed(2)}
+                </p>
+                <div className="mt-2">
+                  <h4 className="font-medium">Item:</h4>
+                  <p className="text-sm">
+                    {purchase.medication.name} - {purchase.quantity} x ${purchase.unit_price.toFixed(2)}
+                  </p>
+                </div>
+              </div>
             ))}
-          </ul>
-        ) : (
-          <p>No medical records found.</p>
-        )}
+          </div>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-semibold mb-4">Medical Records</h2>
+          <div className="grid gap-4">
+            {patientSummary.medical_records.map((record) => (
+              <div key={record.id} className="border rounded-lg p-4">
+                <h3 className="font-medium">Record #{record.id}</h3>
+                <p className="text-sm text-gray-600">
+                  Date: {new Date(record.record_date).toLocaleDateString()}
+                </p>
+                <p className="text-sm text-gray-600">Doctor: {record.doctor.full_name}</p>
+                <p className="text-sm text-gray-600">Diagnosis: {record.diagnosis}</p>
+                <p className="mt-2">Treatment: {record.treatment}</p>
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
     </div>
   );

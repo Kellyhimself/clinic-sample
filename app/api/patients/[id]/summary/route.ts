@@ -1,6 +1,6 @@
 // app/api/patients/[id]/summary/route.ts
 import { NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/lib/supabase';
+import { getSupabaseClient } from '@/lib/supabase-server';
 import { fetchUserRole } from '@/lib/authActions';
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {

@@ -14,8 +14,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ArrowUpDown } from 'lucide-react';
-import RoleUpdateDialog from '@/components/RoleUpdateDialog';
+import RoleManagementForm from '@/components/admin/RoleManagementForm';
 import { Profile } from '@/types/supabase';
+import { Badge } from '@/components/ui/badge';
+import { Search } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 interface UsersTableProps {
   profiles: Profile[];
@@ -64,7 +67,21 @@ export default function UsersTable({ profiles }: UsersTableProps) {
     {
       id: 'actions',
       header: 'Actions',
-      cell: ({ row }) => <RoleUpdateDialog user={row.original} />,
+      cell: ({ row }) => (
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm" className="text-xs">
+              Change Role
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Change User Role</DialogTitle>
+            </DialogHeader>
+            <RoleManagementForm user={row.original} onSuccess={() => window.location.reload()} />
+          </DialogContent>
+        </Dialog>
+      ),
     },
   ];
 
@@ -82,15 +99,18 @@ export default function UsersTable({ profiles }: UsersTableProps) {
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50 p-4 md:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50 p-2 md:p-4">
       <div className="max-w-full mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
-        <div className="p-4 border-b">
-          <Input
-            placeholder="Search users..."
-            value={globalFilter ?? ''}
-            onChange={(e) => setGlobalFilter(e.target.value)}
-            className="max-w-xs text-sm border-gray-300 focus:border-blue-500"
-          />
+        <div className="p-2 md:p-4 border-b flex flex-col sm:flex-row gap-2 md:gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search users..."
+              value={globalFilter}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              className="pl-8 h-8 text-xs border-gray-300 focus:border-blue-500"
+            />
+          </div>
         </div>
         <div className="overflow-x-auto">
           <Table>
@@ -100,7 +120,7 @@ export default function UsersTable({ profiles }: UsersTableProps) {
                   {headerGroup.headers.map((header) => (
                     <TableHead
                       key={header.id}
-                      className="text-xs font-medium text-gray-700"
+                      className="text-xs font-medium text-gray-700 py-2"
                     >
                       {flexRender(header.column.columnDef.header, header.getContext())}
                     </TableHead>
@@ -109,23 +129,32 @@ export default function UsersTable({ profiles }: UsersTableProps) {
               ))}
             </TableHeader>
             <TableBody>
-              {table.getRowModel().rows.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow key={row.id} className="hover:bg-gray-100">
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className="text-sm text-gray-900">
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="text-center text-sm text-gray-500 py-4">
-                    No users found.
-                  </TableCell>
+              {table.getRowModel().rows.map((row) => (
+                <TableRow key={row.id} className="hover:bg-gray-100">
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id} className="py-2 text-xs">
+                      {cell.column.id === 'role' ? (
+                        <Badge
+                          variant={
+                            cell.getValue() === 'admin'
+                              ? 'default'
+                              : cell.getValue() === 'doctor'
+                              ? 'secondary'
+                              : cell.getValue() === 'pharmacist'
+                              ? 'outline'
+                              : 'destructive'
+                          }
+                          className="text-[10px]"
+                        >
+                          {cell.getValue() as string}
+                        </Badge>
+                      ) : (
+                        flexRender(cell.column.columnDef.cell, cell.getContext())
+                      )}
+                    </TableCell>
+                  ))}
                 </TableRow>
-              )}
+              ))}
             </TableBody>
           </Table>
         </div>

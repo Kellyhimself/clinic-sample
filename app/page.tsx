@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { CalendarDays, Pill, Phone, ShieldCheck, LogIn } from 'lucide-react';
-import { getSupabaseClient } from '@/lib/supabase';
+import { getSupabaseClient } from '@/lib/supabase-server';
 
 export default async function HomePage() {
   const supabase = await getSupabaseClient();

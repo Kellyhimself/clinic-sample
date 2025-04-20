@@ -5,6 +5,9 @@ import { useState, useEffect } from 'react';
 import { supabaseClient, syncSession } from '@/lib/supabase-client';
 import { Medication } from '@/types/supabase';
 
+// Add constant for low stock threshold
+const LOW_STOCK_THRESHOLD = 10; // You can adjust this value based on your needs
+
 export default function ClientStockDashboard({ initialMedications }: { initialMedications: Medication[] }) {
   const [medications, setMedications] = useState<Medication[]>(initialMedications);
 
@@ -19,7 +22,7 @@ export default function ClientStockDashboard({ initialMedications }: { initialMe
           event: 'UPDATE',
           schema: 'public',
           table: 'medications',
-          filter: 'quantity_in_stock=lte.reorder_level',
+          filter: 'quantity_in_stock=lte.' + LOW_STOCK_THRESHOLD,
         },
         (payload) => {
           const updatedMedication = payload.new as Medication;
@@ -107,7 +110,7 @@ export default function ClientStockDashboard({ initialMedications }: { initialMe
             <th className="border p-2">Batch No</th>
             <th className="border p-2">Category</th>
             <th className="border p-2">Stock</th>
-            <th className="border p-2">Reorder Level</th>
+            <th className="border p-2">Low Stock Threshold</th>
             <th className="border p-2">Expiry Date</th>
             <th className="border p-2">Actions</th>
           </tr>
@@ -117,7 +120,7 @@ export default function ClientStockDashboard({ initialMedications }: { initialMe
             <tr
               key={med.id}
               className={
-                med.quantity_in_stock <= med.reorder_level
+                med.quantity_in_stock <= LOW_STOCK_THRESHOLD
                   ? 'bg-red-100'
                   : med.expiry_date && new Date(med.expiry_date) < new Date()
                     ? 'bg-yellow-100'
@@ -128,7 +131,7 @@ export default function ClientStockDashboard({ initialMedications }: { initialMe
               <td className="border p-2">{med.batch_no || 'N/A'}</td>
               <td className="border p-2">{med.category || 'N/A'}</td>
               <td className="border p-2">{med.quantity_in_stock}</td>
-              <td className="border p-2">{med.reorder_level}</td>
+              <td className="border p-2">{LOW_STOCK_THRESHOLD}</td>
               <td className="border p-2">{med.expiry_date || 'N/A'}</td>
               <td className="border p-2">
                 <button
