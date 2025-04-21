@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { User } from '@supabase/supabase-js';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { fetchInventory, fetchUserRole } from '@/lib/authActions';
+import { fetchUserRole, fetchStockAlerts } from '@/lib/authActions';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
@@ -28,6 +28,11 @@ export default function Navbar({ handleLogout, user }: NavbarProps) {
   const [expiringCount, setExpiringCount] = useState(0);
   const [userRole, setUserRole] = useState<string>('');
 
+  const handleSignOut = async () => {
+    await handleLogout();
+    window.location.href = '/';
+  };
+
   useEffect(() => {
     const checkStockAlerts = async () => {
       try {
@@ -35,29 +40,9 @@ export default function Navbar({ handleLogout, user }: NavbarProps) {
         setUserRole(role);
         
         if (role === 'admin' || role === 'pharmacist') {
-          const data = await fetchInventory() as {
-            id: string;
-            name: string;
-            batches: {
-              quantity: number;
-              expiry_date: string;
-            }[];
-          }[];
-          
-          let lowStock = 0;
-          let expiring = 0;
-          
-          data.forEach(medication => {
-            medication.batches.forEach(batch => {
-              if (batch.quantity < 10) lowStock++;
-              if (new Date(batch.expiry_date) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)) {
-                expiring++;
-              }
-            });
-          });
-          
-          setLowStockCount(lowStock);
-          setExpiringCount(expiring);
+          const { lowStock, expiring } = await fetchStockAlerts();
+          setLowStockCount(lowStock.length);
+          setExpiringCount(expiring.length);
         }
       } catch (error) {
         console.error('Error checking stock alerts:', error);
@@ -65,7 +50,7 @@ export default function Navbar({ handleLogout, user }: NavbarProps) {
     };
 
     checkStockAlerts();
-    const interval = setInterval(checkStockAlerts, 5 * 60 * 1000);
+    const interval = setInterval(checkStockAlerts, 5 * 60 * 1000); // Check every 5 minutes
     return () => clearInterval(interval);
   }, []);
 
@@ -73,32 +58,32 @@ export default function Navbar({ handleLogout, user }: NavbarProps) {
   const totalAlerts = lowStockCount + expiringCount;
 
   return (
-    <header className="w-full h-16 px-4 sm:px-6 flex items-center justify-between bg-gradient-to-r from-blue-50 via-teal-50 to-gray-50">
-      <div className="flex items-center gap-2">
+    <header className="w-full h-14 px-2 sm:px-3 flex items-center justify-between bg-gradient-to-r from-blue-100 via-teal-50 to-indigo-50 border-b border-blue-200 shadow-sm">
+      <div className="flex items-center gap-1 mt-2">
         <div className="hidden sm:block">
-          <p className="text-sm font-medium text-gray-900">Welcome, {displayName}</p>
+          <p className="text-sm font-semibold text-blue-700">Welcome, {displayName}</p>
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 mt-2">
         {/* Desktop Actions */}
-        <div className="hidden sm:flex items-center gap-3">
+        <div className="hidden sm:flex items-center gap-2">
           {showStockAlerts && (
-            <Link href="/pharmacy/stock-alerts">
+            <Link href="/pharmacy/stock-alerts" className="relative">
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="relative text-gray-600 hover:text-blue-600 hover:bg-transparent">
-                      <Bell className="h-5 w-5" />
+                    <Button variant="ghost" size="icon" className="text-blue-600 hover:text-blue-700 hover:bg-blue-100 h-9 w-9 rounded-full">
+                      <Bell className="h-4 w-4" />
                       {totalAlerts > 0 && (
-                        <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
+                        <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-[8px] font-bold">
                           {totalAlerts}
                         </Badge>
                       )}
-          </Button>
+                    </Button>
                   </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs">
+                  <TooltipContent className="bg-white border border-blue-100 shadow-md">
+                    <p className="text-sm font-medium text-blue-700">
                       {lowStockCount} low stock, {expiringCount} expiring
                     </p>
                   </TooltipContent>
@@ -108,20 +93,20 @@ export default function Navbar({ handleLogout, user }: NavbarProps) {
           )}
           
           {userRole === 'admin' && (
-          <Link href="/signup">
-              <Button variant="ghost" className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex items-center gap-2">
-                <Plus className="h-4 w-4" />
+            <Link href="/signup">
+              <Button variant="ghost" className="text-blue-600 hover:text-blue-700 hover:bg-blue-100 flex items-center gap-1 text-sm font-medium h-9 rounded-full">
+                <Plus className="h-3 w-3" />
                 <span>New User</span>
-          </Button>
-          </Link>
+              </Button>
+            </Link>
           )}
 
-          <form action={handleLogout}>
+          <form action={handleSignOut}>
             <Button
               variant="ghost"
-              className="text-gray-600 hover:text-red-600 hover:bg-red-50 flex items-center gap-2"
+              className="text-red-500 hover:text-red-600 hover:bg-red-50 flex items-center gap-1 text-sm font-medium h-9 rounded-full"
             >
-              <LogOut className="h-4 w-4" />
+              <LogOut className="h-3 w-3" />
               <span>Sign Out</span>
             </Button>
           </form>
@@ -130,54 +115,43 @@ export default function Navbar({ handleLogout, user }: NavbarProps) {
         {/* Mobile Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild className="sm:hidden">
-            <Button variant="ghost" size="icon" className="text-gray-600 hover:text-blue-600">
-              <Menu className="h-5 w-5" />
+            <Button variant="ghost" size="icon" className="text-blue-600 hover:text-blue-700 hover:bg-blue-100 h-9 w-9 rounded-full">
+              <Menu className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuContent align="end" className="w-56 mt-1 bg-white border border-blue-100 shadow-lg rounded-lg">
             {showStockAlerts && (
-            <DropdownMenuItem asChild>
-                <Link href="/pharmacy/stock-alerts" className="flex items-center gap-2 py-2">
-                  <Bell className="h-4 w-4" />
-                  <span>Stock Alerts</span>
+              <DropdownMenuItem asChild>
+                <Link href="/pharmacy/stock-alerts" className="flex items-center gap-2 py-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50">
+                  <Bell className="h-3 w-3" />
+                  <span className="text-sm font-medium">Stock Alerts</span>
                   {totalAlerts > 0 && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Badge variant="destructive" className="ml-auto">{totalAlerts}</Badge>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="text-xs">
-                            {lowStockCount} low stock, {expiringCount} expiring
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    <Badge variant="destructive" className="ml-auto text-[8px] font-bold">{totalAlerts}</Badge>
                   )}
                 </Link>
-            </DropdownMenuItem>
+              </DropdownMenuItem>
             )}
-            <DropdownMenuItem className="flex items-center gap-2 py-2">
-              <UserCircle className="h-4 w-4" />
-              <span>Profile</span>
+            <DropdownMenuItem className="flex items-center gap-2 py-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50">
+              <UserCircle className="h-3 w-3" />
+              <span className="text-sm font-medium">Profile</span>
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
+            <DropdownMenuSeparator className="bg-blue-100" />
             {userRole === 'admin' && (
-            <DropdownMenuItem asChild>
-                <Link href="/signup" className="flex items-center gap-2 py-2">
-                  <Plus className="h-4 w-4" />
-                  <span>New User</span>
+              <DropdownMenuItem asChild>
+                <Link href="/signup" className="flex items-center gap-2 py-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50">
+                  <Plus className="h-3 w-3" />
+                  <span className="text-sm font-medium">New User</span>
                 </Link>
-            </DropdownMenuItem>
+              </DropdownMenuItem>
             )}
-            <DropdownMenuSeparator />
+            <DropdownMenuSeparator className="bg-blue-100" />
             <DropdownMenuItem asChild>
-              <form action={handleLogout} className="w-full">
+              <form action={handleSignOut} className="w-full">
                 <Button
                   variant="ghost"
-                  className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center gap-2"
+                  className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50 flex items-center gap-2 text-sm font-medium"
                 >
-                  <LogOut className="h-4 w-4" />
+                  <LogOut className="h-3 w-3" />
                   <span>Sign Out</span>
                 </Button>
               </form>

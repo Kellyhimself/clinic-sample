@@ -216,6 +216,11 @@ export default function InventoryManager() {
                       return diffDays <= 30;
                     }) ? (
                       <Badge variant="secondary" className="text-[10px] md:text-xs bg-yellow-100 text-yellow-800 border-yellow-200">Expiring</Badge>
+
+
+
+
+                      
                     ) : medication.batches.reduce((sum, batch) => sum + batch.quantity, 0) <= LOW_STOCK_THRESHOLD ? (
                       <Badge variant="secondary" className="text-[10px] md:text-xs bg-orange-100 text-orange-800 border-orange-200">Low</Badge>
                     ) : (

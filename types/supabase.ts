@@ -1199,7 +1199,10 @@ export const Constants = {
 
 export type Patient = Database['public']['Tables']['patients']['Row'];
 
-export type Medication = Database['public']['Tables']['medications']['Row'] & {
+export type Medication = Omit<Database['public']['Tables']['medications']['Row'], 'manufacturer' | 'barcode' | 'shelf_location'> & {
+  manufacturer?: string | null;
+  barcode?: string | null;
+  shelf_location?: string | null;
   batches: Array<{
     id: string;
     batch_number: string;
@@ -1247,15 +1250,23 @@ export type PatientSummaryData = {
   }>;
 };
 
-export type Profile = {
+export interface Profile {
   id: string;
-  email: string;
+  role: "admin" | "staff" | "patient" | "doctor" | "pharmacist";
   full_name: string;
-  phone_number: string | null;
-  role: string;
-  created_at: string | null;
-  updated_at: string | null;
-};
+  phone_number?: string;
+  email?: string;
+  license_number?: string;
+  specialty?: string;
+  date_of_birth?: string;
+  gender?: string;
+  address?: string;
+  specialization?: string;
+  department?: string;
+  permissions?: string;
+  created_at?: string;
+  updated_at?: string;
+}
 
 export type Appointment = {
   id: string;
@@ -1268,6 +1279,7 @@ export type Appointment = {
   payment_status?: 'unpaid' | 'paid' | 'refunded';
   payment_method?: 'mpesa' | 'cash' | 'bank';
   transaction_id?: string | null;
+  doctor?: { full_name: string } | null;
 };
 
 export type AppointmentWithDetails = Appointment & {
@@ -1344,13 +1356,25 @@ export interface ReceiptData {
   created_at: string;
   amount: number;
   payment_method: string;
+  patient?: {
+    id: string;
+    full_name: string;
+    email: string;
+    phone_number: string | null;
+  };
   items?: Array<{
     medication: {
       name: string;
+      dosage_form: string;
+      strength: string;
     };
     quantity: number;
     unit_price: number;
     total_price: number;
+    batch: {
+      batch_number: string;
+      expiry_date: string;
+    };
   }>;
   appointments?: Array<{
     services: {
@@ -1360,4 +1384,5 @@ export interface ReceiptData {
   }>;
   medication_total?: number;
   appointment_total?: number;
+  total_amount?: number;
 }

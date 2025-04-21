@@ -17,24 +17,19 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowUpDown, X, ArrowLeft } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js';
+import { ArrowUpDown, ArrowLeft } from 'lucide-react';
+import { createClientSupabaseClient } from '@/lib/supabase-client';
 import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
-import { Appointment } from '@/lib/authActions';
-
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import type { Appointment } from '@/types/supabase';
 
 interface AppointmentsTableProps {
   appointments: Appointment[];
   userRole: string;
   confirmAppointment: (formData: FormData) => Promise<void>;
   cancelAppointment: (formData: FormData) => Promise<void>;
-  processMpesaPayment: (formData: FormData) => Promise<{ success: boolean; checkoutRequestId: string }>;
-  processCashPayment: (formData: FormData) => Promise<{ success: boolean; receipt?: string }>;
 }
 
 export default function AppointmentsTable({
@@ -42,8 +37,6 @@ export default function AppointmentsTable({
   userRole,
   confirmAppointment,
   cancelAppointment,
-  processMpesaPayment,
-  processCashPayment,
 }: AppointmentsTableProps) {
   const isAdminOrStaff = userRole === 'admin' || userRole === 'staff';
   const [appointmentsState, setAppointmentsState] = useState<Appointment[]>(initialAppointments);
@@ -51,29 +44,135 @@ export default function AppointmentsTable({
   const [filterType, setFilterType] = useState<'time' | 'patient' | 'service'>('time');
   const [filterValue, setFilterValue] = useState('');
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
-  const [paymentResult, setPaymentResult] = useState<string | null>(null);
-  const [showReceipt, setShowReceipt] = useState(false);
-  const [receiptContent, setReceiptContent] = useState<string | null>(null);
   const router = useRouter();
+  const supabase = createClientSupabaseClient();
 
   useEffect(() => {
-    console.log('Initial appointments:', initialAppointments);
-    const channel = supabase
-      .channel('appointments-channel')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'appointments' }, async (payload) => {
-        const updatedAppointment = (await supabase
-          .from('appointments')
-          .select('*, services(name, price, duration), profiles(full_name)')
-          .eq('id', payload.new.id)
-          .single()).data as unknown as Appointment;
-        setAppointmentsState((prev) => prev.map((appt) => (appt.id === updatedAppointment.id ? updatedAppointment : appt)));
-      })
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    console.log('Initial appointments received:', initialAppointments);
+    setAppointmentsState(initialAppointments);
   }, [initialAppointments]);
+
+  useEffect(() => {
+    let mounted = true;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    const setupSubscription = async () => {
+      try {
+        channel = supabase
+          .channel('appointments-channel')
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'appointments',
+            },
+            async (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
+              // Type guard to ensure payload.new exists and has the correct type
+              if (!mounted || !payload.new || typeof payload.new !== 'object' || !('id' in payload.new)) {
+                return;
+              }
+
+              // Get the ID from the payload
+              const appointmentId = payload.new.id as string;
+
+              try {
+                // First fetch appointment info
+                const { data: appointmentData, error: appointmentError } = await supabase
+                .from('appointments')
+                .select(`
+                  *,
+                    services (
+                      name, 
+                      price, 
+                      duration
+                    )
+                  `)
+                  .eq('id', appointmentId)
+                .single();
+
+                if (appointmentError) {
+                  console.error('Error fetching appointment data:', appointmentError);
+                return;
+              }
+
+                // Then fetch patient info separately
+                const { data: patientData, error: patientError } = await supabase
+                  .from('patients')
+                  .select('full_name')
+                  .eq('id', appointmentData.patient_id)
+                  .single();
+
+                if (patientError && patientError.code !== 'PGRST116') {
+                  console.error('Error fetching patient data:', patientError);
+                }
+
+                // Then fetch doctor info if available
+                const { data: doctorProfile, error: doctorError } = appointmentData.doctor_id 
+                  ? await supabase
+                      .from('profiles')
+                      .select('full_name')
+                      .eq('id', appointmentData.doctor_id)
+                      .single()
+                  : { data: null, error: null };
+
+                if (doctorError && doctorError.code !== 'PGRST116') {
+                  console.error('Error fetching doctor profile:', doctorError);
+                }
+
+                // Create a complete appointment object
+                const updatedAppointment: Appointment = {
+                  id: appointmentData.id,
+                  date: appointmentData.date,
+                  time: appointmentData.time,
+                  status: (appointmentData.status || 'pending') as 'pending' | 'confirmed' | 'cancelled',
+                  notes: appointmentData.notes || '',
+                  services: appointmentData.services,
+                  profiles: patientData ? { full_name: patientData.full_name } : null,
+                  payment_status: appointmentData.payment_status as 'unpaid' | 'paid' | 'refunded' | undefined,
+                  payment_method: appointmentData.payment_method as 'mpesa' | 'cash' | 'bank' | undefined,
+                  transaction_id: appointmentData.transaction_id,
+                  doctor: doctorProfile ? { full_name: doctorProfile.full_name } : null
+                };
+
+                if (mounted) {
+                console.log('Received real-time update:', updatedAppointment);
+                setAppointmentsState(prev => {
+                  const index = prev.findIndex(appt => appt.id === updatedAppointment.id);
+                  if (index === -1) {
+                      return [...prev, updatedAppointment];
+                  }
+                  const newAppointments = [...prev];
+                    newAppointments[index] = updatedAppointment;
+                  return newAppointments;
+                });
+                }
+              } catch (error) {
+                console.error('Error processing real-time update:', error);
+              }
+            }
+          )
+          .subscribe();
+
+        return () => {
+          if (channel) {
+            channel.unsubscribe();
+          }
+        };
+      } catch (error) {
+        console.error('Error setting up subscription:', error);
+      }
+    };
+
+    setupSubscription();
+
+    return () => {
+      mounted = false;
+      if (channel) {
+        channel.unsubscribe();
+      }
+    };
+  }, [supabase]);
 
   const baseColumns: ColumnDef<Appointment>[] = [
     {
@@ -108,8 +207,9 @@ export default function AppointmentsTable({
       id: 'profiles.full_name',
       header: 'Patient',
       enableHiding: !isAdminOrStaff,
+      cell: ({ row }) => row.original.profiles?.full_name || 'N/A',
       filterFn: (row: Row<Appointment>, id: string, filterValue: unknown) =>
-        String(row.getValue(id) ?? '').toLowerCase().includes(String(filterValue).toLowerCase()),
+        String(row.getValue(id) ?? 'N/A').toLowerCase().includes(String(filterValue).toLowerCase()),
     },
     {
       accessorKey: 'status',
@@ -132,18 +232,6 @@ export default function AppointmentsTable({
         </Badge>
       ),
     },
-    {
-      accessorKey: 'payment_status',
-      header: ({ column }) => (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
-          Payment <ArrowUpDown className="ml-1 h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) =>
-        `${row.original.payment_status || 'N/A'} ${
-          row.original.payment_method ? `(${row.original.payment_method})` : ''
-        }`,
-    },
   ];
 
   const actionColumn: ColumnDef<Appointment>[] = isAdminOrStaff
@@ -151,51 +239,41 @@ export default function AppointmentsTable({
         {
           id: 'actions',
           header: 'Actions',
-          cell: ({ row }: { row: Row<Appointment> }) => (
-            <div className="flex gap-2 flex-wrap">
-              {row.original.status === 'pending' && (
-                <>
-                  <form action={confirmAppointment}>
-                    <input type="hidden" name="id" value={row.original.id} />
-                    <Button variant="outline" size="sm" type="submit" className="text-xs">
-                      Confirm
-                    </Button>
-                  </form>
-                  <form action={cancelAppointment}>
-                    <input type="hidden" name="id" value={row.original.id} />
-                    <Button variant="destructive" size="sm" type="submit" className="text-xs">
-                      Cancel
-                    </Button>
-                  </form>
-                </>
-              )}
-              {row.original.status === 'confirmed' && row.original.payment_status === 'unpaid' && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs"
-                  onClick={() => setSelectedAppointment(row.original)}
-                >
-                  Pay Now
-                </Button>
-              )}
-              {row.original.payment_status === 'paid' && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs"
-                  onClick={async () => {
-                    const response = await fetch(`/api/receipt?appointmentId=${row.original.id}`);
-                    const receipt = await response.text();
-                    setReceiptContent(receipt);
-                    setShowReceipt(true);
-                  }}
-                >
-                  View Receipt
-                </Button>
-              )}
-            </div>
-          ),
+          cell: ({ row }: { row: Row<Appointment> }) => {
+            const appointment = row.original;
+            const isPending = appointment.status === 'pending';
+
+            return (
+              <div className="flex gap-2">
+                {isPending && (
+                  <>
+                    <form action={confirmAppointment}>
+                      <input type="hidden" name="id" value={appointment.id} />
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        type="submit"
+                        className="bg-green-50 text-green-700 hover:bg-green-100 border-green-200"
+                      >
+                        Confirm
+                      </Button>
+                    </form>
+                    <form action={cancelAppointment}>
+                      <input type="hidden" name="id" value={appointment.id} />
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        type="submit"
+                        className="bg-red-50 text-red-700 hover:bg-red-100 border-red-200"
+                      >
+                        Cancel
+                      </Button>
+                    </form>
+                  </>
+                )}
+              </div>
+            );
+          },
         },
       ]
     : [];
@@ -213,51 +291,11 @@ export default function AppointmentsTable({
     getFilteredRowModel: getFilteredRowModel(),
   });
 
-  // Debug column registration
-  useEffect(() => {
-    console.log('Registered columns:', table.getAllColumns().map((col) => col.id));
-  }, [table]);
-
   const handleFilterChange = (value: string) => {
-    console.log('Filter input changed to:', value);
     setFilterValue(value);
     const columnId =
       filterType === 'time' ? 'time' : filterType === 'patient' ? 'profiles.full_name' : 'services.name';
     setColumnFilters(value ? [{ id: columnId, value }] : []);
-  };
-
-  const handlePayment = async (formData: FormData, method: 'mpesa' | 'cash') => {
-    try {
-      if (method === 'mpesa') {
-        const result = await processMpesaPayment(formData);
-        if (result.success) {
-          setPaymentResult(`M-Pesa Payment Initiated. Checkout ID: ${result.checkoutRequestId}`);
-          setTimeout(() => setSelectedAppointment(null), 2000);
-        } else {
-          setPaymentResult('M-Pesa Payment failed. Please try again.');
-        }
-      } else {
-        const result = await processCashPayment(formData);
-        if (result.success) {
-          setPaymentResult(result.receipt || 'Cash Payment Recorded');
-          setTimeout(() => setSelectedAppointment(null), 2000);
-        } else {
-          setPaymentResult('Cash Payment failed. Please try again.');
-        }
-      }
-    } catch (error) {
-      setPaymentResult(`Payment error: ${(error as Error).message}`);
-    }
-  };
-
-  const downloadReceipt = (receiptText: string) => {
-    const blob = new Blob([receiptText], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `receipt-${Date.now()}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   return (
@@ -276,14 +314,13 @@ export default function AppointmentsTable({
             <CardTitle>Appointments</CardTitle>
           </div>
         </CardHeader>
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50 p-4 md:p-6">
-          <div className="max-w-full mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
+        <div className="p-4 md:p-6">
+          <div className="max-w-full mx-auto bg-white rounded-lg overflow-hidden">
             {isAdminOrStaff && (
               <div className="p-4 border-b flex flex-col sm:flex-row gap-4">
                 <Select
                   value={filterType}
                   onValueChange={(value) => {
-                    console.log('Filter type changed to:', value);
                     setFilterType(value as 'time' | 'patient' | 'service');
                     setColumnFilters(
                       filterValue
@@ -309,11 +346,11 @@ export default function AppointmentsTable({
                 <input
                   type="text"
                   placeholder={`Filter by ${filterType} (e.g., ${
-                    filterType === 'time' ? '10:00' : filterType === 'patient' ? 'staff3' : 'Dental'
+                    filterType === 'time' ? '10:00' : filterType === 'patient' ? 'John Doe' : 'Dental'
                   })`}
                   value={filterValue}
                   onChange={(e) => handleFilterChange(e.target.value)}
-                  className="max-w-xs text-sm border-gray-300 focus:border-blue-500 p-2 rounded"
+                  className="max-w-xs text-sm border-gray-300 focus:border-blue-500 p-2 rounded border"
                 />
               </div>
             )}
@@ -327,8 +364,7 @@ export default function AppointmentsTable({
                           key={header.id}
                           className={`text-xs font-medium text-gray-700 ${
                             header.id === 'date' ||
-                            header.id === 'profiles.full_name' ||
-                            header.id === 'payment_status'
+                            header.id === 'profiles.full_name'
                               ? 'hidden sm:table-cell'
                               : ''
                           }`}
@@ -348,8 +384,7 @@ export default function AppointmentsTable({
                             key={cell.id}
                             className={`text-sm text-gray-900 ${
                               cell.column.id === 'date' ||
-                              cell.column.id === 'profiles.full_name' ||
-                              cell.column.id === 'payment_status'
+                              cell.column.id === 'profiles.full_name'
                                 ? 'hidden sm:table-cell'
                                 : ''
                             }`}
@@ -370,70 +405,6 @@ export default function AppointmentsTable({
               </Table>
             </div>
           </div>
-          <Dialog open={!!selectedAppointment} onOpenChange={(open) => !open && setSelectedAppointment(null)}>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle className="text-lg font-semibold text-gray-900">Process Payment</DialogTitle>
-                <Button variant="ghost" className="absolute right-4 top-4" onClick={() => setSelectedAppointment(null)}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </DialogHeader>
-              {selectedAppointment && (
-                <div className="space-y-4 p-4">
-                  <p className="text-sm text-gray-600">
-                    Service: {selectedAppointment.services?.name || 'Custom'} (KSh{' '}
-                    {selectedAppointment.services?.price || 0})
-                  </p>
-                  <form action={(formData) => handlePayment(formData, 'mpesa')} className="space-y-2">
-                    <input type="hidden" name="id" value={selectedAppointment.id} />
-                    <input
-                      type="hidden"
-                      name="amount"
-                      value={selectedAppointment.services?.price?.toString() || '0'}
-                    />
-                    <Input type="text" name="phone" placeholder="2547XXXXXXXX" required className="text-sm" />
-                    <Button type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm">
-                      Pay with M-Pesa
-                    </Button>
-                  </form>
-                  <form action={(formData) => handlePayment(formData, 'cash')} className="space-y-2">
-                    <input type="hidden" name="id" value={selectedAppointment.id} />
-                    <Input type="text" name="receiptNumber" placeholder="Receipt # (optional)" className="text-sm" />
-                    <Button type="submit" className="w-full bg-teal-500 hover:bg-teal-600 text-white text-sm">
-                      Mark as Cash Paid
-                    </Button>
-                  </form>
-                  {paymentResult && <p className="text-sm text-center text-gray-700">{paymentResult}</p>}
-                </div>
-              )}
-            </DialogContent>
-          </Dialog>
-          <Dialog open={showReceipt} onOpenChange={setShowReceipt}>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle className="text-lg font-semibold text-gray-900">Payment Receipt</DialogTitle>
-              </DialogHeader>
-              <div className="p-4">
-                <pre className="text-sm text-gray-700 bg-gray-50 rounded p-4 whitespace-pre-wrap">
-                  {receiptContent}
-                </pre>
-                <div className="flex gap-2 mt-4">
-                  <Button
-                    onClick={() => receiptContent && downloadReceipt(receiptContent)}
-                    className="bg-blue-500 hover:bg-blue-600 text-white text-sm"
-                  >
-                    Download Receipt
-                  </Button>
-                  <Button
-                    onClick={() => setShowReceipt(false)}
-                    className="bg-gray-500 hover:bg-gray-600 text-white text-sm"
-                  >
-                    Close
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
         </div>
       </Card>
     </div>

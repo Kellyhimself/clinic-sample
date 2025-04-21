@@ -1,8 +1,11 @@
+'use server';
+
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '@/types/supabase';
 
+// Server-side Supabase client
 export async function getSupabaseClient(): Promise<SupabaseClient<Database>> {
   const cookieStore = await cookies();
 
@@ -31,4 +34,15 @@ export async function getSupabaseClient(): Promise<SupabaseClient<Database>> {
       },
     }
   );
+}
+
+// Server actions for cookie operations
+export async function setAuthCookie(name: string, value: string, options: CookieOptions) {
+  const cookieStore = await cookies();
+  cookieStore.set({ name, value, ...options });
+}
+
+export async function removeAuthCookie(name: string, options: CookieOptions) {
+  const cookieStore = await cookies();
+  cookieStore.set({ name, value: '', ...options, maxAge: 0 });
 } 

@@ -1,7 +1,7 @@
 // components/AuthenticatedLayout.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import { User } from '@supabase/supabase-js';
 interface AuthenticatedLayoutProps {
   children: React.ReactNode;
   handleLogout: () => Promise<void>;
-  userRole: string; // Still passed for Sidebar
+  userRole: string; 
   user: User;
 }
 
@@ -22,6 +22,11 @@ export default function AuthenticatedLayout({
   user,
 }: AuthenticatedLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
+  // Debug the user role being passed
+  useEffect(() => {
+    console.log("AuthenticatedLayout received userRole:", userRole);
+  }, [userRole]);
 
   return (
     <div className="flex h-screen">

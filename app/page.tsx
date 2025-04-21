@@ -31,9 +31,9 @@ export default async function HomePage() {
           </p>
           <div className="flex flex-col md:flex-row justify-center gap-4">
             <Link href="/bookAppointment">
-            <Button size="lg" variant="secondary">
-              Book an Appointment
-            </Button>
+              <Button size="lg" variant="secondary">
+                Book an Appointment
+              </Button>
             </Link>
             <Link href="/login">
               <Button

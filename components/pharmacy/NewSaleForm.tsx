@@ -13,20 +13,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createSale, generateReceipt, getUnpaidAppointments } from "@/lib/authActions";
+import { createSale } from "@/lib/authActions";
 import type { Patient, Medication } from "@/types/supabase";
-import { Download, ArrowLeft } from "lucide-react";
-
-interface UnpaidAppointment {
-  id: string;
-  date: string;
-  time: string;
-  services: {
-    name: string;
-    price: number;
-  } | null;
-  payment_status: 'unpaid' | 'paid' | 'refunded' | null;
-}
+import { ArrowLeft } from "lucide-react";
 
 interface SaleItem {
   medication_id: string;
@@ -60,10 +49,6 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
   const [quantity, setQuantity] = useState(1);
   const [filteredPatients, setFilteredPatients] = useState<Patient[]>(initialPatients);
   const [filteredMedications, setFilteredMedications] = useState<Medication[]>(initialMedications);
-  const [unpaidAppointments, setUnpaidAppointments] = useState<UnpaidAppointment[]>([]);
-  const [showReceipt, setShowReceipt] = useState(false);
-  const [receiptContent, setReceiptContent] = useState<string | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mpesa' | 'bank'>('cash');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Filter patients based on search query
@@ -91,18 +76,6 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
       setFilteredMedications(initialMedications);
     }
   }, [searchQuery, initialMedications]);
-
-  // Fetch unpaid appointments when patient is selected
-  useEffect(() => {
-    const fetchUnpaidAppointments = async () => {
-      if (selectedPatient) {
-        const appointments = await getUnpaidAppointments(selectedPatient.id);
-        setUnpaidAppointments(appointments);
-      }
-    };
-
-    fetchUnpaidAppointments();
-  }, [selectedPatient]);
 
   const handlePatientSelect = (patient: Patient) => {
     setSelectedPatient(patient);
@@ -151,6 +124,11 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
     setStep(2);
   };
 
+  const handleRemoveItem = (index: number) => {
+    setItems(items.filter((_, i) => i !== index));
+    toast.success("Item removed from cart");
+  };
+
   const handleSubmit = async () => {
     if (!selectedPatient) {
       toast.error("Please select a patient");
@@ -174,17 +152,12 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
           unit_price: item.unit_price,
           total_price: item.total_price
         })),
-        payment_method: paymentMethod,
-        payment_status: "paid",
+        payment_status: "unpaid",
         total_amount: totalAmount
       });
 
       if (sale) {
-        // Generate and show receipt
-        const receipt = await generateReceipt({ saleId: sale.id });
-        setReceiptContent(receipt);
-        setShowReceipt(true);
-        toast.success("Sale completed successfully");
+        toast.success("Sale created successfully");
         // Redirect to sales management page after 2 seconds
         setTimeout(() => {
           router.push("/pharmacy/sales");
@@ -202,16 +175,13 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
 
   const calculateTotals = () => {
     const pharmacyTotal = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
-    const appointmentsTotal = unpaidAppointments.reduce((sum, app) => sum + (app.services?.price || 0), 0);
-    const grandTotal = pharmacyTotal + appointmentsTotal;
-
-    return { pharmacyTotal, appointmentsTotal, grandTotal };
+    return { pharmacyTotal };
   };
 
-  const { pharmacyTotal, appointmentsTotal, grandTotal } = calculateTotals();
+  const { pharmacyTotal } = calculateTotals();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50 p-2 md:p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50 p-2">
       <div className="max-w-full mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
         <div className="p-2 border-b">
           <div className="flex items-center gap-2">
@@ -219,14 +189,14 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
               variant="ghost"
               size="icon"
               onClick={() => router.back()}
-              className="h-7 w-7"
+              className="h-6 w-6"
             >
               <ArrowLeft className="h-3 w-3" />
             </Button>
-            <h2 className="text-base font-semibold">New Sale</h2>
+            <h2 className="text-sm font-semibold">New Sale</h2>
           </div>
           {selectedPatient && (
-            <div className="mt-1 text-sm text-gray-600">
+            <div className="mt-1 text-xs text-gray-600">
               Patient: {selectedPatient.full_name}
             </div>
           )}
@@ -234,16 +204,16 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
 
         <div className="p-2">
           {/* Step Indicator */}
-          <div className="flex justify-center mb-2">
-            <div className="flex items-center space-x-2">
+          <div className="flex justify-center mb-1">
+            <div className="flex items-center space-x-1">
               {[1, 2, 3].map((stepNumber) => (
                 <div key={stepNumber} className="flex items-center">
                   <div
-                    className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                    className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${
                       step === stepNumber
-                        ? 'bg-blue-500 text-white'
+                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
                         : step > stepNumber
-                        ? 'bg-green-500 text-white'
+                        ? 'bg-gradient-to-r from-green-500 to-green-600 text-white'
                         : 'bg-gray-200 text-gray-600'
                     }`}
                   >
@@ -251,8 +221,8 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
                   </div>
                   {stepNumber < 3 && (
                     <div
-                      className={`w-12 h-1 ${
-                        step > stepNumber ? 'bg-green-500' : 'bg-gray-200'
+                      className={`w-8 h-0.5 ${
+                        step > stepNumber ? 'bg-gradient-to-r from-green-500 to-green-600' : 'bg-gray-200'
                       }`}
                     />
                   )}
@@ -262,36 +232,33 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
           </div>
 
           {/* Main Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
             {/* Left Column - Form Steps */}
-            <div className="space-y-4">
+            <div className="space-y-2">
               {/* Step Content */}
-              <div className="space-y-4">
+              <div className="space-y-2">
                 {step === 1 && (
-                  <div className="space-y-2">
-                    <div className="flex flex-col gap-1">
-                      <Label>Search Patient</Label>
+                  <div className="space-y-1">
+                    <div className="flex flex-col gap-0.5">
+                      <Label className="text-xs">Search Patient</Label>
                       <Input
                         type="text"
                         placeholder="Search by name or ID"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full"
+                        className="w-full h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
                       />
                     </div>
-                    <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
+                    <div className="max-h-[150px] overflow-y-auto">
                       {filteredPatients.map((patient) => (
                         <div
                           key={patient.id}
-                          className={`p-2 border rounded-lg mb-1 cursor-pointer hover:bg-gray-50 flex flex-col ${
-                            selectedPatient?.id === patient.id ? 'bg-blue-50 border-blue-200' : ''
+                          className={`p-1 border rounded-lg mb-0.5 cursor-pointer hover:bg-blue-50 flex flex-col ${
+                            selectedPatient?.id === patient.id ? 'bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200' : ''
                           }`}
                           onClick={() => handlePatientSelect(patient)}
                         >
-                          <div className="font-medium text-sm">{patient.full_name}</div>
-                          <div className="text-xs text-gray-500">
-                            {unpaidAppointments.length > 0 ? `${unpaidAppointments.length} unpaid appointment(s)` : 'No unpaid appointments'}
-                          </div>
+                          <div className="font-medium text-xs">{patient.full_name}</div>
                         </div>
                       ))}
                     </div>
@@ -299,28 +266,28 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
                 )}
 
                 {step === 2 && (
-                  <div className="space-y-2">
-                    <div className="flex flex-col gap-1">
-                      <Label>Search Medication</Label>
+                  <div className="space-y-1">
+                    <div className="flex flex-col gap-0.5">
+                      <Label className="text-xs">Search Medication</Label>
                       <Input
                         type="text"
                         placeholder="Search by name or code"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full"
+                        className="w-full h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
                       />
                     </div>
-                    <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
+                    <div className="max-h-[150px] overflow-y-auto">
                       {filteredMedications.map((medication) => (
                         <div
                           key={medication.id}
-                          className={`p-2 border rounded-lg mb-1 cursor-pointer hover:bg-gray-50 flex flex-col ${
-                            selectedMedication?.id === medication.id ? 'bg-blue-50 border-blue-200' : ''
+                          className={`p-1 border rounded-lg mb-0.5 cursor-pointer hover:bg-blue-50 flex flex-col ${
+                            selectedMedication?.id === medication.id ? 'bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200' : ''
                           }`}
                           onClick={() => handleMedicationSelect(medication)}
                         >
-                          <div className="font-medium text-sm">{medication.name}</div>
-                          <div className="text-xs text-gray-500 flex justify-between">
+                          <div className="font-medium text-xs">{medication.name}</div>
+                          <div className="text-[10px] text-gray-500 flex justify-between">
                             <span>Category: {medication.category}</span>
                             <span>Available: {medication.batches?.reduce((sum, batch) => sum + batch.quantity, 0) || 0}</span>
                           </div>
@@ -331,14 +298,14 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
                 )}
 
                 {step === 3 && selectedMedication && (
-                  <div className="space-y-2">
-                    <div className="flex flex-col gap-1">
-                      <Label>Select Batch</Label>
+                  <div className="space-y-1">
+                    <div className="flex flex-col gap-0.5">
+                      <Label className="text-xs">Select Batch</Label>
                       <Select
                         value={selectedBatchId}
                         onValueChange={(value) => setSelectedBatchId(value)}
                       >
-                        <SelectTrigger className="w-full">
+                        <SelectTrigger className="w-full h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
                           <SelectValue placeholder="Select a batch" />
                         </SelectTrigger>
                         <SelectContent>
@@ -351,32 +318,15 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
                       </Select>
                     </div>
 
-                    <div className="flex flex-col gap-1">
-                      <Label>Quantity</Label>
+                    <div className="flex flex-col gap-0.5">
+                      <Label className="text-xs">Quantity</Label>
                       <Input
                         type="number"
                         min="1"
                         value={quantity}
                         onChange={(e) => setQuantity(parseInt(e.target.value))}
-                        className="w-full"
+                        className="w-full h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
                       />
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <Label>Payment Method</Label>
-                      <Select
-                        value={paymentMethod}
-                        onValueChange={(value: 'cash' | 'mpesa' | 'bank') => setPaymentMethod(value)}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select payment method" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="cash">Cash</SelectItem>
-                          <SelectItem value="mpesa">M-Pesa</SelectItem>
-                          <SelectItem value="bank">Bank Transfer</SelectItem>
-                        </SelectContent>
-                      </Select>
                     </div>
                   </div>
                 )}
@@ -389,6 +339,7 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
                   onClick={() => setStep(step - 1)}
                   disabled={step === 1 || isSubmitting}
                   size="sm"
+                  className="h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200 hover:from-blue-100 hover:to-blue-200"
                 >
                   Back
                 </Button>
@@ -397,6 +348,7 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
                     onClick={handleAddItem}
                     disabled={!selectedMedication || !selectedBatchId || !quantity || isSubmitting}
                     size="sm"
+                    className="h-8 bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700"
                   >
                     Add Item
                   </Button>
@@ -405,6 +357,7 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
                     onClick={() => setStep(step + 1)}
                     disabled={step === 1 ? !selectedPatient : step === 2 ? !selectedMedication : false}
                     size="sm"
+                    className="h-8 bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700"
                   >
                     Next
                   </Button>
@@ -413,27 +366,49 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
             </div>
 
             {/* Right Column - Current Sale Items */}
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <h3 className="font-medium text-sm">Current Sale Items</h3>
-                <div className="max-h-[calc(100vh-300px)] overflow-y-auto">
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <h3 className="font-medium text-xs">Current Sale Items</h3>
+                <div className="max-h-[150px] overflow-y-auto">
                   {items.map((item, index) => (
-                    <div key={index} className="p-2 border rounded-lg mb-1 flex flex-col">
-                      <div className="font-medium text-sm">{item.medication.name}</div>
-                      <div className="text-xs text-gray-500 flex justify-between">
-                        <span>Batch: {item.batch.batch_number}</span>
-                        <span>Qty: {item.quantity} x ${item.unit_price}</span>
+                    <div key={index} className="p-1 border rounded-lg mb-0.5 flex flex-col bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="font-medium text-xs">{item.medication.name}</div>
+                          <div className="text-[10px] text-gray-500 flex justify-between">
+                            <span>Batch: {item.batch.batch_number}</span>
+                            <span>Qty: {item.quantity} x ${item.unit_price}</span>
+                          </div>
+                          <div className="text-[10px] font-medium text-right">Total: ${item.total_price}</div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 w-5 p-0"
+                          onClick={() => handleRemoveItem(index)}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="text-red-500"
+                          >
+                            <path d="M18 6 6 18" />
+                            <path d="m6 6 12 12" />
+                          </svg>
+                        </Button>
                       </div>
-                      <div className="text-xs font-medium text-right">Total: ${item.total_price}</div>
                     </div>
                   ))}
                 </div>
-                <div className="text-right space-y-1">
-                  <div className="text-xs text-gray-600">Pharmacy Total: ${pharmacyTotal.toFixed(2)}</div>
-                  {appointmentsTotal > 0 && (
-                    <div className="text-xs text-gray-600">Appointments Total: ${appointmentsTotal.toFixed(2)}</div>
-                  )}
-                  <div className="text-sm font-semibold">Grand Total: ${grandTotal.toFixed(2)}</div>
+                <div className="text-right space-y-0.5">
+                  <div className="text-[10px] text-gray-600">Pharmacy Total: ${pharmacyTotal.toFixed(2)}</div>
                 </div>
               </div>
 
@@ -443,7 +418,7 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
                   <Button
                     onClick={handleSubmit}
                     disabled={isSubmitting}
-                    className="w-full md:w-auto"
+                    className="w-full md:w-auto h-8 bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700"
                     size="sm"
                   >
                     {isSubmitting ? "Processing..." : "Complete Sale"}
@@ -454,50 +429,6 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
           </div>
         </div>
       </div>
-
-      {/* Receipt Dialog */}
-      {showReceipt && receiptContent && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 z-50">
-          <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] overflow-auto">
-            <div className="p-2 border-b flex justify-between items-center sticky top-0 bg-white z-10">
-              <h2 className="text-base font-semibold">Receipt</h2>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const blob = new Blob([receiptContent], { type: 'text/plain' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `receipt-${Date.now()}.txt`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  }}
-                >
-                  <Download className="h-3 w-3 mr-1" />
-                  Download
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setShowReceipt(false);
-                    router.push("/pharmacy/sales");
-                  }}
-                >
-                  Close
-                </Button>
-              </div>
-            </div>
-            <div className="p-2">
-              <pre className="whitespace-pre-wrap font-mono text-xs">
-                {receiptContent}
-              </pre>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 } 

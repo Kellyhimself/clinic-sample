@@ -26,10 +26,12 @@ import {
   Receipt,
   Truck,
   X,
-  Menu
+  Menu,
+  CreditCard,
+  LineChart
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { fetchBasicMedications, fetchInventory, fetchUserRole } from '@/lib/authActions';
+import { fetchBasicMedications, fetchInventory, getAllPendingPayments } from '@/lib/authActions';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
@@ -70,6 +72,38 @@ export default function Sidebar({ userRole }: { userRole: string }) {
   const [hasStockAlerts, setHasStockAlerts] = useState(false);
   const [lowStockCount, setLowStockCount] = useState(0);
   const [expiringCount, setExpiringCount] = useState(0);
+  const [pendingPaymentsCount, setPendingPaymentsCount] = useState(0);
+  const [pendingAppointments, setPendingAppointments] = useState(0); 
+  const [pendingSales, setPendingSales] = useState(0);
+  
+  // Debug userRole
+  useEffect(() => {
+    console.log("Sidebar received userRole:", userRole);
+  }, [userRole]);
+
+  // Check for pending payments (for admin and cashier roles)
+  useEffect(() => {
+    if (!['admin', 'cashier'].includes(userRole)) {
+      return;
+    }
+
+    const checkPendingPayments = async () => {
+      try {
+        // Use the new comprehensive function
+        const pendingPayments = await getAllPendingPayments();
+        setPendingPaymentsCount(pendingPayments.total);
+        setPendingAppointments(pendingPayments.appointmentsCount);
+        setPendingSales(pendingPayments.salesCount);
+      } catch (error) {
+        console.error('Error checking pending payments:', error);
+      }
+    };
+
+    checkPendingPayments();
+    // Check every 5 minutes for new pending payments
+    const interval = setInterval(checkPendingPayments, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [userRole]);
 
   // Only set up inventory checks for admin and pharmacist roles
   useEffect(() => {
@@ -79,13 +113,13 @@ export default function Sidebar({ userRole }: { userRole: string }) {
 
     const checkStockAlerts = async () => {
       try {
-        const role = await fetchUserRole();
-        const data = role === 'admin' || role === 'pharmacist' 
+        // Get medications based on role
+        const data = userRole === 'admin' || userRole === 'pharmacist' 
           ? await fetchInventory()
           : await fetchBasicMedications();
         
         // Only show alerts for admin/pharmacist
-        if (role === 'admin' || role === 'pharmacist') {
+        if (userRole === 'admin' || userRole === 'pharmacist') {
           let lowStock = 0;
           let expiring = 0;
           
@@ -100,6 +134,7 @@ export default function Sidebar({ userRole }: { userRole: string }) {
           
           setLowStockCount(lowStock);
           setExpiringCount(expiring);
+          setHasStockAlerts(lowStock > 0 || expiring > 0);
         }
       } catch (error) {
         console.error('Error checking stock alerts:', error);
@@ -116,11 +151,38 @@ export default function Sidebar({ userRole }: { userRole: string }) {
     if (pathname === '/pharmacy/stock-alerts') {
       setHasStockAlerts(false);
     }
+    
+    // Clear payment alerts when visiting the cashier page
+    if (pathname === '/cashier') {
+      setPendingPaymentsCount(0);
+    }
   }, [pathname]);
 
   const baseNavItems: NavItem[] = [
     { label: 'Dashboard', href: '/dashboard', icon: <Home size={18} /> },
     { label: 'Book Appointment', href: '/bookAppointment', icon: <Calendar size={18} /> },
+    { 
+      label: 'Cashier',
+      href: '/cashier',
+      icon: <CreditCard size={18} />,
+      roles: ['admin', 'cashier'],
+      subItems: [
+        { 
+          label: 'Process Payments', 
+          href: '/cashier', 
+          icon: <DollarSign size={18} />,
+          roles: ['admin', 'cashier'],
+          hasAlerts: pendingPaymentsCount > 0,
+          alertCount: pendingPaymentsCount
+        },
+        { 
+          label: 'Payment History', 
+          href: '/cashier/history', 
+          icon: <History size={18} />,
+          roles: ['admin', 'cashier']
+        }
+      ]
+    },
     { 
       label: 'Pharmacy',
       href: '/pharmacy',
@@ -151,7 +213,8 @@ export default function Sidebar({ userRole }: { userRole: string }) {
           href: '/pharmacy/stock-alerts', 
           icon: <AlertCircle size={18} />,
           roles: ['admin', 'pharmacist'],
-          hasAlerts: hasStockAlerts
+          hasAlerts: hasStockAlerts,
+          alertCount: lowStockCount + expiringCount
         },
         { 
           label: 'Restock', 
@@ -213,6 +276,38 @@ export default function Sidebar({ userRole }: { userRole: string }) {
         }
       ],
     },
+    { 
+      label: 'Reports & Analytics', 
+      href: '/reports', 
+      icon: <LineChart size={18} />, 
+      roles: ['admin', 'staff', 'doctor', 'pharmacist', 'cashier'],
+      subItems: [
+        { 
+          label: 'Dashboard', 
+          href: '/reports', 
+          icon: <BarChart size={18} />,
+          roles: ['admin', 'staff', 'doctor', 'pharmacist', 'cashier']
+        },
+        { 
+          label: 'Pharmacy Sales', 
+          href: '/reports?tab=pharmacy', 
+          icon: <ShoppingCart size={18} />,
+          roles: ['admin', 'pharmacist']
+        },
+        { 
+          label: 'Clinical Services', 
+          href: '/reports?tab=services', 
+          icon: <ClipboardList size={18} />,
+          roles: ['admin', 'doctor', 'staff']
+        },
+        { 
+          label: 'Financial', 
+          href: '/reports?tab=financial', 
+          icon: <DollarSign size={18} />,
+          roles: ['admin', 'cashier']
+        }
+      ] 
+    },
   ];
 
   const adminNavItems: NavItem[] = [
@@ -261,12 +356,23 @@ export default function Sidebar({ userRole }: { userRole: string }) {
     },
   ];
 
-  const navItems: NavItem[] = [
-    ...baseNavItems,
-    ...(userRole === 'admin' || userRole === 'staff' ? staffNavItems : []),
-    ...(userRole === 'admin' || userRole === 'doctor' ? doctorNavItems : []),
-    ...(userRole === 'admin' ? adminNavItems : []),
-  ];
+  // Add all appropriate menus based on the user role
+  let navItems: NavItem[] = [...baseNavItems];
+  
+  // Add staff menus for admin and staff roles
+  if (userRole === 'admin' || userRole === 'staff') {
+    navItems = [...navItems, ...staffNavItems];
+  }
+  
+  // Add doctor menus for admin and doctor roles
+  if (userRole === 'admin' || userRole === 'doctor') {
+    navItems = [...navItems, ...doctorNavItems];
+  }
+  
+  // Add admin menus for admin only
+  if (userRole === 'admin') {
+    navItems = [...navItems, ...adminNavItems];
+  }
 
   // Helper function to check if user has access to an item
   const hasAccess = (item: NavItem | SubNavItem) => {
@@ -282,26 +388,26 @@ export default function Sidebar({ userRole }: { userRole: string }) {
 
   return (
     <aside className={cn(
-      "h-screen bg-gradient-to-b from-blue-50 to-teal-50 border-r shadow-lg flex flex-col p-4 transition-all duration-300",
+      "h-screen bg-gradient-to-b from-blue-100 to-teal-100 border-r border-blue-200 shadow-md flex flex-col p-4 transition-all duration-300",
       isCollapsed ? "w-0 p-0 border-0" : "w-64"
     )}>
       <div className={cn(
         "flex items-center justify-between mb-6",
         isCollapsed ? "hidden" : ""
       )}>
-        <h1 className="text-xl font-bold text-center text-blue-700">ClinicPanel</h1>
+        <h1 className="text-xl font-bold text-center text-blue-700 bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent">ClinicPanel</h1>
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setIsCollapsed(true)}
-          className="md:hidden"
+          className="md:hidden text-blue-600 hover:text-blue-700 hover:bg-blue-100 rounded-full"
         >
           <X className="h-4 w-4" />
         </Button>
       </div>
       <ScrollArea className={cn("flex-1", isCollapsed ? "hidden" : "")}>
         <nav className="space-y-2">
-          <div className="text-sm text-gray-600 mb-2 px-2">Role: <span className="font-medium">{userRole}</span></div>
+          <div className="text-sm text-blue-700 mb-2 px-2 font-medium">Role: <span className="font-semibold bg-blue-100 px-2 py-0.5 rounded-full">{userRole}</span></div>
           {navItems.map((item) => (
             hasAccess(item) && (
             <div key={item.label}>
@@ -310,22 +416,22 @@ export default function Sidebar({ userRole }: { userRole: string }) {
                   <DropdownMenuTrigger asChild>
                       <Button 
                         variant="ghost" 
-                        className="w-full flex items-center justify-between p-2 rounded-md text-gray-700 hover:bg-blue-100 focus:outline-none"
+                        className="w-full flex items-center justify-between p-2 rounded-lg text-blue-700 hover:bg-blue-100 focus:outline-none"
                         onClick={handleItemClick}
                       >
                         <span className="flex items-center gap-3 font-medium text-sm">{item.icon} {item.label}</span>
-                      <ChevronDown className="h-4 w-4 text-gray-600" />
+                      <ChevronDown className="h-4 w-4 text-blue-600" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56 bg-white shadow-lg rounded-md border border-gray-200">
-                      <DropdownMenuLabel className="font-semibold text-gray-700 text-sm">{item.label}</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
+                  <DropdownMenuContent className="w-56 bg-white shadow-lg rounded-lg border border-blue-100">
+                      <DropdownMenuLabel className="font-semibold text-blue-700 text-sm">{item.label}</DropdownMenuLabel>
+                    <DropdownMenuSeparator className="bg-blue-100" />
                     {item.subItems.map((subItem) => (
                         hasAccess(subItem) && (
                       <DropdownMenuItem key={subItem.label} asChild>
                             <Link 
                               href={subItem.href} 
-                              className={`flex items-center p-2 text-gray-700 hover:bg-blue-50 font-medium text-sm ${pathname === subItem.href ? 'bg-blue-100' : ''}`}
+                              className={`flex items-center p-2 text-blue-600 hover:bg-blue-50 font-medium text-sm ${pathname === subItem.href ? 'bg-blue-100 text-blue-700 rounded-md' : ''}`}
                               onClick={handleItemClick}
                             >
                           {subItem.icon && <span className="mr-2">{subItem.icon}</span>}
@@ -335,15 +441,22 @@ export default function Sidebar({ userRole }: { userRole: string }) {
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <span className="ml-auto">
-                                        <span className="relative flex h-3 w-3">
-                                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                          <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                                        <span className="relative flex h-5 w-5">
+                                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                          <span className="relative inline-flex rounded-full h-5 w-5 bg-amber-500 items-center justify-center text-white text-xs font-bold">
+                                            {subItem.alertCount}
+                                          </span>
                                         </span>
                                       </span>
                                     </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p className="text-xs">
-                                        {lowStockCount} low stock, {expiringCount} expiring
+                                    <TooltipContent className="bg-white border border-blue-100 shadow-md">
+                                      <p className="text-xs text-blue-700">
+                                        {subItem.href === '/pharmacy/stock-alerts' 
+                                          ? `${lowStockCount} low stock and ${expiringCount} expiring items` 
+                                          : subItem.href === '/cashier'
+                                            ? `${pendingAppointments} unpaid appointments and ${pendingSales} unpaid sales`
+                                            : `${subItem.alertCount} pending payment${subItem.alertCount !== 1 ? 's' : ''}`
+                                        }
                                       </p>
                                     </TooltipContent>
                                   </Tooltip>
@@ -358,7 +471,7 @@ export default function Sidebar({ userRole }: { userRole: string }) {
               ) : (
                   <Link 
                     href={item.href} 
-                    className={`flex items-center gap-3 p-2 rounded-md text-gray-700 hover:bg-blue-100 font-medium text-sm ${pathname === item.href ? 'bg-blue-100' : ''}`}
+                    className={`flex items-center gap-3 p-2 rounded-lg text-blue-600 hover:bg-blue-100 font-medium text-sm ${pathname === item.href ? 'bg-blue-100 text-blue-700' : ''}`}
                     onClick={handleItemClick}
                   >
                   {item.icon} <span>{item.label}</span>
@@ -374,7 +487,7 @@ export default function Sidebar({ userRole }: { userRole: string }) {
           variant="ghost"
           size="icon"
           onClick={() => setIsCollapsed(false)}
-          className="absolute top-4 left-4 md:hidden"
+          className="absolute top-4 left-4 md:hidden bg-blue-100 text-blue-600 hover:bg-blue-200 hover:text-blue-700 rounded-full shadow-md"
         >
           <Menu className="h-6 w-6" />
         </Button>

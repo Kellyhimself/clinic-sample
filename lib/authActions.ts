@@ -14,7 +14,6 @@ import axios, { AxiosError } from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import type { PostgrestError } from '@supabase/supabase-js';
 
 // Define types from database schema
 type MedicationBatchRow = Database['public']['Tables']['medication_batches']['Row'];
@@ -26,7 +25,8 @@ export type Appointment = {
   status: 'pending' | 'confirmed' | 'cancelled';
   notes: string;
   services: { name: string; price: number; duration: number } | null;
-  profiles: { full_name: string } | null;
+  patient: { full_name: string } | null;
+  doctor: { full_name: string } | null;
   payment_status?: 'unpaid' | 'paid' | 'refunded';
   payment_method?: 'mpesa' | 'cash' | 'bank';
   transaction_id: string | null;
@@ -246,13 +246,53 @@ export async function signup(formData: FormData) {
   }
 }
 
-export async function login(formData: FormData) {
-  const supabase = await getSupabaseClient();
-  const email = formData.get('email') as string;
-  const password = formData.get('password') as string;
+export async function login(email: string, password: string) {
+  try {
+    const supabase = await getSupabaseClient();
+    
+    // Sign in with password
+    const { data, error } = await supabase.auth.signInWithPassword({ 
+      email, 
+      password 
+    });
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) throw error;
+    if (error) {
+      console.error('Login error:', error);
+      return { error };
+    }
+
+    if (!data.session) {
+      console.error('No session created after login');
+      return { error: new Error('No session created') };
+    }
+
+    // Explicitly set session to ensure cookies are set properly
+    try {
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      });
+      
+      if (sessionError) {
+        console.error('Error setting session:', sessionError);
+        return { error: sessionError };
+      }
+    } catch (sessionSetError) {
+      console.error('Exception setting session:', sessionSetError);
+      return { error: sessionSetError instanceof Error ? sessionSetError : new Error('Failed to set session') };
+    }
+
+    // Return success with session data
+    return { 
+      error: null, 
+      session: data.session,
+      user: data.user,
+      redirect: '/dashboard'
+    };
+  } catch (error) {
+    console.error('Unexpected login error:', error);
+    return { error: error instanceof Error ? error : new Error('Login failed') };
+  }
 }
 
 export async function fetchUserRole(): Promise<string> {
@@ -274,79 +314,154 @@ export async function fetchUserRole(): Promise<string> {
   return profile.role || 'patient';
 }
 
-export async function setUserRole(formData: FormData) {
+export async function setUserRole(formData: {
+  user_id: string;
+  role: string;
+  full_name: string;
+  // Doctor specific
+  license_number?: string;
+  specialty?: string;
+  department?: string;
+  // Patient specific
+  date_of_birth?: string;
+  gender?: string;
+  address?: string;
+  // Pharmacist specific
+  specialization?: string;
+  // Admin specific
+  permissions?: string[];
+}) {
   const supabase = await getSupabaseClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) throw new Error('You must be logged in to set roles');
+  const { data: { user } } = await supabase.auth.getUser();
 
-  // Verify admin role
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-  if (profileError || profile?.role !== 'admin') {
-    throw new Error('Only admins can set user roles');
+  if (!user) {
+    throw new Error('User not authenticated');
   }
 
-  const userId = formData.get('userId') as string;
-  const newRole = formData.get('role') as string;
-  const currentRole = formData.get('currentRole') as string;
-
-  // Validate input
-  if (!userId || !newRole || !['admin', 'staff', 'patient', 'doctor', 'pharmacist'].includes(newRole)) {
-    throw new Error('Invalid user ID or role');
+  // Validate required fields
+  if (!formData.user_id) {
+    throw new Error('User ID is required');
   }
 
-  // Get user details before role change
-  const { data: userProfile, error: userProfileError } = await supabase
-    .from('profiles')
-    .select('full_name, phone_number')
-    .eq('id', userId)
-    .single();
-
-  if (userProfileError || !userProfile) {
-    throw new Error('Failed to fetch user profile');
+  if (!formData.full_name) {
+    throw new Error('Full name is required');
   }
 
   try {
-    // Call the database function to handle role change
-    const { error: roleChangeError } = await supabase.rpc('update_user_role', {
-      p_user_id: userId,
-      p_new_role: newRole,
-      p_full_name: userProfile.full_name,
-      p_phone_number: userProfile.phone_number || '',
-      p_license_number: formData.get('license_number') as string || '',
-      p_specialty: formData.get('specialty') as string || '',
-      p_date_of_birth: formData.get('date_of_birth') as string || '',
-      p_gender: formData.get('gender') as string || '',
-      p_address: formData.get('address') as string || '',
-      p_specialization: formData.get('specialization') as string || '',
-      p_department: formData.get('department') as string || '',
-      p_permissions: (formData.get('permissions') as string)?.split(',') || []
-    });
+    // Get the current role from profiles
+    const { data: currentProfile, error: profileError } = await supabase
+    .from('profiles')
+    .select('role')
+      .eq('id', formData.user_id)
+    .single();
 
-    if (roleChangeError) {
-      throw new Error(`Failed to update user role: ${roleChangeError.message}`);
+    if (profileError) {
+      throw new Error('Failed to fetch current role');
+    }
+
+    // Delete from old role table if exists
+    if (currentProfile?.role) {
+      switch (currentProfile.role) {
+        case 'doctor':
+          await supabase.from('doctors').delete().eq('user_id', formData.user_id);
+          break;
+        case 'patient':
+          await supabase.from('patients').delete().eq('user_id', formData.user_id);
+          break;
+        case 'pharmacist':
+          await supabase.from('pharmacists').delete().eq('user_id', formData.user_id);
+          break;
+        case 'admin':
+          await supabase.from('admins').delete().eq('user_id', formData.user_id);
+          break;
+      }
+    }
+
+    // Update profile with new role
+    const { error: updateError } = await supabase
+    .from('profiles')
+      .update({ role: formData.role })
+      .eq('id', formData.user_id);
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    // Insert into new role table
+    switch (formData.role) {
+      case 'doctor':
+        if (!formData.license_number || !formData.specialty) {
+          throw new Error('License number and specialty are required for doctors');
+        }
+        // First delete any existing record
+        await supabase.from('doctors').delete().eq('user_id', formData.user_id);
+        // Then insert the new record
+        const { error: doctorError } = await supabase.from('doctors').insert({
+          id: formData.user_id,
+          user_id: formData.user_id,
+          license_number: formData.license_number,
+          specialty: formData.specialty
+        });
+        if (doctorError) {
+          throw doctorError;
+        }
+        break;
+
+      case 'patient':
+        if (!formData.date_of_birth || !formData.gender || !formData.address) {
+          throw new Error('Date of birth, gender, and address are required for patients');
+        }
+        await supabase.from('patients').upsert({
+          id: formData.user_id,
+          user_id: formData.user_id,
+          full_name: formData.full_name,
+          date_of_birth: formData.date_of_birth,
+          gender: formData.gender,
+          address: formData.address
+        });
+        break;
+
+      case 'pharmacist':
+        if (!formData.license_number) {
+          throw new Error('License number is required for pharmacists');
+        }
+        await supabase.from('pharmacists').upsert({
+          id: formData.user_id,
+          user_id: formData.user_id,
+          full_name: formData.full_name,
+          license_number: formData.license_number,
+          specialization: formData.specialization
+        });
+        break;
+
+      case 'admin':
+        await supabase.from('admins').upsert({
+          id: formData.user_id,
+          user_id: formData.user_id,
+          full_name: formData.full_name,
+          permissions: formData.permissions
+        });
+        break;
+
+      default:
+        throw new Error(`Invalid role: ${formData.role}`);
     }
 
     // Log the role change
     await supabase.from('audit_logs').insert({
       action: 'role_change',
-      entity_id: userId,
-      entity_type: 'profile',
+      entity_type: 'user',
+      entity_id: formData.user_id,
       details: {
-        from_role: currentRole,
-        to_role: newRole,
-        changed_by: user.id
+        new_role: formData.role,
+        previous_role: currentProfile?.role
       },
       created_by: user.id,
     });
 
-    return { success: true };
   } catch (error) {
     console.error('Role change error:', error);
-    throw error;
+    throw new Error(`Failed to update user role: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -387,6 +502,17 @@ export async function bookAppointment(formData: FormData) {
 
   if ((!serviceId && !customService) || !date || !time || !doctorId) {
     throw new Error('Service (or custom service), date, time, and doctor are required');
+  }
+
+  // Check if the selected doctor exists and is properly registered
+  const { data: doctor, error: doctorError } = await supabase
+    .from('doctors')
+    .select('user_id')
+    .eq('user_id', doctorId)
+    .single();
+
+  if (doctorError || !doctor) {
+    throw new Error('Selected doctor is not registered in the system. Please select a valid doctor.');
   }
 
   // Check if user is registered as a patient
@@ -451,13 +577,31 @@ export async function bookAppointment(formData: FormData) {
     throw new Error('Failed to book appointment. Please try again or contact support if the issue persists.');
   }
 
-  return data;
+  return { success: true, data };
 }
 
 export async function handleBooking(formData: FormData) {
-  await bookAppointment(formData);
-  revalidatePath("/appointments");
-  redirect("/appointments");
+  try {
+    const result = await bookAppointment(formData);
+    if (result.success) {
+      revalidatePath("/appointments");
+      return { 
+        success: true, 
+        message: "Appointment booked successfully!",
+        data: result.data
+      };
+    } else {
+      return { 
+        success: false, 
+        message: "Failed to book appointment. Please try again."
+      };
+    }
+  } catch (error) {
+    return { 
+      success: false, 
+      message: error instanceof Error ? error.message : "An unexpected error occurred. Please try again."
+    };
+  }
 }
 
 export async function getAuthData() {
@@ -514,38 +658,134 @@ export async function fetchAppointments(userRole: string, userId?: string) {
         doctor_id,
         payment_status,
         payment_method,
-        transaction_id
+        transaction_id,
+        patient:patients (
+          full_name
+        )
       `);
 
     if (userRole === 'patient' && userId) {
       query = query.eq('patient_id', userId);
     }
 
-    const { data: appointments, error } = await query;
+    const { data: appointments, error: fetchError } = await query;
 
-    if (error) {
-      console.error('Error fetching appointments:', error);
+    if (fetchError) {
+      console.error('Error fetching appointments:', fetchError);
       return [];
     }
 
-    // Get unique doctor IDs
-    const doctorIds = [...new Set(appointments.map(appt => appt.doctor_id))];
+    if (!appointments) {
+      return [];
+    }
 
-    // Fetch doctor profiles directly from profiles table
+    // Get unique doctor IDs and filter out any null/undefined values
+    const doctorIds = [...new Set(appointments
+      .map(appt => appt.doctor_id)
+      .filter((id): id is string => id !== null && id !== undefined)
+    )];
+
+    if (doctorIds.length === 0) {
+      return appointments.map((appt) => ({
+        id: appt.id,
+        date: appt.date,
+        time: appt.time,
+        status: appt.status as 'pending' | 'confirmed' | 'cancelled',
+        notes: appt.notes || '',
+        services: appt.services ? {
+          name: appt.services.name,
+          price: appt.services.price,
+          duration: appt.services.duration
+        } : null,
+        patient: appt.patient ? {
+          full_name: appt.patient.full_name
+        } : null,
+        doctor: null,
+        payment_status: appt.payment_status as 'unpaid' | 'paid' | 'refunded' | undefined,
+        payment_method: appt.payment_method as 'mpesa' | 'cash' | 'bank' | undefined,
+        transaction_id: appt.transaction_id || null
+      }));
+    }
+
+    // First fetch doctors to get their user_ids
+    const { data: doctors, error: doctorsError } = await supabase
+      .from('doctors')
+      .select('id, user_id')
+      .in('id', doctorIds);
+
+    if (doctorsError) {
+      console.error('Error fetching doctors:', doctorsError);
+      return [];
+    }
+
+    if (!doctors || doctors.length === 0) {
+      return appointments.map((appt) => ({
+        id: appt.id,
+        date: appt.date,
+        time: appt.time,
+        status: appt.status as 'pending' | 'confirmed' | 'cancelled',
+        notes: appt.notes || '',
+        services: appt.services ? {
+          name: appt.services.name,
+          price: appt.services.price,
+          duration: appt.services.duration
+        } : null,
+        patient: appt.patient ? {
+          full_name: appt.patient.full_name
+        } : null,
+        doctor: null,
+        payment_status: appt.payment_status as 'unpaid' | 'paid' | 'refunded' | undefined,
+        payment_method: appt.payment_method as 'mpesa' | 'cash' | 'bank' | undefined,
+        transaction_id: appt.transaction_id || null
+      }));
+    }
+
+    // Get unique user IDs from doctors and filter out any null/undefined values
+    const userIds = doctors
+      .map(doc => doc.user_id)
+      .filter((id): id is string => id !== null && id !== undefined);
+
+    if (userIds.length === 0) {
+      return appointments.map((appt) => ({
+        id: appt.id,
+        date: appt.date,
+        time: appt.time,
+        status: appt.status as 'pending' | 'confirmed' | 'cancelled',
+        notes: appt.notes || '',
+        services: appt.services ? {
+          name: appt.services.name,
+          price: appt.services.price,
+          duration: appt.services.duration
+        } : null,
+        patient: appt.patient ? {
+          full_name: appt.patient.full_name
+        } : null,
+        doctor: null,
+        payment_status: appt.payment_status as 'unpaid' | 'paid' | 'refunded' | undefined,
+        payment_method: appt.payment_method as 'mpesa' | 'cash' | 'bank' | undefined,
+        transaction_id: appt.transaction_id || null
+      }));
+    }
+
+    // Then fetch profiles using the user_ids
     const { data: profiles, error: profileError } = await supabase
       .from('profiles')
       .select('id, full_name')
-      .in('id', doctorIds);
+      .in('id', userIds);
 
     if (profileError) {
-      console.error('Error fetching doctor profiles:', profileError);
+      console.error('Error fetching profiles:', profileError);
       return [];
     }
 
-    // Create a map of doctor_id to profile
-    const doctorProfileMap = new Map(
-      profiles?.map(profile => [profile.id, profile.full_name]) || []
-    );
+    // Create a map of doctor_id to full_name
+    const doctorProfileMap = new Map<string, string>();
+    doctors.forEach(doctor => {
+      const profile = profiles?.find(p => p.id === doctor.user_id);
+      if (profile?.full_name) {
+        doctorProfileMap.set(doctor.id, profile.full_name);
+      }
+    });
 
     return appointments.map((appt) => ({
       id: appt.id,
@@ -558,7 +798,10 @@ export async function fetchAppointments(userRole: string, userId?: string) {
         price: appt.services.price,
         duration: appt.services.duration
       } : null,
-      profiles: appt.doctor_id ? {
+      patient: appt.patient ? {
+        full_name: appt.patient.full_name
+      } : null,
+      doctor: appt.doctor_id ? {
         full_name: doctorProfileMap.get(appt.doctor_id) || 'Unknown Doctor'
       } : null,
       payment_status: appt.payment_status as 'unpaid' | 'paid' | 'refunded' | undefined,
@@ -578,21 +821,41 @@ export async function processMpesaPayment(formData: FormData): Promise<{ success
 
   console.log('Server-side FormData:', Object.fromEntries(formData.entries()));
 
-  const appointmentId = formData.get('id') as string;
+  const id = formData.get('id') as string;
+  const type = formData.get('type') as 'appointment' | 'sale';
   const amount = Number(formData.get('amount'));
   const phoneNumber = formData.get('phone') as string;
 
-  if (!appointmentId || !amount || !phoneNumber) {
+  if (!id || !type || !amount || !phoneNumber) {
     const missing = [];
-    if (!appointmentId) missing.push('id');
+    if (!id) missing.push('id');
+    if (!type) missing.push('type');
     if (!amount) missing.push('amount');
     if (!phoneNumber) missing.push('phone');
     throw new Error(`Missing required fields: ${missing.join(', ')}`);
   }
   if (isNaN(amount) || amount <= 0) throw new Error('Invalid amount');
 
-  const formattedPhone = phoneNumber.startsWith('0') ? `254${phoneNumber.slice(1)}` : phoneNumber;
-  if (!formattedPhone.match(/^2547\d{8}$/)) throw new Error('Invalid phone number format');
+  // More robust phone number formatting
+  // Remove any non-digit characters first
+  let formattedPhone = phoneNumber.replace(/\D/g, '');
+  
+  // Apply the appropriate formatting based on the input format
+  if (formattedPhone.startsWith('254')) {
+    // Already in international format - keep as is
+  } else if (formattedPhone.startsWith('0')) {
+    // Convert 07XXXXXXXX to 2547XXXXXXXX
+    formattedPhone = `254${formattedPhone.substring(1)}`;
+  } else if (formattedPhone.startsWith('7') || formattedPhone.startsWith('1')) {
+    // For numbers starting with 7 or 1, add 254 prefix
+    formattedPhone = `254${formattedPhone}`;
+  }
+  
+  // Validate the final format - should be 12 digits for 254XXXXXXXXX format
+  // or 13 digits for 254XXXXXXXXXX format (some Kenyan numbers)
+  if (!formattedPhone.match(/^254\d{9,10}$/)) {
+    throw new Error('Invalid phone number format. Please use format 07XXXXXXXX or 254XXXXXXXXX');
+  }
 
   const consumerKey = process.env.MPESA_CONSUMER_KEY;
   const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
@@ -626,8 +889,8 @@ export async function processMpesaPayment(formData: FormData): Promise<{ success
     PartyB: shortCode,
     PhoneNumber: formattedPhone,
     CallBackURL: `${process.env.NEXT_PUBLIC_BASE_URL}/api/mpesa-callback`,
-    AccountReference: `Appointment-${appointmentId}`,
-    TransactionDesc: `Payment for appointment ${appointmentId}`,
+    AccountReference: `${type}-${id}`,
+    TransactionDesc: `Payment for ${type} ${id}`,
   };
 
   console.log('STK Push Payload:', stkPushPayload);
@@ -641,13 +904,25 @@ export async function processMpesaPayment(formData: FormData): Promise<{ success
 
     if (data.ResponseCode === '0') {
       console.log('STK Push succeeded:', data);
+      
+      if (type === 'appointment') {
       await supabase
         .from('appointments')
         .update({
           payment_method: 'mpesa',
           transaction_id: data.CheckoutRequestID,
         })
-        .eq('id', appointmentId);
+          .eq('id', id);
+      } else {
+        await supabase
+          .from('sales')
+          .update({
+            payment_method: 'mpesa',
+            transaction_id: data.CheckoutRequestID,
+          })
+          .eq('id', id);
+      }
+      
       return { success: true, checkoutRequestId: data.CheckoutRequestID as string };
     } else {
       throw new Error(`M-Pesa failed: ${data.ResponseDescription || 'Unknown error'}`);
@@ -662,14 +937,21 @@ export async function processMpesaPayment(formData: FormData): Promise<{ success
     }
   }
 }
+
 export async function processCashPayment(formData: FormData) {
   const supabase = await getSupabaseClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) throw new Error('You must be logged in');
 
-  const appointmentId = formData.get('id') as string;
+  const id = formData.get('id') as string;
+  const type = formData.get('type') as 'appointment' | 'sale';
   const receiptNumber = formData.get('receiptNumber') as string;
 
+  if (!id || !type) {
+    throw new Error('Missing required fields: id and type');
+  }
+
+  if (type === 'appointment') {
   const { error } = await supabase
     .from('appointments')
     .update({
@@ -677,28 +959,63 @@ export async function processCashPayment(formData: FormData) {
       payment_method: 'cash',
       transaction_id: receiptNumber || `CASH-${Date.now()}`,
     })
-    .eq('id', appointmentId);
-
+      .eq('id', id);
   if (error) throw new Error(error.message);
+  } else {
+    const { error } = await supabase
+      .from('sales')
+      .update({
+        payment_status: 'paid',
+        payment_method: 'cash',
+        transaction_id: receiptNumber || `CASH-${Date.now()}`,
+      })
+      .eq('id', id);
+    if (error) throw new Error(error.message);
+  }
 
-  const receipt = await generateReceipt({ appointmentId });
-  return { success: true, receipt };
+  return { success: true };
 }
 
 export async function fetchDoctors() {
   const supabase = await getSupabaseClient();
-  const { data: doctors, error } = await supabase
+  
+  // First get all doctors from profiles
+  const { data: profiles, error: profilesError } = await supabase
     .from('profiles')
-    .select(`
-      id,
-      full_name,
-      role
-    `)
-    .eq('role', 'doctor')
-    .order('full_name', { ascending: true });
+    .select('id, full_name, role')
+    .eq('role', 'doctor');
 
-  if (error) throw new Error(`Failed to fetch doctors: ${error.message}`);
-  return doctors || [];
+  if (profilesError) {
+    throw new Error(`Failed to fetch doctor profiles: ${profilesError.message}`);
+  }
+
+  // Get user IDs
+  const userIds = profiles?.map(p => p.id) || [];
+  
+  // Fetch doctors table data
+  const { data: doctors, error: doctorsError } = await supabase
+    .from('doctors')
+    .select('user_id, license_number, specialty')
+    .in('user_id', userIds);
+
+  if (doctorsError) {
+    throw new Error(`Failed to fetch doctors table: ${doctorsError.message}`);
+  }
+
+  // Create a map of user IDs to doctor data
+  const doctorMap = new Map(
+    doctors?.map(d => [
+      d.user_id,
+      { license_number: d.license_number, specialty: d.specialty }
+    ]) || []
+  );
+
+  return profiles?.map(profile => ({
+    id: profile.id,
+    full_name: profile.full_name,
+    license_number: doctorMap.get(profile.id)?.license_number || '',
+    specialty: doctorMap.get(profile.id)?.specialty || ''
+  })) || [];
 }
 
 // Fetch all patients
@@ -749,8 +1066,6 @@ export async function fetchMedications(): Promise<Medication[]> {
     is_active: med.is_active ?? true,
     created_at: med.created_at || new Date().toISOString(),
     updated_at: med.updated_at || new Date().toISOString(),
-    manufacturer: med.manufacturer || null,
-    barcode: med.barcode || null,
     shelf_location: med.shelf_location || null,
     last_restocked_at: med.last_restocked_at || null,
     last_sold_at: med.last_sold_at || null,
@@ -767,7 +1082,11 @@ export async function fetchMedications(): Promise<Medication[]> {
 }
 
 // Generate receipt
-export async function generateReceipt(params: { saleId?: string; appointmentId?: string } | string): Promise<string> {
+export async function generateReceipt(params: { 
+  patientId?: string;
+  appointments?: Appointment[];
+  sales?: Sale[];
+} | string): Promise<string> {
   const supabase = await getSupabaseClient();
   let receiptContent = '';
 
@@ -809,15 +1128,18 @@ export async function generateReceipt(params: { saleId?: string; appointmentId?:
 
     const medicationTotal = saleItems?.reduce((sum, item) => sum + item.total_price, 0) || 0;
 
-    // Fetch appointment details
+    // Fetch appointment details with services
     const { data: appointment, error: appointmentError } = await supabase
       .from('appointments')
       .select(`
+        id,
         services (
           name,
           price,
           duration
-        )
+        ),
+        payment_status,
+        payment_method
       `)
       .eq('id', params)
       .single();
@@ -848,103 +1170,66 @@ export async function generateReceipt(params: { saleId?: string; appointmentId?:
       medication_total: medicationTotal,
       appointment_total: appointmentTotal,
       appointments: appointment ? [{
-        services: appointment.services
+        services: appointment.services ? {
+          name: appointment.services.name,
+          price: appointment.services.price
+        } : null
       }] : undefined
     });
   } else {
-    // Handle object parameter
-    const { saleId, appointmentId } = params;
-    if (saleId) {
-      // Fetch sale details first to get patient_id
-      const { data: sale, error: saleError } = await supabase
-        .from('sales')
-        .select('patient_id, created_at')
-        .eq('id', saleId)
-        .single() as { 
-          data: Database['public']['Tables']['sales']['Row'] | null; 
-          error: PostgrestError | null;
-        };
+    // Handle object parameter with patientId, appointments, and sales
+    const { patientId, appointments, sales } = params;
 
-      if (saleError) {
-        console.error('Error fetching sale:', saleError);
-        return 'Error generating receipt. Please contact support.';
-      }
+    if (!patientId) {
+      return 'Error generating receipt. No patient ID provided.';
+    }
 
-      if (!sale) {
-        console.error('No sale found for ID:', saleId);
-        return 'Error generating receipt. No sale found.';
-      }
-
-      if (!sale.patient_id) {
-        console.error('No patient_id found for sale:', saleId);
-        return 'Error generating receipt. No patient found for this sale.';
-      }
-
-      // Fetch receipt details
-      const { data: receipt, error: receiptError } = await supabase
-        .from('receipts')
+    // Fetch patient details
+    const { data: patient, error: patientError } = await supabase
+      .from('profiles')
         .select('*')
-        .eq('sale_id', saleId)
+      .eq('id', patientId)
         .single();
 
-      if (receiptError) {
-        console.error('Error generating receipt for sale:', receiptError);
-        return 'Error generating receipt. Please contact support.';
-      }
+    if (patientError) {
+      console.error('Error fetching patient:', patientError);
+      return 'Error generating receipt. Patient not found.';
+    }
 
-      // Fetch appointment details
-      const { data: appointment, error: appointmentError } = await supabase
-        .from('appointments')
-        .select(`
-          services (
-            name,
-            price,
-            duration
-          )
-        `)
-        .eq('patient_id', sale.patient_id)
-        .eq('payment_status', 'unpaid')
-        .single();
+    // Calculate totals
+    const appointmentsTotal = appointments?.reduce((sum, app) => 
+        sum + (app.services?.price || 0), 0) || 0;
 
-      if (appointmentError) {
-        console.error('Error fetching appointment:', appointmentError);
-      }
+    const salesTotal = sales?.reduce((sum, sale) => 
+      sum + (sale.items?.reduce((itemSum: number, item) => 
+        itemSum + (item.quantity * item.unit_price), 0) || 0), 0) || 0;
 
-      const appointmentTotal = appointment?.services?.price || 0;
-
-      // Fetch sale items and medications
-      const { data: saleItems, error: saleItemsError } = await supabase
-        .from('sale_items')
-        .select(`
-          quantity,
-          unit_price,
-          total_price,
-          medications (
-            name,
-            dosage_form,
-            strength
-          ),
-          batch:medication_batches (
-            batch_number,
-            expiry_date
-          )
-        `)
-        .eq('sale_id', saleId);
-
-      if (saleItemsError) {
-        console.error('Error fetching sale items:', saleItemsError);
-      }
-
-      const medicationTotal = saleItems?.reduce((sum, item) => sum + item.total_price, 0) || 0;
+    const grandTotal = appointmentsTotal + salesTotal;
 
       receiptContent = formatReceipt({
-        ...receipt,
-        created_at: receipt.created_at || new Date().toISOString(),
-        items: saleItems?.map(item => ({
+      id: `REC-${Date.now()}`,
+      receipt_number: `REC-${Date.now()}`,
+      created_at: new Date().toISOString(),
+      amount: grandTotal,
+      payment_method: sales?.[0]?.payment_method || appointments?.[0]?.payment_method || 'cash',
+      patient: {
+        id: patient.id,
+        full_name: patient.full_name,
+        email: patient.email,
+        phone_number: patient.phone_number
+      },
+      appointments: appointments?.map(app => ({
+        id: app.id,
+        services: app.services,
+        payment_status: app.payment_status,
+        payment_method: app.payment_method
+      })),
+      items: sales?.flatMap(sale => 
+        sale.items?.map(item => ({
           medication: {
-            name: item.medications?.name || 'Unknown Medication',
-            dosage_form: item.medications?.dosage_form || '',
-            strength: item.medications?.strength || ''
+            name: item.medication?.name || 'Unknown Medication',
+            dosage_form: item.medication?.dosage_form || '',
+            strength: item.medication?.strength || ''
           },
           quantity: item.quantity,
           unit_price: item.unit_price,
@@ -953,45 +1238,12 @@ export async function generateReceipt(params: { saleId?: string; appointmentId?:
             batch_number: item.batch?.batch_number || '',
             expiry_date: item.batch?.expiry_date || ''
           }
-        })),
-        medication_total: medicationTotal,
-        appointment_total: appointmentTotal,
-        appointments: appointment ? [{
-          services: appointment.services
-        }] : undefined
-      });
-    } else if (appointmentId) {
-      const { data: appointment, error: appointmentError } = await supabase
-        .from('appointments')
-        .select(`
-          services (
-            name,
-            price,
-            duration
-          )
-        `)
-        .eq('id', appointmentId)
-        .single();
-
-      if (appointmentError) {
-        console.error('Error generating receipt for appointment:', appointmentError);
-        return 'Error generating receipt. Please contact support.';
-      }
-
-      const appointmentTotal = appointment?.services?.price || 0;
-
-      receiptContent = formatReceipt({
-        id: appointmentId,
-        receipt_number: `APT-${appointmentId}`,
-        created_at: new Date().toISOString(),
-        amount: appointmentTotal,
-        payment_method: 'appointment',
-        appointments: [{
-          services: appointment.services
-        }],
-        appointment_total: appointmentTotal
-      });
-    }
+        })) || []
+      ),
+      appointment_total: appointmentsTotal,
+      medication_total: salesTotal,
+      total_amount: grandTotal
+    });
   }
 
   return receiptContent;
@@ -1003,6 +1255,32 @@ export async function fetchInventory(search?: string): Promise<Medication[]> {
   const role = await fetchUserRole();
   if (!['admin', 'pharmacist'].includes(role)) {
     throw new Error('Unauthorized: Only admins and pharmacists can fetch inventory');
+  }
+
+  // Define the expected shape of medication data from the query
+  interface MedicationData {
+    id: string;
+    name: string;
+    category: string;
+    dosage_form: string;
+    strength: string;
+    unit_price: number;
+    description: string | null;
+    is_active: boolean | null;
+    created_at: string | null;
+    updated_at: string | null;
+    manufacturer: string | null;
+    barcode: string | null;
+    shelf_location: string | null;
+    last_restocked_at: string | null;
+    last_sold_at: string | null;
+    medication_batches: Array<{
+      id: string;
+      batch_number: string;
+      expiry_date: string;
+      quantity: number;
+      unit_price: number;
+    }>;
   }
 
   let query = supabase
@@ -1045,7 +1323,7 @@ export async function fetchInventory(search?: string): Promise<Medication[]> {
   }
 
   // Transform the data to match the Medication type
-  return (data || []).map(medication => ({
+  return (data as MedicationData[] || []).map(medication => ({
     ...medication,
     is_active: medication.is_active ?? true,
     created_at: medication.created_at || new Date().toISOString(),
@@ -1384,89 +1662,15 @@ export async function createSale(saleData: {
       if (itemError) throw itemError;
 
       // Decrement batch quantity
-      const { error: decrementError } = await supabase
-        .rpc('decrement_batch_quantity', {
-          p_batch_id: item.batch_id,
-          p_quantity: item.quantity,
-        });
+      const { error: decrementError } = await supabase.rpc('decrement_batch_quantity', {
+        p_batch_id: item.batch_id,
+        p_quantity: item.quantity
+      });
 
       if (decrementError) throw decrementError;
     }
 
-    // Update appointment payment statuses
-    if (unpaidAppointments && unpaidAppointments.length > 0) {
-      const { error: updateError } = await supabase
-        .from('appointments')
-        .update({ 
-          payment_status: 'paid',
-          payment_method: saleData.payment_method,
-          transaction_id: sale.id
-        })
-        .in('id', unpaidAppointments.map(app => app.id));
-
-      if (updateError) throw updateError;
-    }
-
-    // Fetch medication names
-    const medicationIds = saleData.items.map(item => item.medication_id);
-    const { data: medications, error: medError } = await supabase
-      .from('medications')
-      .select('id, name')
-      .in('id', medicationIds);
-
-    if (medError) {
-      console.error('Error fetching medications:', medError);
-      throw new Error(`Failed to fetch medications: ${medError.message}`);
-    }
-
-    // Create a map of medication IDs to names
-    const medicationMap = new Map(medications?.map(m => [m.id, m.name]) || []);
-
-    // Generate receipt content
-    const receiptData: ReceiptData = {
-      id: sale.id,
-      receipt_number: `RCP-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      created_at: new Date().toISOString(),
-      amount: grandTotal,
-      payment_method: saleData.payment_method,
-      items: saleData.items.map(item => ({
-        medication: { name: medicationMap.get(item.medication_id) || 'Unknown Medication' },
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        total_price: item.total_price
-      })),
-      appointments: unpaidAppointments?.map(app => ({
-        services: app.services
-      })),
-      medication_total: medicationTotal,
-      appointment_total: appointmentTotal
-    };
-
-    // Store the receipt in the database
-    const { error: receiptError } = await supabase
-      .from('receipts')
-      .insert({
-        id: receiptData.id,
-        receipt_number: receiptData.receipt_number,
-        created_at: receiptData.created_at || new Date().toISOString(),
-        amount: receiptData.amount,
-        payment_method: receiptData.payment_method,
-        sale_id: sale.id,
-        medication_total: medicationTotal,
-        appointment_total: appointmentTotal
-      });
-
-    if (receiptError) {
-      console.error('Error storing receipt:', receiptError);
-      throw new Error('Failed to store receipt');
-    }
-
-    return {
-      ...sale,
-      items: saleData.items,
-      appointments: unpaidAppointments,
-      receipt: formatReceipt(receiptData)
-    };
+    return { success: true, data: sale };
   } catch (error) {
     console.error('Error creating sale:', error);
     throw error;
@@ -1788,7 +1992,7 @@ export async function fetchPatientSummary(patientId: string): Promise<PatientSum
 export async function getUnpaidAppointments(patientId: string) {
   const supabase = await getSupabaseClient();
   
-  const { data: appointments, error } = await supabase
+  let query = supabase
     .from('appointments')
     .select(`
       id,
@@ -1797,8 +2001,15 @@ export async function getUnpaidAppointments(patientId: string) {
       services:service_id (name, price),
       payment_status
     `)
-    .eq('patient_id', patientId)
     .eq('payment_status', 'unpaid');
+  
+  // If patientId is 'all', we don't filter by patient_id
+  // For admin/cashier viewing all unpaid appointments
+  if (patientId !== 'all') {
+    query = query.eq('patient_id', patientId);
+  }
+
+  const { data: appointments, error } = await query;
 
   if (error) {
     console.error('Error fetching unpaid appointments:', error);
@@ -1812,4 +2023,398 @@ export async function getUnpaidAppointments(patientId: string) {
     services: app.services,
     payment_status: app.payment_status as 'unpaid' | 'paid' | 'refunded' | null
   }));
+}
+
+// Add a new function to fetch stock alerts
+export async function fetchStockAlerts(): Promise<{
+  lowStock: Array<{
+    medication: Medication;
+    batch: {
+      batch_number: string;
+      quantity: number;
+      expiry_date: string;
+    };
+  }>;
+  expiring: Array<{
+    medication: Medication;
+    batch: {
+      batch_number: string;
+      quantity: number;
+      expiry_date: string;
+    };
+  }>;
+}> {
+  const supabase = await getSupabaseClient();
+  const role = await fetchUserRole();
+  if (!['admin', 'pharmacist'].includes(role)) {
+    return { lowStock: [], expiring: [] };
+  }
+
+  try {
+    const { data: medications, error } = await supabase
+      .from('medications')
+      .select(`
+        *,
+        medication_batches (
+          id,
+          batch_number,
+          quantity,
+          expiry_date,
+          unit_price
+        )
+      `)
+      .eq('is_active', true);
+
+    if (error) {
+      console.error('Error fetching stock alerts:', error);
+      return { lowStock: [], expiring: [] };
+    }
+
+    const lowStock: Array<{
+      medication: Medication;
+      batch: {
+        batch_number: string;
+        quantity: number;
+        expiry_date: string;
+      };
+    }> = [];
+    const expiring: Array<{
+      medication: Medication;
+      batch: {
+        batch_number: string;
+        quantity: number;
+        expiry_date: string;
+      };
+    }> = [];
+
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+
+    medications?.forEach(medication => {
+      const mappedMedication: Medication = {
+        ...medication,
+        batches: medication.medication_batches?.map(batch => ({
+          id: batch.id,
+          batch_number: batch.batch_number,
+          expiry_date: batch.expiry_date,
+          quantity: batch.quantity,
+          unit_price: batch.unit_price
+        })) || []
+      };
+
+      medication.medication_batches?.forEach(batch => {
+        // Check for low stock (less than 10 units)
+        if (batch.quantity < 10) {
+          lowStock.push({
+            medication: mappedMedication,
+            batch: {
+              batch_number: batch.batch_number,
+              quantity: batch.quantity,
+              expiry_date: batch.expiry_date
+            }
+          });
+        }
+        
+        // Check for expiring items (within 30 days)
+        const expiryDate = new Date(batch.expiry_date);
+        if (expiryDate <= thirtyDaysFromNow) {
+          expiring.push({
+            medication: mappedMedication,
+            batch: {
+              batch_number: batch.batch_number,
+              quantity: batch.quantity,
+              expiry_date: batch.expiry_date
+            }
+          });
+        }
+      });
+    });
+
+    return { lowStock, expiring };
+  } catch (error) {
+    console.error('Error in fetchStockAlerts:', error);
+    return { lowStock: [], expiring: [] };
+  }
+}
+
+export async function fetchDoctorNames(doctorIds: string[]) {
+  const supabase = await getSupabaseClient();
+  
+  try {
+    const { data: profiles, error } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', doctorIds);
+
+    if (error) {
+      console.error('Error fetching doctor names:', error);
+      return new Map();
+    }
+
+    return new Map(profiles?.map(profile => [profile.id, profile.full_name]) || []);
+  } catch (error) {
+    console.error('Error in fetchDoctorNames:', error);
+    return new Map();
+  }
+}
+
+export async function getAllPendingPayments() {
+  const supabase = await getSupabaseClient();
+  
+  try {
+    // Get all unpaid appointments
+    const { data: appointments, error: appointmentsError } = await supabase
+      .from('appointments')
+      .select('id')
+      .eq('payment_status', 'unpaid');
+    
+    if (appointmentsError) {
+      console.error('Error fetching unpaid appointments:', appointmentsError);
+      return { appointmentsCount: 0, salesCount: 0, total: 0 };
+    }
+    
+    // Get all unpaid sales
+    const { data: sales, error: salesError } = await supabase
+      .from('sales')
+      .select('id')
+      .eq('payment_status', 'unpaid');
+    
+    if (salesError) {
+      console.error('Error fetching unpaid sales:', salesError);
+      return { appointmentsCount: appointments.length, salesCount: 0, total: appointments.length };
+    }
+    
+    return {
+      appointmentsCount: appointments.length,
+      salesCount: sales.length,
+      total: appointments.length + sales.length
+    };
+  } catch (error) {
+    console.error('Error in getAllPendingPayments:', error);
+    return { appointmentsCount: 0, salesCount: 0, total: 0 };
+  }
+}
+
+// Fetch payment history for cashier history page
+export async function fetchPaymentHistory() {
+  const supabase = await getSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
+  // Fetch user role to ensure only authorized users can access payment history
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (!profile || (profile.role !== 'admin' && profile.role !== 'cashier')) {
+    throw new Error('Unauthorized: Only admins and cashiers can view payment history');
+  }
+
+  try {
+    // Fetch paid appointments
+    const { data: appointmentPayments, error: appointmentError } = await supabase
+      .from('appointments')
+      .select(`
+        id,
+        date,
+        payment_status,
+        payment_method,
+        transaction_id,
+        profiles:patient_id (full_name),
+        services:service_id (name, price)
+      `)
+      .eq('payment_status', 'paid');
+
+    if (appointmentError) {
+      console.error('Error fetching appointment payments:', appointmentError);
+      throw new Error('Failed to fetch appointment payment history');
+    }
+
+    // Fetch paid sales
+    const { data: salePayments, error: saleError } = await supabase
+      .from('sales')
+      .select(`
+        id,
+        created_at,
+        payment_status,
+        payment_method,
+        transaction_id,
+        total_amount,
+        patient:patient_id (full_name)
+      `)
+      .eq('payment_status', 'paid');
+
+    if (saleError) {
+      console.error('Error fetching sale payments:', saleError);
+      throw new Error('Failed to fetch sales payment history');
+    }
+
+    // Define types for transformed payments
+    type TransformedPayment = {
+      id: string;
+      type: 'appointment' | 'sale';
+      patient_name: string;
+      amount: number;
+      date: string;
+      payment_method: string;
+      transaction_id: string | null;
+      reference: string;
+    };
+
+    // Transform appointment data
+    const transformedAppointments: TransformedPayment[] = (appointmentPayments || []).map(app => {
+      // Extract profile name safely
+      let profileName = 'Unknown';
+      try {
+        if (app.profiles) {
+          if (Array.isArray(app.profiles) && app.profiles.length > 0) {
+            profileName = app.profiles[0].full_name || 'Unknown';
+          } else if (typeof app.profiles === 'object') {
+            profileName = app.profiles.full_name || 'Unknown';
+          }
+        }
+      } catch (e) {
+        console.error('Error extracting profile name:', e);
+      }
+
+      // Extract service data safely
+      let serviceName = 'service';
+      let servicePrice = 0;
+      try {
+        if (app.services) {
+          if (Array.isArray(app.services) && app.services.length > 0) {
+            serviceName = app.services[0].name || 'service';
+            servicePrice = app.services[0].price || 0;
+          } else if (typeof app.services === 'object') {
+            serviceName = app.services.name || 'service';
+            servicePrice = app.services.price || 0;
+          }
+        }
+      } catch (e) {
+        console.error('Error extracting service data:', e);
+      }
+
+      return {
+        id: app.id,
+        type: 'appointment',
+        patient_name: profileName,
+        amount: servicePrice,
+        date: app.date,
+        payment_method: app.payment_method || 'Unknown',
+        transaction_id: app.transaction_id,
+        reference: `Appointment for ${serviceName}`
+      };
+    });
+
+    // Transform sale data
+    const transformedSales: TransformedPayment[] = (salePayments || []).map(sale => {
+      // Extract patient name safely
+      let patientName = 'Unknown';
+      try {
+        if (sale.patient) {
+          if (Array.isArray(sale.patient) && sale.patient.length > 0) {
+            patientName = sale.patient[0].full_name || 'Unknown';
+          } else if (typeof sale.patient === 'object') {
+            patientName = sale.patient.full_name || 'Unknown';
+          }
+        }
+      } catch (e) {
+        console.error('Error extracting patient name:', e);
+      }
+
+      return {
+        id: sale.id,
+        type: 'sale',
+        patient_name: patientName,
+        amount: sale.total_amount,
+        date: sale.created_at || new Date().toISOString(), // Ensure date is never null
+        payment_method: sale.payment_method || 'Unknown',
+        transaction_id: sale.transaction_id,
+        reference: `Pharmacy Sale #${sale.id.substring(0, 8)}`
+      };
+    });
+
+    // Combine all payments
+    const allPayments: TransformedPayment[] = [...transformedAppointments, ...transformedSales];
+    
+    // Type definition for our combined payment
+    type CombinedPayment = {
+      id: string;
+      type: 'appointment' | 'sale' | 'combined';
+      patient_name: string;
+      amount: number;
+      date: string;
+      payment_method: string;
+      transaction_id: string | null;
+      reference: string;
+      related_items?: Array<{
+        id: string;
+        type: 'appointment' | 'sale';
+        reference: string;
+        amount: number;
+      }>;
+    };
+
+    // Group payments by transaction_id
+    const combinedPayments: CombinedPayment[] = [];
+    const transactionGroups: Record<string, TransformedPayment[]> = {};
+    
+    // Only group items that have a transaction_id and were processed together
+    allPayments.forEach(payment => {
+      if (payment.transaction_id) {
+        if (!transactionGroups[payment.transaction_id]) {
+          transactionGroups[payment.transaction_id] = [];
+        }
+        transactionGroups[payment.transaction_id].push(payment);
+      } else {
+        // Items without transaction_id are kept as individual payments
+        combinedPayments.push(payment);
+      }
+    });
+
+    // Process transaction groups
+    Object.entries(transactionGroups).forEach(([transactionId, items]) => {
+      if (items.length > 1) {
+        // This is a combined payment with multiple items
+        const firstItem = items[0];
+        const totalAmount = items.reduce((sum, item) => sum + item.amount, 0);
+        
+        // Create a combined payment entry
+        combinedPayments.push({
+          id: transactionId,
+          type: 'combined',
+          patient_name: firstItem.patient_name,
+          amount: totalAmount,
+          date: firstItem.date,
+          payment_method: firstItem.payment_method,
+          transaction_id: transactionId,
+          reference: `Combined payment (${items.length} items)`,
+          related_items: items.map(item => ({
+            id: item.id,
+            type: item.type,
+            reference: item.reference,
+            amount: item.amount
+          }))
+        });
+      } else {
+        // Single item with a transaction_id
+        combinedPayments.push(items[0]);
+      }
+    });
+
+    // Sort by date (newest first)
+    const sortedPayments = combinedPayments.sort((a, b) => 
+      new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+
+    return sortedPayments;
+  } catch (error) {
+    console.error('Unexpected error during data fetching:', error);
+    throw error;
+  }
 }
