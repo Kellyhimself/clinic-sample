@@ -2562,3 +2562,23 @@ export async function createGuestPatientAction(formData: FormData) {
     };
   }
 }
+
+/**
+ * Fetch a specific patient by ID
+ */
+export async function fetchPatientById(patientId: string): Promise<Patient | null> {
+  const supabase = await getSupabaseClient();
+  
+  const { data, error } = await supabase
+    .from('patients')
+    .select('*')
+    .eq('id', patientId)
+    .single();
+  
+  if (error) {
+    console.error('Error fetching patient:', error);
+    return null;
+  }
+  
+  return data;
+}
