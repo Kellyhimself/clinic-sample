@@ -17,6 +17,10 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  experimental: {
+    externalDir: true,
+    esmExternals: true,
+  },
 };
 
 export default nextConfig;
