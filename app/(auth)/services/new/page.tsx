@@ -1,13 +1,12 @@
-import { Metadata } from 'next';
+'use client';
+
 import NewServiceForm from '@/components/services/NewServiceForm';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-
-export const metadata: Metadata = {
-  title: 'New Clinical Service',
-  description: 'Record a new clinical service or medical procedure',
-};
+import { useRouter } from 'next/navigation';
 
 export default function NewServicePage() {
+  const router = useRouter();
+  
   return (
     <div className="p-4 md:p-6">
       <h1 className="text-2xl font-bold mb-6">New Clinical Service Record</h1>
@@ -17,8 +16,8 @@ export default function NewServicePage() {
         </CardHeader>
         <CardContent>
           <NewServiceForm 
-            onSuccess={() => {}}
-            onCancel={() => {}}
+            onSuccess={() => router.push('/services')}
+            onCancel={() => router.push('/services')}
           />
         </CardContent>
       </Card>
