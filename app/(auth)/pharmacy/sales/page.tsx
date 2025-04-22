@@ -1,17 +1,12 @@
 // app/pharmacy/sales/page.tsx
-"use client";
+import { Metadata } from 'next';
+import PharmacySalesManager from '@/components/pharmacy/PharmacySalesManager';
 
-import SalesManager from '@/components/pharmacy/SalesManager';
+export const metadata: Metadata = {
+  title: 'Pharmacy Sales Management',
+  description: 'Manage medication sales and pharmacy transactions',
+};
 
-export default function SalesPage() {
-
-  return (
-    <div className="container mx-auto py-6 space-y-4">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold">Sales Management</h1>
-        
-      </div>
-      <SalesManager />
-    </div>
-  );
+export default function PharmacySalesPage() {
+  return <PharmacySalesManager />;
 }

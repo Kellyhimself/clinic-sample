@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import ReportsDashboard from '@/components/ReportsDashboard';
+import PharmacyReportsDashboard from '@/components/pharmacy/PharmacyReportsDashboard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { 
@@ -19,6 +19,8 @@ import {
   Download
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import PharmacyReportsSection from '@/components/pharmacy/PharmacyReportsSection';
+import ServicesReportsSection from '@/components/services/ServicesReportsSection';
 
 // Types for the report filters
 interface FilterOptions {
@@ -192,7 +194,7 @@ export default function ReportsClient() {
               </div>
 
               {/* Dashboard Component */}
-              <ReportsDashboard />
+              <PharmacyReportsDashboard />
             </div>
           )}
 
@@ -375,118 +377,5 @@ function MetricCard({
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-// Pharmacy-specific reports component
-function PharmacyReportsSection() {
-  // This would be connected to real data in a production environment
-  return (
-    <div className="space-y-5">
-      <Card>
-        <CardHeader>
-          <CardTitle>Pharmacy Sales Analysis</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[300px] flex items-center justify-center bg-gray-50 rounded-md">
-            {/* Placeholder for sales chart */}
-            <div className="text-center">
-              <BarChart className="h-16 w-16 text-gray-300 mx-auto" />
-              <p className="text-muted-foreground mt-2">Sales trend chart will be displayed here</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <Card>
-          <CardHeader>
-            <CardTitle>Top Selling Medications</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              {['Paracetamol', 'Amoxicillin', 'Metformin', 'Lisinopril', 'Atorvastatin'].map((med, i) => (
-                <li key={i} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-md">
-                  <span>{med}</span>
-                  <span className="text-muted-foreground text-sm">{324 - i * 42} units</span>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Sales by Category</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              {['Antibiotics', 'Painkillers', 'Cardiovascular', 'Diabetes', 'Vitamins'].map((cat, i) => (
-                <li key={i} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-md">
-                  <span>{cat}</span>
-                  <span className="text-muted-foreground text-sm">KSh {(Math.floor(Math.random() * 50) + 30) * 1000}</span>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-}
-
-// Services-specific reports component
-function ServicesReportsSection() {
-  return (
-    <div className="space-y-5">
-      <Card>
-        <CardHeader>
-          <CardTitle>Services Revenue Analysis</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[300px] flex items-center justify-center bg-gray-50 rounded-md">
-            {/* Placeholder for services chart */}
-            <div className="text-center">
-              <Activity className="h-16 w-16 text-gray-300 mx-auto" />
-              <p className="text-muted-foreground mt-2">Services trend chart will be displayed here</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <Card>
-          <CardHeader>
-            <CardTitle>Most Popular Services</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              {['General Consultation', 'Laboratory Tests', 'Vaccinations', 'Dental Services', 'Physiotherapy'].map((service, i) => (
-                <li key={i} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-md">
-                  <span>{service}</span>
-                  <span className="text-muted-foreground text-sm">{428 - i * 55} visits</span>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Revenue by Department</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              {['General Practice', 'Laboratory', 'Radiology', 'Dental', 'Pediatrics'].map((dept, i) => (
-                <li key={i} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-md">
-                  <span>{dept}</span>
-                  <span className="text-muted-foreground text-sm">KSh {(Math.floor(Math.random() * 80) + 100) * 1000}</span>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
   );
 } 

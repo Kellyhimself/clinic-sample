@@ -1,6 +1,6 @@
 // app/pharmacy/reports/page.tsx
 import { fetchUserRole } from '@/lib/authActions';
-import ReportsDashboard from '@/components/pharmacy/ReportsDashboard';
+import PharmacyReportsDashboard from '@/components/pharmacy/PharmacyReportsDashboard';
 
 export default async function Page() {
   const role = await fetchUserRole();
@@ -8,5 +8,5 @@ export default async function Page() {
     return <div className="p-4 text-red-500">Access denied</div>;
   }
 
-  return <ReportsDashboard />;
+  return <PharmacyReportsDashboard />;
 }

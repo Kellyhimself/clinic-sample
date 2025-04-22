@@ -28,7 +28,9 @@ import {
   X,
   Menu,
   CreditCard,
-  LineChart
+  LineChart,
+  HeartPulse,
+  Stethoscope
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { fetchBasicMedications, fetchInventory, getAllPendingPayments } from '@/lib/authActions';
@@ -231,7 +233,7 @@ export default function Sidebar({ userRole }: { userRole: string }) {
         
         // Sales Management
         { 
-          label: 'Sales', 
+          label: 'Pharmacy Sales', 
           href: '/pharmacy/sales', 
           icon: <ShoppingCart size={18} />,
           roles: ['admin', 'pharmacist']
@@ -275,6 +277,44 @@ export default function Sidebar({ userRole }: { userRole: string }) {
           roles: ['admin', 'pharmacist']
         }
       ],
+    },
+    { 
+      label: 'Clinical Services', 
+      href: '/services', 
+      icon: <HeartPulse size={18} />, 
+      roles: ['admin', 'doctor', 'staff'],
+      subItems: [
+        { 
+          label: 'Services Overview', 
+          href: '/services', 
+          icon: <HeartPulse size={18} />,
+          roles: ['admin', 'doctor', 'staff']
+        },
+        { 
+          label: 'New Service Record', 
+          href: '/services/new', 
+          icon: <Plus size={18} />,
+          roles: ['admin', 'doctor', 'staff']
+        },
+        { 
+          label: 'Service Categories', 
+          href: '/services/categories', 
+          icon: <ClipboardList size={18} />,
+          roles: ['admin', 'staff']
+        },
+        { 
+          label: 'Doctors', 
+          href: '/services/doctors', 
+          icon: <Stethoscope size={18} />,
+          roles: ['admin', 'staff']
+        },
+        { 
+          label: 'Service Pricing', 
+          href: '/services/pricing', 
+          icon: <DollarSign size={18} />,
+          roles: ['admin', 'staff']
+        }
+      ]
     },
     { 
       label: 'Reports & Analytics', 

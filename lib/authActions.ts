@@ -1042,7 +1042,16 @@ export async function fetchMedications(): Promise<Medication[]> {
   const { data: medications, error: medError } = await supabase
     .from('medications')
     .select(`
-      *,
+      id,
+      name,
+      category,
+      dosage_form,
+      strength,
+      unit_price,
+      description,
+      is_active,
+      created_at,
+      updated_at,
       batches:medication_batches (
         id,
         batch_number,
@@ -1066,9 +1075,11 @@ export async function fetchMedications(): Promise<Medication[]> {
     is_active: med.is_active ?? true,
     created_at: med.created_at || new Date().toISOString(),
     updated_at: med.updated_at || new Date().toISOString(),
-    shelf_location: med.shelf_location || null,
-    last_restocked_at: med.last_restocked_at || null,
-    last_sold_at: med.last_sold_at || null,
+    manufacturer: null,
+    barcode: null,
+    shelf_location: null,
+    last_restocked_at: null,
+    last_sold_at: null,
     batches: (med.batches || []).map(batch => ({
       id: batch.id,
       batch_number: batch.batch_number,
@@ -1269,11 +1280,6 @@ export async function fetchInventory(search?: string): Promise<Medication[]> {
     is_active: boolean | null;
     created_at: string | null;
     updated_at: string | null;
-    manufacturer: string | null;
-    barcode: string | null;
-    shelf_location: string | null;
-    last_restocked_at: string | null;
-    last_sold_at: string | null;
     medication_batches: Array<{
       id: string;
       batch_number: string;
@@ -1296,11 +1302,6 @@ export async function fetchInventory(search?: string): Promise<Medication[]> {
       is_active,
       created_at,
       updated_at,
-      manufacturer,
-      barcode,
-      shelf_location,
-      last_restocked_at,
-      last_sold_at,
       medication_batches (
         id,
         batch_number,
@@ -1328,11 +1329,11 @@ export async function fetchInventory(search?: string): Promise<Medication[]> {
     is_active: medication.is_active ?? true,
     created_at: medication.created_at || new Date().toISOString(),
     updated_at: medication.updated_at || new Date().toISOString(),
-    manufacturer: medication.manufacturer || null,
-    barcode: medication.barcode || null,
-    shelf_location: medication.shelf_location || null,
-    last_restocked_at: medication.last_restocked_at || null,
-    last_sold_at: medication.last_sold_at || null,
+    manufacturer: null,
+    barcode: null,
+    shelf_location: null,
+    last_restocked_at: null,
+    last_sold_at: null,
     batches: medication.medication_batches?.map(batch => ({
       id: batch.id,
       batch_number: batch.batch_number,

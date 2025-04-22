@@ -1,4 +1,3 @@
-// components/pharmacy/ReportsDashboard.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -10,7 +9,7 @@ interface ReportData {
   stockMovement: { medication_id: string; transaction_type: string; quantity: number; created_at: string }[];
 }
 
-export default function ReportsDashboard() {
+export default function PharmacyReportsDashboard() {
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
   const [loading, setLoading] = useState(true);
@@ -114,4 +113,4 @@ export default function ReportsDashboard() {
       </div>
     </div>
   );
-}
+} 
