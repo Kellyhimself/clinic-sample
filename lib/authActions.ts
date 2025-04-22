@@ -2496,20 +2496,22 @@ export async function createGuestPatient(patientData: {
   // Generate a UUID for the patient
   const patientId = uuidv4();
   
-  // Insert the patient record with is_registered_user = false
+  // Create a typed insert object
+  const insertData = {
+    id: patientId,
+    full_name: patientData.full_name,
+    phone_number: patientData.phone_number || null,
+    date_of_birth: patientData.date_of_birth || null,
+    gender: patientData.gender || null,
+    address: patientData.address || null,
+    user_id: `guest-${patientId}`, // Use a prefix to identify guest patients
+    is_registered_user: false
+  };
+  
+  // Insert the patient record
   const { data, error } = await supabase
     .from('patients')
-    .insert({
-      id: patientId,
-      full_name: patientData.full_name,
-      phone_number: patientData.phone_number,
-      email: patientData.email,
-      date_of_birth: patientData.date_of_birth,
-      gender: patientData.gender,
-      address: patientData.address,
-      is_registered_user: false,
-      user_id: null
-    })
+    .insert(insertData)
     .select()
     .single();
   
@@ -2519,4 +2521,44 @@ export async function createGuestPatient(patientData: {
   }
   
   return data;
+}
+
+/**
+ * Server action to create a guest patient
+ * This can be called directly from client components
+ */
+export async function createGuestPatientAction(formData: FormData) {
+  try {
+    // Extract data from form
+    const patientData = {
+      full_name: formData.get('full_name') as string,
+      phone_number: formData.get('phone_number') as string,
+      email: formData.get('email') as string || undefined,
+      date_of_birth: formData.get('date_of_birth') as string || undefined,
+      gender: formData.get('gender') as string || undefined,
+      address: formData.get('address') as string || undefined,
+    };
+    
+    // Validate required fields
+    if (!patientData.full_name || !patientData.phone_number) {
+      return { 
+        success: false, 
+        message: 'Full name and phone number are required' 
+      };
+    }
+    
+    // Create the guest patient
+    const patient = await createGuestPatient(patientData);
+    
+    return { 
+      success: true, 
+      patient 
+    };
+  } catch (error) {
+    console.error('Error creating guest patient:', error);
+    return { 
+      success: false, 
+      message: error instanceof Error ? error.message : 'An unexpected error occurred' 
+    };
+  }
 }
