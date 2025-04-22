@@ -489,11 +489,57 @@ export async function fetchServices() {
   return services as { id: string; name: string; price: number; duration: number }[];
 }
 
-export async function bookAppointment(formData: FormData) {
+export async function bookAppointment(formData: FormData, options?: { 
+  isStaffBooking?: boolean;
+  patientId?: string;
+  guestPatientData?: {
+    full_name: string;
+    phone_number: string;
+    email?: string;
+    date_of_birth?: string;
+    gender?: string;
+    address?: string;
+  }
+}) {
   const supabase = await getSupabaseClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) throw new Error('You must be logged in to book an appointment');
+  let patientId: string;
+  
+  // Staff booking flow - can book for existing or guest patients
+  if (options?.isStaffBooking) {
+    if (options.patientId) {
+      // Booking for an existing patient
+      patientId = options.patientId;
+    } else if (options.guestPatientData) {
+      // Create a guest patient and then book for them
+      try {
+        const newPatient = await createGuestPatient(options.guestPatientData);
+        patientId = newPatient.id;
+      } catch (error) {
+        throw new Error(`Failed to create guest patient: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    } else {
+      throw new Error('Either patientId or guestPatientData is required for staff bookings');
+    }
+  } else {
+    // Regular user flow - patient books for themselves
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) throw new Error('You must be logged in to book an appointment');
 
+    // Check if user is registered as a patient
+    const { data: patient, error: patientError } = await supabase
+      .from('patients')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (patientError || !patient) {
+      throw new Error('Please register as a patient first to book an appointment. Contact the administrator for assistance.');
+    }
+    
+    patientId = patient.id;
+  }
+
+  // Extract form data
   const serviceId = formData.get('serviceId') as string;
   const customService = formData.get('customService') as string;
   const date = formData.get('date') as string;
@@ -513,17 +559,6 @@ export async function bookAppointment(formData: FormData) {
 
   if (doctorError || !doctor) {
     throw new Error('Selected doctor is not registered in the system. Please select a valid doctor.');
-  }
-
-  // Check if user is registered as a patient
-  const { data: patient, error: patientError } = await supabase
-    .from('patients')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
-
-  if (patientError || !patient) {
-    throw new Error('Please register as a patient first to book an appointment. Contact the administrator for assistance.');
   }
 
   let finalServiceId = serviceId;
@@ -556,7 +591,7 @@ export async function bookAppointment(formData: FormData) {
   if (existingAppointments.length > 0) throw new Error('This time slot is already booked');
 
   const appointmentData: Database['public']['Tables']['appointments']['Insert'] = {
-    patient_id: patient.id,
+    patient_id: patientId,
     service_id: finalServiceId,
     doctor_id: doctorId,
     date,
@@ -580,9 +615,20 @@ export async function bookAppointment(formData: FormData) {
   return { success: true, data };
 }
 
-export async function handleBooking(formData: FormData) {
+export async function handleBooking(formData: FormData, options?: { 
+  isStaffBooking?: boolean;
+  patientId?: string;
+  guestPatientData?: {
+    full_name: string;
+    phone_number: string;
+    email?: string;
+    date_of_birth?: string;
+    gender?: string;
+    address?: string;
+  }
+}) {
   try {
-    const result = await bookAppointment(formData);
+    const result = await bookAppointment(formData, options);
     if (result.success) {
       revalidatePath("/appointments");
       return { 
@@ -814,10 +860,56 @@ export async function fetchAppointments(userRole: string, userId?: string) {
   }
 }
 
-export async function processMpesaPayment(formData: FormData): Promise<{ success: boolean; checkoutRequestId: string }> {
+export async function processCashPayment(formData: FormData, isStaffPayment = false) {
   const supabase = await getSupabaseClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) throw new Error('You must be logged in');
+  
+  // Only check auth for user-initiated payments
+  if (!isStaffPayment) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) throw new Error('You must be logged in');
+  }
+
+  const id = formData.get('id') as string;
+  const type = formData.get('type') as 'appointment' | 'sale';
+  const receiptNumber = formData.get('receiptNumber') as string;
+
+  if (!id || !type) {
+    throw new Error('Missing required fields: id and type');
+  }
+
+  if (type === 'appointment') {
+    const { error } = await supabase
+      .from('appointments')
+      .update({
+        payment_status: 'paid',
+        payment_method: 'cash',
+        transaction_id: receiptNumber || `CASH-${Date.now()}`,
+      })
+      .eq('id', id);
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await supabase
+      .from('sales')
+      .update({
+        payment_status: 'paid',
+        payment_method: 'cash',
+        transaction_id: receiptNumber || `CASH-${Date.now()}`,
+      })
+      .eq('id', id);
+    if (error) throw new Error(error.message);
+  }
+
+  return { success: true };
+}
+
+export async function processMpesaPayment(formData: FormData, isStaffPayment = false): Promise<{ success: boolean; checkoutRequestId: string }> {
+  const supabase = await getSupabaseClient();
+  
+  // Only check auth for user-initiated payments
+  if (!isStaffPayment) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) throw new Error('You must be logged in');
+  }
 
   console.log('Server-side FormData:', Object.fromEntries(formData.entries()));
 
@@ -936,44 +1028,6 @@ export async function processMpesaPayment(formData: FormData): Promise<{ success
       throw new Error('An unexpected error occurred during STK Push');
     }
   }
-}
-
-export async function processCashPayment(formData: FormData) {
-  const supabase = await getSupabaseClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) throw new Error('You must be logged in');
-
-  const id = formData.get('id') as string;
-  const type = formData.get('type') as 'appointment' | 'sale';
-  const receiptNumber = formData.get('receiptNumber') as string;
-
-  if (!id || !type) {
-    throw new Error('Missing required fields: id and type');
-  }
-
-  if (type === 'appointment') {
-  const { error } = await supabase
-    .from('appointments')
-    .update({
-      payment_status: 'paid',
-      payment_method: 'cash',
-      transaction_id: receiptNumber || `CASH-${Date.now()}`,
-    })
-      .eq('id', id);
-  if (error) throw new Error(error.message);
-  } else {
-    const { error } = await supabase
-      .from('sales')
-      .update({
-        payment_status: 'paid',
-        payment_method: 'cash',
-        transaction_id: receiptNumber || `CASH-${Date.now()}`,
-      })
-      .eq('id', id);
-    if (error) throw new Error(error.message);
-  }
-
-  return { success: true };
 }
 
 export async function fetchDoctors() {
@@ -2418,4 +2472,51 @@ export async function fetchPaymentHistory() {
     console.error('Unexpected error during data fetching:', error);
     throw error;
   }
+}
+
+/**
+ * Creates a guest patient without requiring authentication
+ * This allows for walk-in patients or staff-created patient records
+ */
+export async function createGuestPatient(patientData: {
+  full_name: string;
+  phone_number: string;
+  email?: string;
+  date_of_birth?: string;
+  gender?: string;
+  address?: string;
+}) {
+  const supabase = await getSupabaseClient();
+  
+  // Validate required fields
+  if (!patientData.full_name || !patientData.phone_number) {
+    throw new Error('Full name and phone number are required');
+  }
+  
+  // Generate a UUID for the patient
+  const patientId = uuidv4();
+  
+  // Insert the patient record with is_registered_user = false
+  const { data, error } = await supabase
+    .from('patients')
+    .insert({
+      id: patientId,
+      full_name: patientData.full_name,
+      phone_number: patientData.phone_number,
+      email: patientData.email,
+      date_of_birth: patientData.date_of_birth,
+      gender: patientData.gender,
+      address: patientData.address,
+      is_registered_user: false,
+      user_id: null
+    })
+    .select()
+    .single();
+  
+  if (error) {
+    console.error('Error creating guest patient:', error);
+    throw new Error(`Failed to create patient: ${error.message}`);
+  }
+  
+  return data;
 }
