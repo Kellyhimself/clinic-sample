@@ -274,13 +274,13 @@ export default function Sidebar({ userRole, closeSidebar }: SidebarProps) {
         // Sales Management
         { 
           label: 'Pharmacy Sales', 
-          href: '/pharmacy/sales', 
+          href: '/pharmacy/pharmacy-sales-management', 
           icon: <ShoppingCart size={18} />,
           roles: ['admin', 'pharmacist']
         },
         { 
           label: 'New Sale', 
-          href: '/pharmacy/sales/new', 
+          href: '/pharmacy/pharmacy-sales-management/new-sale', 
           icon: <Plus size={18} />,
           roles: ['admin', 'pharmacist']
         },
@@ -292,6 +292,12 @@ export default function Sidebar({ userRole, closeSidebar }: SidebarProps) {
         },
         
         // Reports & Audit
+        { 
+          label: 'Sales Analytics', 
+          href: '/pharmacy/pharmacy-sales-management?tab=analytics', 
+          icon: <BarChart size={18} />,
+          roles: ['admin', 'pharmacist']
+        },
         { 
           label: 'Reports', 
           href: '/pharmacy/reports', 

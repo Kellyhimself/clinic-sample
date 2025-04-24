@@ -425,15 +425,15 @@ export default function AppointmentsTable({
                 />
               </div>
             )}
-            <div className="w-full overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
-              <Table className="w-full border-collapse">
+            <div className="w-full mobile-scrollable" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <Table className="w-full border-collapse mobile-table">
                 <TableHeader>
                   {table.getHeaderGroups().map((headerGroup) => (
                     <TableRow key={headerGroup.id} className="bg-gray-50">
                       {headerGroup.headers.map((header) => (
                         <TableHead
                           key={header.id}
-                          className="text-xs font-medium text-gray-700 p-1 sm:p-2"
+                          className="mobile-text-xs text-xs font-medium text-gray-700 p-1 sm:p-2 mobile-table-cell"
                           style={{ width: header.column.getSize() === 150 ? 'auto' : header.column.getSize() }}
                         >
                           {flexRender(header.column.columnDef.header, header.getContext())}
@@ -452,7 +452,7 @@ export default function AppointmentsTable({
                         {row.getVisibleCells().map((cell) => (
                           <TableCell
                             key={cell.id}
-                            className="text-xs sm:text-sm text-gray-900 p-1 sm:p-2 whitespace-nowrap"
+                            className="mobile-text-xs text-xs sm:text-sm text-gray-900 p-1 sm:p-2 whitespace-nowrap mobile-table-cell"
                           >
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </TableCell>

@@ -22,6 +22,7 @@ interface SalesTableProps<T> {
   columns: Column<T>[];
   isLoading?: boolean;
   emptyMessage?: string;
+  className?: string;
 }
 
 export default function SalesTable<T>({
@@ -29,6 +30,7 @@ export default function SalesTable<T>({
   columns,
   isLoading = false,
   emptyMessage = "No data found",
+  className,
 }: SalesTableProps<T>) {
   if (isLoading) {
     return (
@@ -41,11 +43,11 @@ export default function SalesTable<T>({
 
   return (
     <div className="hidden md:block">
-      <Table>
+      <Table className={className}>
         <TableHeader>
           <TableRow>
             {columns.map((column) => (
-              <TableHead key={column.key} className="text-xs lg:text-sm">
+              <TableHead key={column.key} className="text-xs lg:text-sm mobile-text-xs mobile-table-cell">
                 {column.header}
               </TableHead>
             ))}
@@ -60,9 +62,9 @@ export default function SalesTable<T>({
             </TableRow>
           ) : (
             data.map((item, index) => (
-              <TableRow key={index}>
+              <TableRow key={index} className="hover:bg-gray-100">
                 {columns.map((column) => (
-                  <TableCell key={`${index}-${column.key}`}>
+                  <TableCell key={`${index}-${column.key}`} className="mobile-table-cell mobile-text-xs text-xs">
                     {column.cell(item)}
                   </TableCell>
                 ))}
@@ -83,7 +85,7 @@ export function StatusBadge({ status, variants }: {
   const variant = variants[status] || "default";
   
   return (
-    <Badge variant={variant}>
+    <Badge variant={variant} className="text-xs mobile-text-xs">
       {status}
     </Badge>
   );

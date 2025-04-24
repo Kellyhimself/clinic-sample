@@ -134,6 +134,107 @@
     touch-action: manipulation;
   }
   
+  /* Mobile responsive table styles */
+  .mobile-table {
+    width: 100%;
+    font-size: 0.75rem;
+  }
+  
+  .mobile-table-cell {
+    padding: 0.5rem 0.25rem;
+    white-space: nowrap;
+  }
+  
+  .mobile-table-compact th,
+  .mobile-table-compact td {
+    padding: 0.25rem 0.5rem;
+  }
+  
+  .mobile-scrollable {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  
+  .mobile-text-xs {
+    font-size: 0.65rem;
+  }
+  
+  .mobile-text-sm {
+    font-size: 0.75rem;
+  }
+  
+  /* Manager component styles */
+  .manager-container {
+    max-width: 100% !important;
+    overflow-x: hidden;
+    padding: 0.5rem;
+    margin: 0 !important;
+    width: 100%;
+  }
+  
+  .manager-card {
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    background: white;
+    margin-bottom: 0.5rem;
+  }
+  
+  .manager-scroll-x {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+    margin: 0 -0.5rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  
+  .manager-scroll-x > * {
+    flex-shrink: 0;
+    margin-right: 0.5rem;
+  }
+  
+  .manager-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+  
+  /* Force metrics card styling */
+  .manager-metrics .card {
+    height: 100%;
+  }
+  
+  .manager-metrics .card-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    height: 100%;
+  }
+  
+  @media (min-width: 768px) {
+    .manager-container {
+      padding: 1rem;
+    }
+    
+    .manager-scroll-x {
+      overflow: visible;
+      flex-wrap: wrap;
+      margin: 0;
+      padding: 0;
+      gap: 0.5rem;
+    }
+    
+    .manager-metrics {
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+    }
+  }
+  
   /* Define an xs breakpoint for extra small devices */
   @media (min-width: 475px) {
     .xs\:flex-row {
@@ -151,6 +252,48 @@
     .xs\:px-2 {
       padding-left: 0.5rem;
       padding-right: 0.5rem;
+    }
+  }
+  
+  /* Mobile specific fixes */
+  @media (max-width: 640px) {
+    /* Ensure overflow issues are fixed */
+    .manager-container {
+      width: 100% !important;
+      max-width: 100% !important;
+      overflow-x: hidden !important;
+      box-sizing: border-box;
+      padding-left: 0.75rem !important;
+      padding-right: 0.75rem !important;
+      margin-left: auto !important;
+      margin-right: auto !important;
+    }
+    
+    /* Fix for Safari overflow issues */
+    body, html {
+      width: 100%;
+      overflow-x: hidden;
+      position: relative;
+    }
+    
+    /* Ensure mobile tables don't overflow */
+    .mobile-scrollable {
+      width: 100% !important;
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Fix for card displays */
+    .manager-metrics {
+      width: 100%;
+    }
+    
+    /* Fix for scrollable containers */
+    .manager-scroll-x {
+      margin-left: -0.25rem !important;
+      margin-right: -0.25rem !important;
+      padding-left: 0.5rem !important;
+      padding-right: 0.5rem !important;
     }
   }
 }

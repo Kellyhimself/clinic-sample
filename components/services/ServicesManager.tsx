@@ -14,8 +14,8 @@ import SalesListCard from '@/components/shared/sales/SalesListCard';
 import SalesFilterBar, { TimeframeType, getDateRangeFromTimeframe } from '@/components/shared/sales/SalesFilterBar';
 import { StatusBadge } from '@/components/shared/sales/SalesTable';
 
-// Mock service for fetching data - would be replaced with real API calls
-import { fetchSales as fetchServiceSales } from '@/lib/authActions';
+// Import proper fetch function for services
+import { fetchAppointments } from '@/lib/authActions';
 import NewServiceForm from './NewServiceForm';
 
 // Define TypeScript interfaces for our data structures
@@ -33,17 +33,18 @@ interface ServiceItem {
 interface ServiceSale {
   id: string;
   created_at: string;
-  payment_method: 'cash' | 'mpesa' | 'insurance';
+  payment_method: 'cash' | 'mpesa' | 'insurance' | 'bank';
   payment_status: 'pending' | 'paid' | 'refunded';
   notes: string;
   patient: {
     full_name: string;
-    phone_number: string;
+    phone_number?: string;
   };
   items: ServiceItem[];
   doctor?: {
-    name: string;
-    specialty: string;
+    name?: string;
+    specialty?: string;
+    full_name?: string; // Add this to support appointment data format
   };
 }
 
@@ -81,13 +82,44 @@ export default function ServicesManager() {
   async function fetchServicesData() {
     try {
       setLoading(true);
+      
+      // Fetch data from appointments instead of sales
+      // 'admin' role ensures we get all appointments
+      const appointmentData = await fetchAppointments('admin');
+      
+      console.log('Appointment data:', appointmentData);
+      
+      // Transform appointments to ServiceSale format
+      const transformedData = appointmentData.map(appointment => ({
+        id: appointment.id,
+        created_at: `${appointment.date}T${appointment.time}`,
+        payment_method: appointment.payment_method || 'cash',
+        payment_status: appointment.payment_status || 'pending',
+        notes: appointment.notes || '',
+        patient: {
+          full_name: appointment.patient?.full_name || 'Unknown Patient',
+        },
+        items: appointment.services ? [{
+          id: appointment.id,
+          service_name: appointment.services.name,
+          quantity: 1,
+          unit_price: appointment.services.price,
+          discount: 0,
+          total_price: appointment.services.price,
+          notes: appointment.notes || '',
+          category: 'Service'
+        }] : [],
+        doctor: appointment.doctor ? {
+          full_name: appointment.doctor.full_name
+        } : undefined
+      })) as ServiceSale[];
+      
+      console.log('Transformed service data:', transformedData);
+      
+      // Apply date filtering based on timeframe
       const { startDate, endDate } = getDateRangeFromTimeframe(selectedTimeframe);
-      const data = await fetchServiceSales();
+      let filteredData = transformedData;
       
-      // Apply filters after fetching the data
-      let filteredData = (data as unknown as ServiceSale[]);
-      
-      // Apply date filtering
       if (startDate && endDate) {
         filteredData = filteredData.filter(service => {
           const serviceDate = new Date(service.created_at).toISOString().split('T')[0];
@@ -102,7 +134,7 @@ export default function ServicesManager() {
           return (
             service.patient.full_name.toLowerCase().includes(searchLower) ||
             service.items.some(item => item.service_name.toLowerCase().includes(searchLower)) ||
-            (service.doctor?.name.toLowerCase().includes(searchLower)) ||
+            (service.doctor?.full_name?.toLowerCase().includes(searchLower)) ||
             service.payment_method.toLowerCase().includes(searchLower)
           );
         });
@@ -195,7 +227,9 @@ export default function ServicesManager() {
       cell: (service: ServiceSale) => (
         <div>
           <div className="font-medium">{service.patient.full_name}</div>
-          <div className="text-sm text-gray-500">{service.patient.phone_number}</div>
+          {service.patient.phone_number && (
+            <div className="text-sm text-gray-500">{service.patient.phone_number}</div>
+          )}
         </div>
       )
     },
@@ -223,8 +257,10 @@ export default function ServicesManager() {
       cell: (service: ServiceSale) => (
         service.doctor ? (
           <div className="text-sm">
-            <div>{service.doctor.name}</div>
-            <div className="text-gray-500">{service.doctor.specialty}</div>
+            <div>{service.doctor.full_name || service.doctor.name}</div>
+            {service.doctor.specialty && (
+              <div className="text-gray-500">{service.doctor.specialty}</div>
+            )}
           </div>
         ) : (
           <span className="text-gray-400">-</span>
@@ -265,7 +301,7 @@ export default function ServicesManager() {
   const filteredServices = services;
 
   return (
-    <div className="space-y-3 p-2 md:space-y-6 md:p-4 lg:p-6 mobile-container">
+    <div className="space-y-3 p-2 md:space-y-6 md:p-4 lg:p-6 mobile-container manager-container !mx-0 !max-w-none">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 md:gap-4">
         <h2 className="text-xl md:text-2xl font-bold text-gray-800 leading-tight">Clinical Services Management</h2>
         <Button 
@@ -276,116 +312,136 @@ export default function ServicesManager() {
         </Button>
       </div>
 
-      {/* Quick Analytics Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
-        <SalesMetricCard
-          title="Total Revenue"
-          value={new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(analytics.totalRevenue)}
-          icon={<DollarSign className="h-3.5 w-3.5 md:h-4 md:w-4 text-blue-600" />}
-          subValue={`${analytics.totalServices} total services`}
-          colorClass="from-blue-50 to-blue-100 border-blue-200 text-blue-600"
-        />
-        
-        <SalesMetricCard
-          title="Average Fee"
-          value={new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(analytics.averageServiceValue)}
-          icon={<Activity className="h-3.5 w-3.5 md:h-4 md:w-4 text-green-600" />}
-          colorClass="from-green-50 to-green-100 border-green-200 text-green-600"
-        />
-        
-        <SalesMetricCard
-          title="Most Common Service"
-          value={analytics.mostCommonService}
-          icon={<Activity className="h-3.5 w-3.5 md:h-4 md:w-4 text-purple-600" />}
-          colorClass="from-purple-50 to-purple-100 border-purple-200 text-purple-600"
-        />
-        
-        <SalesMetricCard
-          title="Pending Payments"
-          value={`${analytics.pendingServices}`}
-          icon={<Clock className="h-3.5 w-3.5 md:h-4 md:w-4 text-amber-600" />}
-          subValue={analytics.pendingServices > 0 ? ((analytics.pendingServices / analytics.totalServices) * 100).toFixed(1) + '% of total' : '0%'}
-          colorClass="from-amber-50 to-amber-100 border-amber-200 text-amber-600"
-        />
-      </div>
-      
-      {/* Analysis & Navigation Links - Make this scrollable on mobile */}
-      <div className="flex overflow-x-auto pb-1 -mx-2 px-2 md:mx-0 md:px-0 md:overflow-visible md:flex-wrap md:gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex-shrink-0 mr-2 whitespace-nowrap min-w-0 flex items-center gap-1 text-[10px] md:text-sm bg-gradient-to-r from-indigo-50 to-indigo-100 border-indigo-200 text-indigo-700 hover:bg-indigo-200 h-7 md:h-8 px-2 md:px-3"
-          onClick={() => router.push('/services/reports')}
-        >
-          <BarChart className="h-3 w-3 md:h-4 md:w-4" /> Service Reports <ChevronRight className="h-2 w-2 md:h-3 md:w-3 ml-1" />
-        </Button>
-        
-        <Button
-          variant="outline"
-          size="sm" 
-          className="flex-shrink-0 mr-2 whitespace-nowrap min-w-0 flex items-center gap-1 text-[10px] md:text-sm bg-gradient-to-r from-emerald-50 to-emerald-100 border-emerald-200 text-emerald-700 hover:bg-emerald-200 h-7 md:h-8 px-2 md:px-3"
-          onClick={() => router.push('/services/doctors')}
-        >
-          <Users className="h-3 w-3 md:h-4 md:w-4" /> Doctors <ChevronRight className="h-2 w-2 md:h-3 md:w-3 ml-1" />
-        </Button>
-        
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex-shrink-0 mr-2 whitespace-nowrap min-w-0 flex items-center gap-1 text-[10px] md:text-sm bg-gradient-to-r from-amber-50 to-amber-100 border-amber-200 text-amber-700 hover:bg-amber-200 h-7 md:h-8 px-2 md:px-3"
-          onClick={() => router.push('/services/top-services')}
-        >
-          <Activity className="h-3 w-3 md:h-4 md:w-4" /> Top Services <ChevronRight className="h-2 w-2 md:h-3 md:w-3 ml-1" />
-        </Button>
+      {/* Skip to content button for accessibility */}
+      <a href="#services-content" className="sr-only focus:not-sr-only focus:absolute focus:p-2 focus:bg-indigo-100 text-indigo-800 rounded border">
+        Skip to content
+      </a>
+
+      {/* Analysis & Navigation Links - Now positioned at the top with improved visual hierarchy */}
+      <div className="bg-gray-50 p-2 rounded-lg border border-gray-100 shadow-sm">
+        <div className="text-xs text-gray-500 mb-1.5 font-medium">Quick Navigation</div>
+        <div className="manager-scroll-x">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-shrink-0 mr-2 whitespace-nowrap min-w-0 flex items-center gap-1 text-[10px] md:text-sm bg-gradient-to-r from-indigo-50 to-indigo-100 border-indigo-200 text-indigo-700 hover:bg-indigo-200 h-6 md:h-8 px-2 md:px-3"
+            onClick={() => router.push('/services/reports')}
+          >
+            <BarChart className="h-3 w-3 md:h-4 md:w-4" /> Service Reports <ChevronRight className="h-2 w-2 md:h-3 md:w-3 ml-1" />
+          </Button>
+          
+          <Button
+            variant="outline"
+            size="sm" 
+            className="flex-shrink-0 mr-2 whitespace-nowrap min-w-0 flex items-center gap-1 text-[10px] md:text-sm bg-gradient-to-r from-emerald-50 to-emerald-100 border-emerald-200 text-emerald-700 hover:bg-emerald-200 h-6 md:h-8 px-2 md:px-3"
+            onClick={() => router.push('/services/doctors')}
+          >
+            <Users className="h-3 w-3 md:h-4 md:w-4" /> Doctors <ChevronRight className="h-2 w-2 md:h-3 md:w-3 ml-1" />
+          </Button>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-shrink-0 mr-2 whitespace-nowrap min-w-0 flex items-center gap-1 text-[10px] md:text-sm bg-gradient-to-r from-amber-50 to-amber-100 border-amber-200 text-amber-700 hover:bg-amber-200 h-6 md:h-8 px-2 md:px-3"
+            onClick={() => router.push('/services/top-services')}
+          >
+            <Activity className="h-3 w-3 md:h-4 md:w-4" /> Top Services <ChevronRight className="h-2 w-2 md:h-3 md:w-3 ml-1" />
+          </Button>
+        </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-lg p-2 sm:p-3 md:p-4 lg:p-6 overflow-hidden">
+      <div id="services-content" className="bg-white rounded-lg shadow-lg p-2 sm:p-3 md:p-4 lg:p-6 overflow-hidden manager-card">
+        {/* SalesFilterBar now positioned before the metrics cards */}
+        <h3 className="text-sm font-medium text-gray-700 mb-2 md:mb-3 hidden md:block">Filter Services Data</h3>
         <SalesFilterBar
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
           timeframe={selectedTimeframe}
           onTimeframeChange={setSelectedTimeframe}
+          aria-label="Services filter controls"
         />
 
-        {error && <p className="text-red-500 text-xs md:text-sm mt-2">{error}</p>}
+        {error && <p className="text-red-500 text-xs md:text-sm mt-2" role="alert">{error}</p>}
 
-        {/* Mobile list view */}
-        <div className="md:hidden space-y-2 mt-4">
-          {filteredServices.length === 0 ? (
-            <div className="text-center py-4 text-gray-500 text-sm">
-              No services found
-            </div>
-          ) : (
-            filteredServices.map((service) => (
-              <SalesListCard<ServiceSale>
-                key={service.id}
-                item={service}
-                title={(item: ServiceSale) => item.patient.full_name}
-                subtitle={(item: ServiceSale) => format(new Date(item.created_at), 'MMM dd, yyyy')}
-                status={{
-                  label: service.payment_status,
-                  variant: service.payment_status === 'paid' ? 'default' : 
-                          service.payment_status === 'pending' ? 'secondary' : 'destructive'
-                }}
-                lineItems={service.items.map(item => ({
-                  name: item.service_name,
-                  quantity: 1,
-                  price: item.unit_price
-                }))}
-                totalAmount={calculateTotal(service)}
-              />
-            ))
-          )}
+        {/* Quick Analytics Cards now positioned after the filter bar with visual separator */}
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <h3 className="text-sm font-medium text-gray-700 mb-2 md:mb-3">Services Summary</h3>
+          <div className="manager-metrics">
+            <SalesMetricCard
+              title="Total Revenue"
+              value={new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(analytics.totalRevenue)}
+              icon={<DollarSign className="h-3.5 w-3.5 md:h-4 md:w-4 text-blue-600" />}
+              subValue={`${analytics.totalServices} total services`}
+              colorClass="from-blue-50 to-blue-100 border-blue-200 text-blue-600"
+            />
+            
+            <SalesMetricCard
+              title="Average Fee"
+              value={new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(analytics.averageServiceValue)}
+              icon={<Activity className="h-3.5 w-3.5 md:h-4 md:w-4 text-green-600" />}
+              colorClass="from-green-50 to-green-100 border-green-200 text-green-600"
+            />
+            
+            <SalesMetricCard
+              title="Most Common Service"
+              value={analytics.mostCommonService}
+              icon={<Activity className="h-3.5 w-3.5 md:h-4 md:w-4 text-purple-600" />}
+              colorClass="from-purple-50 to-purple-100 border-purple-200 text-purple-600"
+            />
+            
+            <SalesMetricCard
+              title="Pending Payments"
+              value={`${analytics.pendingServices}`}
+              icon={<Clock className="h-3.5 w-3.5 md:h-4 md:w-4 text-amber-600" />}
+              subValue={analytics.pendingServices > 0 ? ((analytics.pendingServices / analytics.totalServices) * 100).toFixed(1) + '% of total' : '0%'}
+              colorClass="from-amber-50 to-amber-100 border-amber-200 text-amber-600"
+            />
+          </div>
         </div>
-        
-        {/* Desktop table view */}
-        <div className="overflow-auto">
-          <SalesTable
-            data={filteredServices}
-            columns={serviceColumns}
-            isLoading={loading}
-            emptyMessage="No services found"
-          />
+
+        {/* Services Data Section with heading for better structure */}
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <h3 className="text-sm font-medium text-gray-700 mb-2 md:mb-3">Service Records</h3>
+          
+          {/* Mobile list view with collapsible option for small screens */}
+          <div className="md:hidden space-y-2">
+            {filteredServices.length === 0 ? (
+              <div className="text-center py-4 text-gray-500 text-sm" role="status">
+                No services found
+              </div>
+            ) : (
+              filteredServices.map((service) => (
+                <SalesListCard<ServiceSale>
+                  key={service.id}
+                  item={service}
+                  title={(item: ServiceSale) => item.patient.full_name}
+                  subtitle={(item: ServiceSale) => format(new Date(item.created_at), 'MMM dd, yyyy')}
+                  status={{
+                    label: service.payment_status,
+                    variant: service.payment_status === 'paid' ? 'default' : 
+                            service.payment_status === 'pending' ? 'secondary' : 'destructive'
+                  }}
+                  lineItems={service.items.map(item => ({
+                    name: item.service_name,
+                    quantity: 1,
+                    price: item.unit_price
+                  }))}
+                  totalAmount={calculateTotal(service)}
+                />
+              ))
+            )}
+          </div>
+          
+          {/* Desktop table view with better accessibility */}
+          <div className="mobile-scrollable mt-4" role="region" aria-label="Services data table">
+            <SalesTable
+              data={filteredServices}
+              columns={serviceColumns}
+              isLoading={loading}
+              emptyMessage="No services found"
+              className="mobile-table"
+            />
+          </div>
         </div>
       </div>
 
