@@ -28,15 +28,15 @@ interface PatientWithEmail {
 
 // Define more specific types for medication and batch
 interface MedicationData {
-  id: string;
-  name: string;
-  dosage_form: string;
-  strength: string;
+    id: string;
+    name: string;
+    dosage_form: string;
+    strength: string;
 }
 
 interface BatchData {
-  batch_number: string;
-  expiry_date: string;
+    batch_number: string;
+    expiry_date: string;
 }
 
 // Replace the existing AllSale interface with this improved one
@@ -142,7 +142,7 @@ export default function CashierPage() {
 
   // Fetch patient details when search query changes
   useEffect(() => {
-    if (searchQuery.trim()) {
+      if (searchQuery.trim()) {
       fetchPatients();
     } else {
       // If search query is cleared, show the initial patient list again
@@ -152,48 +152,48 @@ export default function CashierPage() {
 
   const fetchPatients = async () => {
     setHasSearched(true);
-    // Search in regular patients
-    const { data: patients, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .or(`full_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,phone_number.ilike.%${searchQuery}%`)
-      .limit(10);
+        // Search in regular patients
+        const { data: patients, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .or(`full_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,phone_number.ilike.%${searchQuery}%`)
+          .limit(10);
 
-    if (error) {
-      console.error('Error fetching regular patients:', error);
-      return;
-    }
+        if (error) {
+          console.error('Error fetching regular patients:', error);
+          return;
+        }
 
-    // Search in guest patients
-    const { data: guestPatients, error: guestError } = await supabase
-      .from('guest_patients')
-      .select('id, full_name, phone_number, email, date_of_birth, gender, address')
-      .or(`full_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,phone_number.ilike.%${searchQuery}%`)
-      .limit(10);
+        // Search in guest patients
+        const { data: guestPatients, error: guestError } = await supabase
+          .from('guest_patients')
+          .select('id, full_name, phone_number, email, date_of_birth, gender, address')
+          .or(`full_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,phone_number.ilike.%${searchQuery}%`)
+          .limit(10);
 
-    if (guestError) {
-      console.error('Error fetching guest patients:', guestError);
-    }
+        if (guestError) {
+          console.error('Error fetching guest patients:', guestError);
+        }
 
-    // Combine and format both result sets
-    const regularPatientsList = (patients || []).map(patient => ({
-      ...patient,
-      id: patient.id
-    }));
+        // Combine and format both result sets
+        const regularPatientsList = (patients || []).map(patient => ({
+          ...patient,
+          id: patient.id
+        }));
 
-    const guestPatientsList = (guestPatients || []).map(patient => ({
-      id: `guest_${patient.id}`,
-      full_name: patient.full_name,
-      phone_number: patient.phone_number,
-      email: patient.email,
-      date_of_birth: patient.date_of_birth,
-      gender: patient.gender,
-      address: patient.address,
-      patient_type: 'guest'
-    }));
+        const guestPatientsList = (guestPatients || []).map(patient => ({
+          id: `guest_${patient.id}`,
+          full_name: patient.full_name,
+          phone_number: patient.phone_number,
+          email: patient.email,
+          date_of_birth: patient.date_of_birth,
+          gender: patient.gender,
+          address: patient.address,
+          patient_type: 'guest'
+        }));
 
-    setFilteredPatients([...regularPatientsList, ...guestPatientsList]);
-  };
+        setFilteredPatients([...regularPatientsList, ...guestPatientsList]);
+    };
 
   // Fetch unpaid appointments and sales when patient is selected
   useEffect(() => {
@@ -803,19 +803,19 @@ export default function CashierPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-              {/* Patient Search */}
-              <div className="space-y-3 sm:space-y-4">
-                <div className="space-y-2">
-                  <Label>Search Patient</Label>
-                  <Input
-                    type="text"
-                    placeholder="Search by name, email, or phone"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
-                  />
-                  
-                  {/* Display Patient Search Results */}
+            {/* Patient Search */}
+            <div className="space-y-3 sm:space-y-4">
+              <div className="space-y-2">
+                <Label>Search Patient</Label>
+                <Input
+                  type="text"
+                  placeholder="Search by name, email, or phone"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
+                />
+                
+                {/* Display Patient Search Results */}
                   <div className="max-h-[200px] overflow-y-auto mt-1 sm:mt-2">
                     {isInitialLoading ? (
                       <div className="flex justify-center items-center py-4">
@@ -824,18 +824,18 @@ export default function CashierPage() {
                       </div>
                     ) : filteredPatients.length > 0 ? (
                       filteredPatients.map((patient) => (
-                        <div
-                          key={patient.id}
+                      <div
+                        key={patient.id}
                           className={`p-1 border rounded-lg mb-0.5 cursor-pointer hover:bg-blue-50 flex flex-col ${
-                            selectedPatient?.id === patient.id ? 'bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200' : ''
-                          }`}
-                          onClick={() => handlePatientSelect(patient)}
-                        >
+                          selectedPatient?.id === patient.id ? 'bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200' : ''
+                        }`}
+                        onClick={() => handlePatientSelect(patient)}
+                      >
                           <div className="font-medium text-xs">{patient.full_name}</div>
                           <div className="text-[10px] text-gray-500">
                             {patient.patient_type === 'guest' && <span className="bg-amber-100 text-amber-800 px-1 rounded-sm mr-1">Guest</span>}
                             {patient.phone_number || 'No phone'}
-                          </div>
+                        </div>
                         </div>
                       ))
                     ) : hasSearched ? (
@@ -845,24 +845,24 @@ export default function CashierPage() {
                     ) : (
                       <div className="text-center text-[11px] text-gray-500 italic p-4 border rounded-lg border-dashed">
                         No recent patients available
-                      </div>
-                    )}
                   </div>
-                </div>
-                
-                {selectedPatient && (
+                )}
+                  </div>
+              </div>
+              
+              {selectedPatient && (
                   <div className="space-y-1 sm:space-y-2">
                     <h3 className="font-medium text-sm sm:text-base">Patient Details</h3>
                     <div className="text-xs sm:text-sm p-1.5 sm:p-2 border rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
-                      <p>Name: {selectedPatient.full_name}</p>
-                      <p>Phone: {selectedPatient.phone_number}</p>
-                      <p>Email: {selectedPatient.email}</p>
-                    </div>
+                    <p>Name: {selectedPatient.full_name}</p>
+                    <p>Phone: {selectedPatient.phone_number}</p>
+                    <p>Email: {selectedPatient.email}</p>
                   </div>
-                )}
+                </div>
+              )}
 
-                {/* Display unpaid items lists */}
-                {selectedPatient && (
+              {/* Display unpaid items lists */}
+              {selectedPatient && (
                   <div className="space-y-3 sm:space-y-4">
                     {isDataLoading ? (
                       <div className="flex justify-center items-center py-4">
@@ -871,48 +871,48 @@ export default function CashierPage() {
                       </div>
                     ) : (
                       <>
-                        {unpaidAppointments.length > 0 && (
-                          <div className="space-y-1 sm:space-y-2">
-                            <h3 className="font-medium text-sm sm:text-base">Unpaid Appointments</h3>
-                            <div className="max-h-[120px] sm:max-h-[150px] overflow-y-auto">
-                              {unpaidAppointments.map((appointment) => (
-                                <div 
-                                  key={appointment.id}
-                                  className="p-1.5 sm:p-2 border rounded-lg mb-1 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
-                                >
-                                  <div className="font-medium text-xs sm:text-sm">{appointment.services?.name}</div>
-                                  <div className="text-xs text-gray-500 flex flex-col sm:flex-row sm:justify-between">
-                                    <span>Date: {appointment.date} at {appointment.time}</span>
-                                    <span>Price: KSh {appointment.services?.price.toFixed(2)}</span>
-                                  </div>
-                                </div>
-                              ))}
+                  {unpaidAppointments.length > 0 && (
+                      <div className="space-y-1 sm:space-y-2">
+                        <h3 className="font-medium text-sm sm:text-base">Unpaid Appointments</h3>
+                      <div className="max-h-[120px] sm:max-h-[150px] overflow-y-auto">
+                        {unpaidAppointments.map((appointment) => (
+                          <div 
+                            key={appointment.id}
+                            className="p-1.5 sm:p-2 border rounded-lg mb-1 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
+                          >
+                              <div className="font-medium text-xs sm:text-sm">{appointment.services?.name}</div>
+                              <div className="text-xs text-gray-500 flex flex-col sm:flex-row sm:justify-between">
+                              <span>Date: {appointment.date} at {appointment.time}</span>
+                                <span>Price: KSh {appointment.services?.price.toFixed(2)}</span>
                             </div>
                           </div>
-                        )}
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-                        {unpaidSales.length > 0 && (
-                          <div className="space-y-1 sm:space-y-2">
-                            <h3 className="font-medium text-sm sm:text-base">Unpaid Sales</h3>
-                            <div className="max-h-[120px] sm:max-h-[150px] overflow-y-auto">
-                              {unpaidSales.map((sale) => (
-                                <div 
-                                  key={sale.id}
-                                  className="p-1.5 sm:p-2 border rounded-lg mb-1 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
-                                >
-                                  <div className="font-medium text-xs sm:text-sm">Pharmacy Sale #{sale.id.substring(0, 8)}</div>
-                                  <div className="text-xs text-gray-500 flex flex-col sm:flex-row sm:justify-between">
-                                    <span>Date: {new Date(sale.created_at || '').toLocaleDateString()}</span>
-                                    <span>Total: KSh {sale.total_amount.toFixed(2)}</span>
-                                  </div>
-                                  <div className="text-xs mt-1">
-                                    Items: {sale.items?.length || 0}
-                                  </div>
-                                </div>
-                              ))}
+                  {unpaidSales.length > 0 && (
+                      <div className="space-y-1 sm:space-y-2">
+                      <h3 className="font-medium text-sm sm:text-base">Unpaid Sales</h3>
+                      <div className="max-h-[120px] sm:max-h-[150px] overflow-y-auto">
+                        {unpaidSales.map((sale) => (
+                          <div 
+                            key={sale.id}
+                            className="p-1.5 sm:p-2 border rounded-lg mb-1 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
+                          >
+                              <div className="font-medium text-xs sm:text-sm">Pharmacy Sale #{sale.id.substring(0, 8)}</div>
+                              <div className="text-xs text-gray-500 flex flex-col sm:flex-row sm:justify-between">
+                              <span>Date: {new Date(sale.created_at || '').toLocaleDateString()}</span>
+                                <span>Total: KSh {sale.total_amount.toFixed(2)}</span>
+                            </div>
+                              <div className="text-xs mt-1">
+                              Items: {sale.items?.length || 0}
                             </div>
                           </div>
-                        )}
+                        ))}
+                      </div>
+                    </div>
+                  )}
                         
                         {unpaidAppointments.length === 0 && unpaidSales.length === 0 && (
                           <div className="text-center text-[11px] text-gray-500 italic p-4 border rounded-lg border-dashed">
@@ -921,39 +921,39 @@ export default function CashierPage() {
                         )}
                       </>
                     )}
+                </div>
+              )}
+            </div>
+
+            {/* Payment Summary */}
+            <div className="space-y-3 sm:space-y-4 mt-4 lg:mt-0">
+                <div className="space-y-1 sm:space-y-2">
+                  <Label className="text-sm sm:text-base">Payment Method</Label>
+                <Select
+                  value={paymentMethod}
+                  onValueChange={(value: 'cash' | 'mpesa' | 'insurance') => setPaymentMethod(value)}
+                >
+                    <SelectTrigger className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
+                    <SelectValue placeholder="Select payment method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="mpesa">M-Pesa</SelectItem>
+                    <SelectItem value="insurance">Insurance</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                {paymentMethod === 'mpesa' && selectedPatient && (
+                    <div className="text-xs sm:text-sm text-amber-600 mt-1">
+                    <p>M-Pesa will be sent to: {formatPhoneNumber(selectedPatient.phone_number || '')}</p>
+                    {!formatPhoneNumber(selectedPatient.phone_number || '').match(/^254\d{9,10}$/) && (
+                      <p className="font-medium text-red-500 mt-1">
+                        Warning: Phone number appears to be invalid for M-Pesa. Please update patient details.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
-
-              {/* Payment Summary */}
-              <div className="space-y-3 sm:space-y-4 mt-4 lg:mt-0">
-                <div className="space-y-1 sm:space-y-2">
-                  <Label className="text-sm sm:text-base">Payment Method</Label>
-                  <Select
-                    value={paymentMethod}
-                    onValueChange={(value: 'cash' | 'mpesa' | 'insurance') => setPaymentMethod(value)}
-                  >
-                    <SelectTrigger className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
-                      <SelectValue placeholder="Select payment method" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="mpesa">M-Pesa</SelectItem>
-                      <SelectItem value="insurance">Insurance</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  
-                  {paymentMethod === 'mpesa' && selectedPatient && (
-                    <div className="text-xs sm:text-sm text-amber-600 mt-1">
-                      <p>M-Pesa will be sent to: {formatPhoneNumber(selectedPatient.phone_number || '')}</p>
-                      {!formatPhoneNumber(selectedPatient.phone_number || '').match(/^254\d{9,10}$/) && (
-                        <p className="font-medium text-red-500 mt-1">
-                          Warning: Phone number appears to be invalid for M-Pesa. Please update patient details.
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
 
                 <div className="space-y-1 sm:space-y-2">
                   <h3 className="font-medium text-sm sm:text-base">Payment Summary</h3>
@@ -964,43 +964,43 @@ export default function CashierPage() {
                   </div>
                 </div>
 
-                <Button
-                  onClick={handlePayment}
-                  disabled={!selectedPatient || isProcessing || grandTotal === 0 || isDataLoading}
-                  className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 text-sm sm:text-base py-1.5 sm:py-2"
-                >
-                  {isProcessing ? 'Processing...' : isDataLoading ? 'Loading data...' : 'Process Payment'}
-                </Button>
-              </div>
+              <Button
+                onClick={handlePayment}
+                disabled={!selectedPatient || isProcessing || grandTotal === 0 || isDataLoading}
+                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 text-sm sm:text-base py-1.5 sm:py-2"
+              >
+                {isProcessing ? 'Processing...' : isDataLoading ? 'Loading data...' : 'Process Payment'}
+              </Button>
             </div>
+          </div>
           </CardContent>
         </Card>
 
-        {/* Receipt Dialog */}
-        {showReceipt && receiptContent && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4 z-50">
-            <div className="bg-white rounded-lg shadow-lg w-full max-w-sm sm:max-w-2xl max-h-[90vh] overflow-auto">
-              <div className="p-3 sm:p-4 border-b flex justify-between items-center">
-                <h2 className="text-base sm:text-lg font-semibold">Payment Receipt</h2>
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setShowReceipt(false);
-                    setReceiptContent(null);
-                  }}
-                  className="h-8 w-8 sm:h-10 sm:w-10 p-0"
-                >
-                  Close
-                </Button>
-              </div>
-              <div className="p-3 sm:p-4">
-                <pre className="whitespace-pre-wrap font-mono text-xs sm:text-sm">
-                  {receiptContent}
-                </pre>
-              </div>
+      {/* Receipt Dialog */}
+      {showReceipt && receiptContent && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4 z-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-sm sm:max-w-2xl max-h-[90vh] overflow-auto">
+            <div className="p-3 sm:p-4 border-b flex justify-between items-center">
+              <h2 className="text-base sm:text-lg font-semibold">Payment Receipt</h2>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setShowReceipt(false);
+                  setReceiptContent(null);
+                }}
+                className="h-8 w-8 sm:h-10 sm:w-10 p-0"
+              >
+                Close
+              </Button>
+            </div>
+            <div className="p-3 sm:p-4">
+              <pre className="whitespace-pre-wrap font-mono text-xs sm:text-sm">
+                {receiptContent}
+              </pre>
             </div>
           </div>
-        )}
+        </div>
+      )}
       </div>
     </div>
   );

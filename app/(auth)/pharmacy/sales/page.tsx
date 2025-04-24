@@ -8,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function PharmacySalesPage() {
-  return <PharmacySalesManager />;
+  return (
+    <main className="container mx-auto">
+      <PharmacySalesManager />
+    </main>
+  );
 }
