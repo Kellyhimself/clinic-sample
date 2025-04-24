@@ -26,28 +26,34 @@ export default function AuthLayout({
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        // Use getUser() for improved security as recommended by Supabase
+        const { data: { user: authUser }, error: userError } = await supabase.auth.getUser();
         
-        if (error) throw error;
+        if (userError) throw userError;
 
-        if (session) {
-          // Use server action to set auth cookie
-          await setAuthCookie('auth-token', session.access_token, {
-            path: '/',
-            maxAge: 60 * 60 * 24 * 7, // 1 week
-            sameSite: 'lax',
-            secure: process.env.NODE_ENV === 'production',
-          });
+        if (authUser) {
+          // Get the session just for the tokens (can't avoid this part)
+          const { data: { session } } = await supabase.auth.getSession();
+          
+          if (session) {
+            // Use server action to set auth cookie
+            await setAuthCookie('auth-token', session.access_token, {
+              path: '/',
+              maxAge: 60 * 60 * 24 * 7, // 1 week
+              sameSite: 'lax',
+              secure: process.env.NODE_ENV === 'production',
+            });
+          }
 
           // Get the profile to determine user role
           const { data: profile } = await supabase
             .from('profiles')
             .select('*')
-            .eq('id', session.user.id)
+            .eq('id', authUser.id)
             .single();
 
           setIsAuthenticated(true);
-          setUser(session.user);
+          setUser(authUser);
           
           // Set user role from profile if available
           if (profile && profile.role) {

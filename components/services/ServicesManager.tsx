@@ -265,7 +265,7 @@ export default function ServicesManager() {
   const filteredServices = services;
 
   return (
-    <div className="space-y-3 p-2 md:space-y-6 md:p-4 lg:p-6">
+    <div className="space-y-3 p-2 md:space-y-6 md:p-4 lg:p-6 mobile-container">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 md:gap-4">
         <h2 className="text-xl md:text-2xl font-bold text-gray-800 leading-tight">Clinical Services Management</h2>
         <Button 
@@ -310,11 +310,11 @@ export default function ServicesManager() {
       </div>
       
       {/* Analysis & Navigation Links - Make this scrollable on mobile */}
-      <div className="flex overflow-x-auto -mx-2 px-2 pb-2 snap-x snap-mandatory md:mx-0 md:px-0 md:snap-none md:flex-wrap md:gap-3 md:mb-4">
+      <div className="flex overflow-x-auto pb-1 -mx-2 px-2 md:mx-0 md:px-0 md:overflow-visible md:flex-wrap md:gap-2">
         <Button
           variant="outline"
           size="sm"
-          className="flex-shrink-0 mr-2 snap-start min-w-[140px] flex items-center gap-1 text-[10px] md:text-sm bg-gradient-to-r from-indigo-50 to-indigo-100 border-indigo-200 text-indigo-700 hover:bg-indigo-200 h-8"
+          className="flex-shrink-0 mr-2 whitespace-nowrap min-w-0 flex items-center gap-1 text-[10px] md:text-sm bg-gradient-to-r from-indigo-50 to-indigo-100 border-indigo-200 text-indigo-700 hover:bg-indigo-200 h-7 md:h-8 px-2 md:px-3"
           onClick={() => router.push('/services/reports')}
         >
           <BarChart className="h-3 w-3 md:h-4 md:w-4" /> Service Reports <ChevronRight className="h-2 w-2 md:h-3 md:w-3 ml-1" />
@@ -323,7 +323,7 @@ export default function ServicesManager() {
         <Button
           variant="outline"
           size="sm" 
-          className="flex-shrink-0 mr-2 snap-start min-w-[140px] flex items-center gap-1 text-[10px] md:text-sm bg-gradient-to-r from-emerald-50 to-emerald-100 border-emerald-200 text-emerald-700 hover:bg-emerald-200 h-8"
+          className="flex-shrink-0 mr-2 whitespace-nowrap min-w-0 flex items-center gap-1 text-[10px] md:text-sm bg-gradient-to-r from-emerald-50 to-emerald-100 border-emerald-200 text-emerald-700 hover:bg-emerald-200 h-7 md:h-8 px-2 md:px-3"
           onClick={() => router.push('/services/doctors')}
         >
           <Users className="h-3 w-3 md:h-4 md:w-4" /> Doctors <ChevronRight className="h-2 w-2 md:h-3 md:w-3 ml-1" />
@@ -332,14 +332,14 @@ export default function ServicesManager() {
         <Button
           variant="outline"
           size="sm"
-          className="flex-shrink-0 mr-2 snap-start min-w-[140px] flex items-center gap-1 text-[10px] md:text-sm bg-gradient-to-r from-amber-50 to-amber-100 border-amber-200 text-amber-700 hover:bg-amber-200 h-8"
+          className="flex-shrink-0 mr-2 whitespace-nowrap min-w-0 flex items-center gap-1 text-[10px] md:text-sm bg-gradient-to-r from-amber-50 to-amber-100 border-amber-200 text-amber-700 hover:bg-amber-200 h-7 md:h-8 px-2 md:px-3"
           onClick={() => router.push('/services/top-services')}
         >
           <Activity className="h-3 w-3 md:h-4 md:w-4" /> Top Services <ChevronRight className="h-2 w-2 md:h-3 md:w-3 ml-1" />
         </Button>
       </div>
 
-      <div className="bg-white rounded-lg shadow-lg p-3 md:p-4 lg:p-6">
+      <div className="bg-white rounded-lg shadow-lg p-2 sm:p-3 md:p-4 lg:p-6 overflow-hidden">
         <SalesFilterBar
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
@@ -350,7 +350,7 @@ export default function ServicesManager() {
         {error && <p className="text-red-500 text-xs md:text-sm mt-2">{error}</p>}
 
         {/* Mobile list view */}
-        <div className="md:hidden space-y-2 px-2 mt-4">
+        <div className="md:hidden space-y-2 mt-4">
           {filteredServices.length === 0 ? (
             <div className="text-center py-4 text-gray-500 text-sm">
               No services found
@@ -379,12 +379,14 @@ export default function ServicesManager() {
         </div>
         
         {/* Desktop table view */}
-        <SalesTable
-          data={filteredServices}
-          columns={serviceColumns}
-          isLoading={loading}
-          emptyMessage="No services found"
-        />
+        <div className="overflow-auto">
+          <SalesTable
+            data={filteredServices}
+            columns={serviceColumns}
+            isLoading={loading}
+            emptyMessage="No services found"
+          />
+        </div>
       </div>
 
       {/* New Service Form Dialog */}

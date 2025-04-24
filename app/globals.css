@@ -120,3 +120,37 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Add responsive utilities */
+@layer utilities {
+  .mobile-container {
+    max-width: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+  
+  /* Define an xs breakpoint for extra small devices */
+  @media (min-width: 475px) {
+    .xs\:flex-row {
+      flex-direction: row;
+    }
+    
+    .xs\:gap-2 {
+      gap: 0.5rem;
+    }
+    
+    .xs\:w-auto {
+      width: auto;
+    }
+    
+    .xs\:px-2 {
+      padding-left: 0.5rem;
+      padding-right: 0.5rem;
+    }
+  }
+}

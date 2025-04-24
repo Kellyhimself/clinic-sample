@@ -989,8 +989,67 @@ export type Database = {
         }
         Relationships: []
       }
+      guest_patients: {
+        Row: {
+          id: string
+          full_name: string
+          phone_number: string
+          email: string | null
+          date_of_birth: string | null
+          gender: string | null
+          address: string | null
+          created_at: string | null
+          updated_at: string | null
+          last_access: string | null
+          notes: string | null
+        }
+        Insert: {
+          id?: string
+          full_name: string
+          phone_number: string
+          email?: string | null
+          date_of_birth?: string | null
+          gender?: string | null
+          address?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+          last_access?: string | null
+          notes?: string | null
+        }
+        Update: {
+          id?: string
+          full_name?: string
+          phone_number?: string
+          email?: string | null
+          date_of_birth?: string | null
+          gender?: string | null
+          address?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+          last_access?: string | null
+          notes?: string | null
+        }
+        Relationships: []
+      },
     }
     Views: {
+      all_patients: {
+        Row: {
+          id: string
+          full_name: string
+          phone_number: string | null
+          email: string | null
+          date_of_birth: string | null
+          gender: string | null
+          address: string | null
+          created_at: string | null
+          updated_at: string | null
+          patient_type: 'registered' | 'guest'
+          reference_id: string
+          user_id: string | null
+        }
+        Relationships: []
+      },
       patient_summary: {
         Row: {
           full_name: string | null
@@ -1072,6 +1131,22 @@ export type Database = {
         }
         Returns: undefined
       }
+      register_guest_patient: {
+        Args: { 
+          p_full_name: string
+          p_phone_number: string
+          p_email?: string | null
+          p_date_of_birth?: string | null
+          p_gender?: string | null
+          p_address?: string | null
+          p_notes?: string | null 
+        }
+        Returns: Patient
+      }
+      get_patient_by_id: {
+        Args: { p_id: string }
+        Returns: Patient
+      }
     }
     Enums: {
       appointment_status: "pending" | "confirmed" | "cancelled"
@@ -1086,77 +1161,71 @@ export type Database = {
 type DefaultSchema = Database[Extract<keyof Database, "public">]
 
 export type Tables<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+  PublicTableNameOrOptions extends
+    | keyof (Database["public"]["Tables"] & Database["public"]["Views"])
     | { schema: keyof Database },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
-  }
-    ? keyof (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
+        Database[PublicTableNameOrOptions["schema"]]["Views"])
+    : never = never
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
+      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R
-      }
-      ? R
-      : never
+  : PublicTableNameOrOptions extends keyof (Database["public"]["Tables"] &
+      Database["public"]["Views"])
+  ? (Database["public"]["Tables"] &
+      Database["public"]["Views"])[PublicTableNameOrOptions] extends {
+      Row: infer R
+    }
+    ? R
     : never
+  : never;
 
 export type TablesInsert<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
+  PublicTableNameOrOptions extends
+    | keyof Database["public"]["Tables"]
     | { schema: keyof Database },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
-  }
-    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+    : never = never
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I
-      }
-      ? I
-      : never
+  : PublicTableNameOrOptions extends keyof Database["public"]["Tables"]
+  ? Database["public"]["Tables"][PublicTableNameOrOptions] extends {
+      Insert: infer I
+    }
+    ? I
     : never
+  : never;
 
 export type TablesUpdate<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
+  PublicTableNameOrOptions extends
+    | keyof Database["public"]["Tables"]
     | { schema: keyof Database },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
-  }
-    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+    : never = never
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U
-      }
-      ? U
-      : never
+  : PublicTableNameOrOptions extends keyof Database["public"]["Tables"]
+  ? Database["public"]["Tables"][PublicTableNameOrOptions] extends {
+      Update: infer U
+    }
+    ? U
     : never
+  : never;
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
@@ -1197,7 +1266,33 @@ export const Constants = {
   },
 } as const
 
-export type Patient = Database['public']['Tables']['patients']['Row'];
+// Enhanced Patient type that handles both regular and guest patients
+export interface PatientBase {
+  id: string;
+  full_name: string;
+  phone_number: string | null;
+  email?: string | null;
+  date_of_birth: string | null;
+  gender: string | null;
+  address: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  is_registered_user?: boolean;
+  patient_type?: 'registered' | 'guest';
+  reference_id?: string;
+  user_id: string | null;
+}
+
+// Guest Patient type specifically for patients from guest_patients table
+export interface GuestPatient extends Omit<PatientBase, 'user_id'> {
+  id: string; // Format will be 'guest_{uuid}'
+  patient_type: 'guest';
+  reference_id: string; // The actual UUID in guest_patients table
+  user_id: null;
+}
+
+// Patient type is a union type that can be either a regular patient or guest patient
+export type Patient = PatientBase | GuestPatient;
 
 export type Medication = Omit<Database['public']['Tables']['medications']['Row'], 'manufacturer' | 'barcode' | 'shelf_location'> & {
   manufacturer?: string | null;
@@ -1280,6 +1375,7 @@ export type Appointment = {
   payment_method?: 'mpesa' | 'cash' | 'bank';
   transaction_id?: string | null;
   doctor?: { full_name: string } | null;
+  patient_id?: string;
 };
 
 export type AppointmentWithDetails = Appointment & {

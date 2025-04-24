@@ -58,7 +58,11 @@ export default function DashboardClient({ initialUserRole }: DashboardClientProp
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-blue-700 mb-2">Book Appointment</h3>
-                  <p className="text-blue-600 text-sm">Schedule a new appointment for a patient</p>
+                  <p className="text-blue-600 text-sm">
+                    {isAdminOrStaff 
+                      ? "Book for patients or add guest patients" 
+                      : "Schedule a new appointment"}
+                  </p>
                 </div>
               </CardContent>
             </Card>

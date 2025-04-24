@@ -3,13 +3,13 @@ import { getSupabaseClient } from './supabase-server';
 import axios, { AxiosError } from 'axios';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import type {
+import type { 
   Database, 
-  Patient,
+  Patient, 
   Sale, 
-  Medication,
-  ReceiptData,
-  Supplier,
+  Medication, 
+  ReceiptData, 
+  Supplier, 
   PatientSummaryData, 
   SaleItem, 
   InventoryItem 
@@ -565,8 +565,8 @@ export async function bookAppointment(formData: FormData, options?: {
       .from('services')
       .select('name, price, duration')
       .eq('id', serviceId)
-    .single();
-
+      .single();
+    
     if (serviceError || !service) {
       throw new Error('Invalid service selected');
     }
@@ -582,10 +582,10 @@ export async function bookAppointment(formData: FormData, options?: {
   try {
     // Check for scheduling conflicts for the doctor
     const { data: conflicts, error: conflictError } = await supabase
-    .from('appointments')
+      .from('appointments')
       .select('id, time')
       .eq('doctor_id', doctorId)
-    .eq('date', date)
+      .eq('date', date)
       .neq('status', 'cancelled');
     
     if (conflictError) {
@@ -614,27 +614,654 @@ export async function bookAppointment(formData: FormData, options?: {
     }
     
     // Create the appointment
-    const insertPayload: any = {
-    patient_id: patientId,
-    doctor_id: doctorId,
-    date,
-    time,
-    status: 'pending',
+    const insertPayload = {
+      patient_id: patientId,
+      doctor_id: doctorId,
+      date,
+      time,
+      status: 'pending',
       notes: notes || null,
       payment_status: 'unpaid',
     };
     
     // Add service_id only if it exists
     if (serviceId) {
-      insertPayload.service_id = serviceId;
+      Object.assign(insertPayload, { service_id: serviceId });
     }
     
     const { data: appointment, error: appointmentError } = await supabase
-    .from('appointments')
-      .insert(insertPayload)
-    .select()
+      .from('appointments')
+'use server';
+import { getSupabaseClient } from './supabase-server';
+import axios, { AxiosError } from 'axios';
+import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
+import type { 
+  Database, 
+  Patient, 
+  Sale, 
+  Medication, 
+  ReceiptData, 
+  Supplier, 
+  PatientSummaryData, 
+  SaleItem, 
+  InventoryItem 
+} from '@/types/supabase';
+
+// Define types from database schema
+type MedicationBatchRow = Database['public']['Tables']['medication_batches']['Row'];
+
+// Local type for appointments
+export type AppointmentData = {
+  id: string;
+  date: string;
+  time: string;
+  status: 'pending' | 'confirmed' | 'cancelled';
+  notes: string;
+  services: { name: string; price: number; duration: number } | null;
+  patient: { full_name: string } | null;
+  doctor: { full_name: string } | null;
+  payment_status?: 'unpaid' | 'paid' | 'refunded';
+  payment_method?: 'mpesa' | 'cash' | 'bank';
+  transaction_id: string | null;
+};
+
+function formatReceipt(data: ReceiptData): string {
+  // Format the receipt content based on the data
+  return `Receipt #${data.receipt_number}
+Date: ${data.created_at ? new Date(data.created_at).toLocaleDateString() : 'N/A'}
+
+Medication Details:
+${data.items?.map(item => 
+  `- ${item.medication.name} (${item.quantity} x ${item.unit_price}) = ${item.total_price}`
+).join('\n') || 'No medications'}
+
+Medication Total: KSh ${data.medication_total?.toFixed(2) || '0.00'}
+
+Appointment/Services:
+${data.appointments?.map(app => 
+  `- ${app.services?.name || 'Service'} = ${app.services?.price || '0'}`
+).join('\n') || 'No appointments'}
+
+Appointment Total: KSh ${data.appointment_total?.toFixed(2) || '0.00'}
+
+----------------------------------------
+Grand Total: KSh ${data.amount.toFixed(2)}
+Payment Method: ${data.payment_method}
+----------------------------------------`;
+}
+
+export async function signup(formData: FormData) {
+  console.log('Signup function called with formData:', Object.fromEntries(formData));
+
+  const supabase = await getSupabaseClient();
+  const email = formData.get('email') as string;
+  const password = formData.get('password') as string;
+  const fullName = formData.get('fullName') as string;
+  const phoneNumberInput = formData.get('phoneNumber') as string | null;
+  const role = (formData.get('role') as string) || 'patient';
+
+  // Validate required fields
+  if (!email || !password || !fullName) {
+    console.error('Validation failed: Missing required fields', { email, password, fullName });
+    throw new Error('Missing required fields: ' + JSON.stringify({ email, password, fullName }));
+  }
+
+  // Validate email format
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    console.error('Validation failed: Invalid email format', { email });
+    throw new Error('Invalid email format');
+  }
+
+  // Validate password length
+  if (password.length < 6) {
+    console.error('Validation failed: Password too short', { passwordLength: password.length });
+    throw new Error('Password must be at least 6 characters');
+  }
+
+  // Validate role
+  const validRoles = ['patient', 'admin', 'doctor', 'staff', 'pharmacist'];
+  if (!validRoles.includes(role)) {
+    console.error('Validation failed: Invalid role', { role });
+    throw new Error('Invalid role');
+  }
+
+  // Format and validate phone number
+  let phoneNumber: string | null = null;
+  if (phoneNumberInput?.trim()) {
+    const cleanedPhone = phoneNumberInput.replace(/[^0-9+]/g, '');
+    if (cleanedPhone.startsWith('0')) {
+      phoneNumber = '+254' + cleanedPhone.slice(1);
+    } else if (cleanedPhone.startsWith('+254')) {
+      phoneNumber = cleanedPhone;
+    } else {
+      console.error('Validation failed: Invalid phone number prefix', { cleanedPhone });
+      throw new Error('Phone number must start with 0 or +254');
+    }
+    if (!/^\+254[0-9]{9,10}$/.test(phoneNumber)) {
+      console.error('Validation failed: Invalid phone number format', { phoneNumber });
+      throw new Error('Phone number must be +254 followed by 9 digits (e.g., +254712345678)');
+    }
+  }
+
+  console.log('Signup Input:', { email, fullName, phoneNumber, role, password: '[hidden]' });
+
+  try {
+    // Check for existing email in auth.users
+    console.log('Checking auth.users for email:', email);
+    const { data: authUsers, error: authCheckError } = await supabase.rpc('get_auth_users_by_email', { email_input: email });
+    if (authCheckError) {
+      console.error('Auth users check error:', authCheckError);
+      throw new Error('Failed to verify auth user existence: ' + authCheckError.message);
+    }
+    if (authUsers && authUsers.length > 0) {
+      console.error('User already exists in auth.users:', email);
+      throw new Error('Email already registered');
+    }
+
+    // Check for existing email or phone number in profiles
+    console.log('Checking profiles for email:', email);
+    if (email) {
+      const { data: existingEmail, error: emailCheckError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle();
+      if (emailCheckError) {
+        console.error('Email check error:', emailCheckError);
+        throw new Error('Failed to verify email uniqueness: ' + emailCheckError.message);
+      }
+      if (existingEmail) {
+        console.error('Email already in use in profiles:', email);
+        throw new Error('Email already in use');
+      }
+    }
+
+    if (phoneNumber) {
+      console.log('Checking profiles for phone number:', phoneNumber);
+      const { data: existingPhone, error: phoneCheckError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('phone_number', phoneNumber)
+        .maybeSingle();
+      if (phoneCheckError) {
+        console.error('Phone check error:', phoneCheckError);
+        throw new Error('Failed to verify phone number uniqueness: ' + phoneCheckError.message);
+      }
+      if (existingPhone) {
+        console.error('Phone number already in use:', phoneNumber);
+        throw new Error('Phone number already in use');
+      }
+    }
+
+    // Perform signup
+    console.log('Attempting auth.signup...');
+    const { data: { user }, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+          phone_number: phoneNumber,
+          role,
+        },
+      },
+    });
+
+    if (authError) {
+      console.error('Auth Signup Error:', {
+        message: authError.message,
+        status: authError.status,
+        code: authError.code,
+        details: authError,
+      });
+      throw new Error(`Signup failed: ${authError.message}`);
+    }
+
+    if (!user) {
+      console.error('No user returned from signup');
+      throw new Error('Signup failed: No user created');
+    }
+
+    console.log('User created:', { userId: user.id, email: user.email });
+
+    // Insert profile
+    console.log('Inserting profile for user:', user.id);
+    const { error: insertProfileError } = await supabase
+      .from('profiles')
+      .insert({
+        id: user.id,
+        email,
+        full_name: fullName,
+        phone_number: phoneNumber,
+        role,
+        created_at: new Date().toISOString(),
+      });
+
+    if (insertProfileError) {
+      console.error('Profile insert error:', insertProfileError);
+      try {
+        console.log('Cleaning up: Deleting auth user:', user.id);
+        await supabase.auth.admin.deleteUser(user.id);
+      } catch (cleanupError) {
+        console.error('Cleanup failed:', cleanupError);
+      }
+      throw new Error(`Failed to create user profile: ${insertProfileError.message}`);
+    }
+
+    // Verify profile
+    console.log('Verifying profile for user:', user.id);
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, role, email, full_name, phone_number')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      console.error('Profile verification error:', profileError);
+      try {
+        console.log('Cleaning up: Deleting auth user:', user.id);
+        await supabase.auth.admin.deleteUser(user.id);
+      } catch (cleanupError) {
+        console.error('Cleanup failed:', cleanupError);
+      }
+      throw new Error(`Failed to verify profile: ${profileError?.message || 'No profile found'}`);
+    }
+
+    console.log('Signup successful for user:', user.id);
+    return { user };
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Signup Unexpected Error:', {
+      message: errorMessage,
+      error: error instanceof Error ? error.stack : error,
+    });
+    throw new Error(`Unexpected error during signup: ${errorMessage}`);
+  }
+}
+
+export async function login(email: string, password: string) {
+  try {
+    const supabase = await getSupabaseClient();
+    
+    // Sign in with password
+    const { data, error } = await supabase.auth.signInWithPassword({ 
+      email, 
+      password 
+    });
+
+    if (error) {
+      console.error('Login error:', error);
+      return { error };
+    }
+
+    if (!data.session) {
+      console.error('No session created after login');
+      return { error: new Error('No session created') };
+    }
+
+    // Explicitly set session to ensure cookies are set properly
+    try {
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      });
+      
+      if (sessionError) {
+        console.error('Error setting session:', sessionError);
+        return { error: sessionError };
+      }
+    } catch (sessionSetError) {
+      console.error('Exception setting session:', sessionSetError);
+      return { error: sessionSetError instanceof Error ? sessionSetError : new Error('Failed to set session') };
+    }
+
+    // Return success with session data
+    return { 
+      error: null, 
+      session: data.session,
+      user: data.user,
+      redirect: '/dashboard'
+    };
+  } catch (error) {
+    console.error('Unexpected login error:', error);
+    return { error: error instanceof Error ? error : new Error('Login failed') };
+  }
+}
+
+export async function fetchUserRole(): Promise<string> {
+  const supabase = await getSupabaseClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) throw new Error('User not authenticated');
+
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
     .single();
 
+  if (profileError || !profile) {
+    console.error('Profile fetch error:', profileError?.message);
+    return 'patient'; // Default to patient if profile fetch fails
+  }
+
+  return profile.role || 'patient';
+}
+
+export async function setUserRole(formData: {
+  user_id: string;
+  role: string;
+  full_name: string;
+  // Doctor specific
+  license_number?: string;
+  specialty?: string;
+  department?: string;
+  // Patient specific
+  date_of_birth?: string;
+  gender?: string;
+  address?: string;
+  // Pharmacist specific
+  specialization?: string;
+  // Admin specific
+  permissions?: string[];
+}) {
+  const supabase = await getSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
+  // Validate required fields
+  if (!formData.user_id) {
+    throw new Error('User ID is required');
+  }
+
+  if (!formData.full_name) {
+    throw new Error('Full name is required');
+  }
+
+  try {
+    // Get the current role from profiles
+    const { data: currentProfile, error: profileError } = await supabase
+    .from('profiles')
+    .select('role')
+      .eq('id', formData.user_id)
+    .single();
+
+    if (profileError) {
+      throw new Error('Failed to fetch current role');
+    }
+
+    // Delete from old role table if exists
+    if (currentProfile?.role) {
+      switch (currentProfile.role) {
+        case 'doctor':
+          await supabase.from('doctors').delete().eq('user_id', formData.user_id);
+          break;
+        case 'patient':
+          await supabase.from('patients').delete().eq('user_id', formData.user_id);
+          break;
+        case 'pharmacist':
+          await supabase.from('pharmacists').delete().eq('user_id', formData.user_id);
+          break;
+        case 'admin':
+          await supabase.from('admins').delete().eq('user_id', formData.user_id);
+          break;
+      }
+    }
+
+    // Update profile with new role
+    const { error: updateError } = await supabase
+    .from('profiles')
+      .update({ role: formData.role })
+      .eq('id', formData.user_id);
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    // Insert into new role table
+    switch (formData.role) {
+      case 'doctor':
+        if (!formData.license_number || !formData.specialty) {
+          throw new Error('License number and specialty are required for doctors');
+        }
+        // First delete any existing record
+        await supabase.from('doctors').delete().eq('user_id', formData.user_id);
+        // Then insert the new record
+        const { error: doctorError } = await supabase.from('doctors').insert({
+          id: formData.user_id,
+          user_id: formData.user_id,
+          license_number: formData.license_number,
+          specialty: formData.specialty
+        });
+        if (doctorError) {
+          throw doctorError;
+        }
+        break;
+
+      case 'patient':
+        if (!formData.date_of_birth || !formData.gender || !formData.address) {
+          throw new Error('Date of birth, gender, and address are required for patients');
+        }
+        await supabase.from('patients').upsert({
+          id: formData.user_id,
+          user_id: formData.user_id,
+          full_name: formData.full_name,
+          date_of_birth: formData.date_of_birth,
+          gender: formData.gender,
+          address: formData.address
+        });
+        break;
+
+      case 'pharmacist':
+        if (!formData.license_number) {
+          throw new Error('License number is required for pharmacists');
+        }
+        await supabase.from('pharmacists').upsert({
+          id: formData.user_id,
+          user_id: formData.user_id,
+          full_name: formData.full_name,
+          license_number: formData.license_number,
+          specialization: formData.specialization
+        });
+        break;
+
+      case 'admin':
+        await supabase.from('admins').upsert({
+          id: formData.user_id,
+          user_id: formData.user_id,
+          full_name: formData.full_name,
+          permissions: formData.permissions
+        });
+        break;
+
+      default:
+        throw new Error(`Invalid role: ${formData.role}`);
+    }
+
+    // Log the role change
+    await supabase.from('audit_logs').insert({
+      action: 'role_change',
+      entity_type: 'user',
+      entity_id: formData.user_id,
+      details: {
+        new_role: formData.role,
+        previous_role: currentProfile?.role
+      },
+      created_by: user.id,
+    });
+
+  } catch (error) {
+    console.error('Role change error:', error);
+    throw new Error(`Failed to update user role: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+export async function fetchAllProfiles() {
+  const supabase = await getSupabaseClient();
+  const { data: profiles, error } = await supabase
+    .from('profiles')
+    .select('id, email, full_name, phone_number, role, created_at, updated_at')
+    .order('created_at', { ascending: true });
+
+  if (error) throw new Error(`Failed to fetch profiles: ${error.message}`);
+  
+  return profiles || [];
+}
+
+export async function fetchServices() {
+  const supabase = await getSupabaseClient();
+  const { data: services, error } = await supabase
+    .from('services')
+    .select('id, name, price, duration')
+    .order('name', { ascending: true });
+
+  if (error) throw new Error(`Failed to fetch services: ${error.message}`);
+
+  return services as { id: string; name: string; price: number; duration: number }[];
+}
+
+export async function bookAppointment(formData: FormData, options?: { 
+  isStaffBooking?: boolean;
+  patientId?: string;
+  guestPatientData?: {
+    full_name: string;
+    phone_number: string;
+    email?: string;
+    date_of_birth?: string;
+    gender?: string;
+    address?: string;
+  }
+}) {
+  const supabase = await getSupabaseClient();
+  let patientId: string;
+  
+  // Staff booking flow - can book for existing or guest patients
+  if (options?.isStaffBooking) {
+    if (options.patientId) {
+      // Booking for an existing patient (could be regular or guest)
+      patientId = options.patientId;
+    } else if (options.guestPatientData) {
+      // Create a guest patient and then book for them
+      try {
+        const result = await createGuestPatient(options.guestPatientData);
+        if (!result.success || !result.patient) {
+          throw new Error(result.message || 'Failed to create guest patient');
+        }
+        patientId = result.patient.id;
+      } catch (error) {
+        throw new Error(`Failed to create guest patient: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    } else {
+      throw new Error('Either patientId or guestPatientData is required for staff bookings');
+    }
+  } else {
+    // Regular user flow - patient books for themselves
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) throw new Error('You must be logged in to book an appointment');
+
+    // Check if user is registered as a patient
+    const { data: patient, error: patientError } = await supabase
+      .from('all_patients')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (patientError || !patient) {
+      throw new Error('Please register as a patient first to book an appointment. Contact the administrator for assistance.');
+    }
+    
+    patientId = patient.id;
+  }
+
+  // Extract form data
+  const serviceId = formData.get('serviceId') as string;
+  const customService = formData.get('customService') as string;
+  const doctorId = formData.get('doctorId') as string;
+  const date = formData.get('date') as string;
+  const time = formData.get('time') as string;
+  const notes = formData.get('notes') as string;
+
+  if (!doctorId || (!serviceId && !customService) || !date || !time) {
+    throw new Error('Missing required fields for appointment booking');
+  }
+
+  // Get the service details
+  let serviceName = customService;
+  let servicePrice = 0;
+  let serviceDuration = 30; // Default duration in minutes
+
+  if (serviceId && !customService) {
+    const { data: service, error: serviceError } = await supabase
+      .from('services')
+      .select('name, price, duration')
+      .eq('id', serviceId)
+      .single();
+    
+    if (serviceError || !service) {
+      throw new Error('Invalid service selected');
+    }
+    
+    serviceName = service.name;
+    servicePrice = service.price;
+    serviceDuration = service.duration;
+  }
+
+  // Log the service details for tracking
+  console.log('Booking appointment with service:', { serviceName, servicePrice, serviceDuration });
+
+  try {
+    // Check for scheduling conflicts for the doctor
+    const { data: conflicts, error: conflictError } = await supabase
+      .from('appointments')
+      .select('id, time')
+      .eq('doctor_id', doctorId)
+      .eq('date', date)
+      .neq('status', 'cancelled');
+    
+    if (conflictError) {
+      throw new Error('Failed to check doctor availability');
+    }
+    
+    // Simple conflict check - ensure appointments don't overlap
+    // This is a basic check, for a real system you'd want more sophisticated time slot validation
+    if (conflicts && conflicts.length > 0) {
+      // Check if the requested time overlaps with existing appointments
+      const requestedHour = parseInt(time.split(':')[0]);
+      const requestedMinute = parseInt(time.split(':')[1]);
+      
+      for (const conflict of conflicts) {
+        const conflictHour = parseInt(conflict.time.split(':')[0]);
+        const conflictMinute = parseInt(conflict.time.split(':')[1]);
+        
+        // Check if appointments are less than the service duration apart
+        const requestedTimeInMinutes = requestedHour * 60 + requestedMinute;
+        const conflictTimeInMinutes = conflictHour * 60 + conflictMinute;
+        
+        if (Math.abs(requestedTimeInMinutes - conflictTimeInMinutes) < serviceDuration) {
+          throw new Error('The doctor already has an appointment at this time');
+        }
+      }
+    }
+    
+    // Create the appointment
+    const { data: appointment, error: appointmentError } = await supabase
+      .from('appointments')
+      .insert({
+        patient_id: patientId,
+        service_id: serviceId, // This will be null if serviceId is not provided
+        doctor_id: doctorId,
+        date,
+        time,
+        status: 'pending',
+        notes: notes || null,
+        payment_status: 'unpaid',
+      })
+      .select()
+      .single();
+    
     if (appointmentError) {
       console.error('Error creating appointment:', appointmentError);
       throw new Error('Failed to create appointment');
@@ -674,7 +1301,7 @@ export async function handleBooking(formData: FormData, options?: {
     } else {
       return { 
         success: false, 
-        message: result.message || "Failed to book appointment. Please try again."
+        message: "Failed to book appointment. Please try again."
       };
     }
   } catch (error) {
@@ -1827,32 +2454,9 @@ export async function createSale(saleData: {
   }
 
   try {
-    // Special handling for guest patients with the 'guest_' prefix
-    const isGuestPatient = saleData.patient_id.startsWith('guest_');
-    
-    // Validate that the patient exists (using the appropriate table based on patient type)
-    let patientExists;
-    let patientError;
-    
-    if (isGuestPatient) {
-      // For guest patients, check the guest_patients table
-      const actualId = saleData.patient_id.substring(6); // Remove 'guest_' prefix for validation only
-      const { data, error } = await supabase
-        .from('guest_patients')
-        .select('id')
-        .eq('id', actualId)
-        .single();
-      
-      patientExists = data as { id: string } | null;
-      patientError = error;
-    } else {
-      // For regular patients, use the existing RPC
-      const { data, error } = await supabase
-        .rpc('get_patient_by_id', { p_id: saleData.patient_id });
-      
-      patientExists = data;
-      patientError = error;
-    }
+    // Validate that the patient exists
+    const { data: patientExists, error: patientError } = await supabase
+      .rpc('get_patient_by_id', { p_id: saleData.patient_id });
     
     if (patientError || !patientExists) {
       console.error('Error validating patient:', patientError);
@@ -1863,7 +2467,7 @@ export async function createSale(saleData: {
     let appointmentTotal = 0;
 
     // Special handling for guest patients with the 'guest_' prefix
-    if (isGuestPatient) {
+    if (saleData.patient_id.startsWith('guest_')) {
       console.log('Guest patient detected, skipping appointment check');
       // For guest patients, we don't check appointments since they won't have any in the regular appointments table
       appointmentTotal = 0;
@@ -1899,14 +2503,14 @@ export async function createSale(saleData: {
       appointmentTotal,
       grandTotal,
       patientId: saleData.patient_id,
-      isGuestPatient
+      isGuestPatient: saleData.patient_id.startsWith('guest_')
     });
 
     // Start a transaction
     const { data: sale, error: saleError } = await supabase
       .from('sales')
       .insert({
-        patient_id: saleData.patient_id, // Use the original ID with prefix intact
+        patient_id: saleData.patient_id,
         payment_method: saleData.payment_method,
         payment_status: saleData.payment_status,
         total_amount: grandTotal,
@@ -2592,8 +3196,8 @@ export async function fetchPaymentHistory() {
       throw new Error('Failed to fetch appointment payment history');
     }
 
-    // Fetch paid sales for regular patients
-    const { data: regularSalePayments, error: regularSaleError } = await supabase
+    // Fetch paid sales
+    const { data: salePayments, error: saleError } = await supabase
       .from('sales')
       .select(`
         id,
@@ -2604,36 +3208,12 @@ export async function fetchPaymentHistory() {
         total_amount,
         patient_id
       `)
-      .eq('payment_status', 'paid')
-      .not('patient_id', 'like', 'guest_%');
+      .eq('payment_status', 'paid');
 
-    if (regularSaleError) {
-      console.error('Error fetching regular sale payments:', regularSaleError);
-      throw new Error('Failed to fetch regular sales payment history');
+    if (saleError) {
+      console.error('Error fetching sale payments:', saleError);
+      throw new Error('Failed to fetch sales payment history');
     }
-
-    // Fetch paid sales for guest patients
-    const { data: guestSalePayments, error: guestSaleError } = await supabase
-      .from('sales')
-      .select(`
-        id,
-        created_at,
-        payment_status,
-        payment_method,
-        transaction_id,
-        total_amount,
-        patient_id
-      `)
-      .eq('payment_status', 'paid')
-      .like('patient_id', 'guest_%');
-    
-    if (guestSaleError) {
-      console.error('Error fetching guest sale payments:', guestSaleError);
-      throw new Error('Failed to fetch guest sales payment history');
-    }
-
-    // Combine all sales
-    const salePayments = [...(regularSalePayments || []), ...(guestSalePayments || [])];
 
     // Define types for transformed payments
     type TransformedPayment = {
@@ -2648,72 +3228,28 @@ export async function fetchPaymentHistory() {
     };
 
     // Get unique patient IDs to fetch patient data efficiently
-    const regularPatientIds = new Set<string>();
-    const guestPatientIds = new Set<string>();
-    
+    const patientIds = new Set<string>();
     appointmentPayments?.forEach(app => {
-      if (app.patient_id) {
-        if (app.patient_id.startsWith('guest_')) {
-          guestPatientIds.add(app.patient_id.replace('guest_', ''));
-        } else {
-          regularPatientIds.add(app.patient_id);
-        }
-      }
+      if (app.patient_id) patientIds.add(app.patient_id);
     });
-    
     salePayments?.forEach(sale => {
-      if (sale.patient_id) {
-        if (sale.patient_id.startsWith('guest_')) {
-          guestPatientIds.add(sale.patient_id.replace('guest_', ''));
-        } else {
-          regularPatientIds.add(sale.patient_id);
-        }
-      }
+      if (sale.patient_id) patientIds.add(sale.patient_id);
     });
 
-    // Fetch regular patient data for all patients in one go
-    const regularPatientMap = new Map<string, { full_name: string }>();
-    for (const patientId of regularPatientIds) {
+    // Fetch patient data for all patients in one go
+    const patientMap = new Map<string, { full_name: string }>();
+    for (const patientId of patientIds) {
       try {
         const { data: patient, error: patientError } = await supabase
           .rpc('get_patient_by_id', { p_id: patientId });
         
         if (!patientError && patient) {
-          regularPatientMap.set(patientId, { full_name: patient.full_name });
+          patientMap.set(patientId, { full_name: patient.full_name });
         }
       } catch (e) {
         console.error(`Error fetching patient with ID ${patientId}:`, e);
       }
-    }
-
-    // Fetch guest patient data
-    const guestPatientMap = new Map<string, { full_name: string }>();
-    for (const guestId of guestPatientIds) {
-      try {
-        const { data: guestPatient, error: guestPatientError } = await supabase
-          .from('guest_patients')
-          .select('id, full_name')
-          .eq('id', guestId)
-          .single();
-        
-        if (!guestPatientError && guestPatient) {
-          guestPatientMap.set(`guest_${guestPatient.id}`, { full_name: guestPatient.full_name });
-        }
-      } catch (e) {
-        console.error(`Error fetching guest patient with ID ${guestId}:`, e);
       }
-    }
-
-    // Helper function to get patient name regardless of type
-    function getPatientName(patientId: string | null): string {
-      if (!patientId) return 'Unknown';
-      
-      if (patientId.startsWith('guest_')) {
-        return guestPatientMap.get(patientId)?.full_name || 'Guest Patient';
-      } else {
-        return regularPatientMap.get(patientId)?.full_name || 'Unknown';
-      }
-    }
 
     // Transform appointment data
     const transformedAppointments: TransformedPayment[] = (appointmentPayments || []).map(app => {
@@ -2735,10 +3271,15 @@ export async function fetchPaymentHistory() {
         console.error('Error extracting service data:', e);
       }
 
+      // Get patient name from map
+      const patientName = app.patient_id && patientMap.has(app.patient_id) 
+        ? patientMap.get(app.patient_id)?.full_name || 'Unknown'
+        : 'Unknown';
+
       return {
         id: app.id,
         type: 'appointment',
-        patient_name: getPatientName(app.patient_id),
+        patient_name: patientName,
         amount: servicePrice,
         date: app.date,
         payment_method: app.payment_method || 'Unknown',
@@ -2748,11 +3289,16 @@ export async function fetchPaymentHistory() {
     });
 
     // Transform sale data
-    const transformedSales: TransformedPayment[] = salePayments.map(sale => {
+    const transformedSales: TransformedPayment[] = (salePayments || []).map(sale => {
+      // Get patient name from map
+      const patientName = sale.patient_id && patientMap.has(sale.patient_id)
+        ? patientMap.get(sale.patient_id)?.full_name || 'Unknown'
+        : 'Unknown';
+
       return {
         id: sale.id,
         type: 'sale',
-        patient_name: getPatientName(sale.patient_id),
+        patient_name: patientName,
         amount: sale.total_amount,
         date: sale.created_at || new Date().toISOString(), // Ensure date is never null
         payment_method: sale.payment_method || 'Unknown',
@@ -2855,203 +3401,90 @@ export async function createGuestPatient(patientInput: {
   notes?: string;
 }): Promise<{ success: boolean; patient?: Patient; message?: string }> {
   try {
-    console.log('Creating guest patient with data:', patientInput);
-    const supabase = await getSupabaseClient();
+    console.log('createGuestPatient function called with input:', patientInput);
   
-    // Validate mandatory fields
+  // Validate required fields
     if (!patientInput.full_name?.trim()) {
-      throw new Error('Full name is required');
+      console.error('Validation failed: Full name is required');
+      return { success: false, message: 'Full name is required' };
     }
     
     if (!patientInput.phone_number?.trim()) {
-      throw new Error('Phone number is required');
+      console.error('Validation failed: Phone number is required');
+      return { success: false, message: 'Phone number is required' };
     }
     
-    // Format phone number if needed
-    let phoneNumber = patientInput.phone_number.trim();
-    if (phoneNumber.startsWith('0')) {
-      phoneNumber = '+254' + phoneNumber.substring(1);
-    } else if (!phoneNumber.startsWith('+')) {
-      phoneNumber = '+' + phoneNumber;
+    const supabase = await getSupabaseClient();
+    
+    // Format phone number
+    let formattedPhone = patientInput.phone_number.replace(/[^0-9+]/g, '');
+    console.log('Phone number before formatting:', patientInput.phone_number);
+    console.log('Phone number after initial cleaning:', formattedPhone);
+    
+    // Add +254 prefix if needed
+    if (formattedPhone.startsWith('0')) {
+      formattedPhone = '+254' + formattedPhone.substring(1);
+    } else if (formattedPhone.match(/^[7|1]/)) {
+      formattedPhone = '+254' + formattedPhone;
+    } else if (formattedPhone.startsWith('254') && !formattedPhone.startsWith('+')) {
+      formattedPhone = '+' + formattedPhone;
     }
     
-    // Check if phone number is already used
-    const { data: existingPatient, error: phoneCheckError } = await supabase
-      .from('guest_patients')
-      .select('*')
-      .eq('phone_number', phoneNumber)
-      .maybeSingle();
+    console.log('Final formatted phone number:', formattedPhone);
     
-    if (phoneCheckError) {
-      console.error('Error checking for existing patient phone:', phoneCheckError);
-      throw new Error('Failed to verify phone number availability: ' + phoneCheckError.message);
-    }
+    // Prepare date if provided
+    const dateOfBirth = patientInput.date_of_birth 
+      ? patientInput.date_of_birth 
+      : null;
     
-    if (existingPatient) {
-      console.log('Found existing guest patient:', existingPatient);
-      
-      // If we want to return the existing patient instead of creating a new one
-      return { 
-        success: true, 
-        patient: {
-          id: `guest_${existingPatient.id}`,
-          full_name: existingPatient.full_name,
-          phone_number: existingPatient.phone_number,
-          email: existingPatient.email,
-          date_of_birth: existingPatient.date_of_birth,
-          gender: existingPatient.gender,
-          address: existingPatient.address,
-          created_at: existingPatient.created_at,
-          updated_at: existingPatient.updated_at,
-          patient_type: 'guest',
-          reference_id: existingPatient.id,
-          user_id: null
-        },
-        message: 'Found existing guest patient'
-      };
-    }
-    
-    // No existing patient, create new one
-    const payload = {
-      full_name: patientInput.full_name.trim(),
-      phone_number: phoneNumber,
-      email: patientInput.email?.trim() || null,
-      date_of_birth: patientInput.date_of_birth || null,
-      gender: patientInput.gender || null,
-      address: patientInput.address?.trim() || null,
-      notes: patientInput.notes?.trim() || null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      last_access: new Date().toISOString()
+    const params = {
+      p_full_name: patientInput.full_name.trim(),
+      p_phone_number: formattedPhone,
+      p_email: patientInput.email?.trim() || null,
+      p_date_of_birth: dateOfBirth,
+      p_gender: patientInput.gender || null,
+      p_address: patientInput.address?.trim() || null,
+      p_notes: patientInput.notes?.trim() || null
     };
     
-    console.log('Inserting new guest patient:', payload);
+    console.log('Calling register_guest_patient with parameters:', params);
     
-    // Use the RPC function to register a guest patient
-    const { data: newPatient, error: rpcError } = await supabase
-      .rpc('register_guest_patient', {
-        p_full_name: payload.full_name, 
-        p_phone_number: payload.phone_number,
-        p_email: payload.email,
-        p_date_of_birth: payload.date_of_birth,
-        p_gender: payload.gender,
-        p_address: payload.address,
-        p_notes: payload.notes
-      });
-    
-    if (rpcError) {
-      console.error('Error registering guest patient:', rpcError);
-      
-      // Fallback: Try direct insertion if RPC fails
-      const { data: insertData, error: insertError } = await supabase
-        .from('guest_patients')
-        .insert(payload)
-        .select()
-        .single();
-      
-      if (insertError) {
-        console.error('Error inserting guest patient:', insertError);
-        throw new Error('Failed to create guest patient: ' + insertError.message);
-      }
-      
-      const createdPatient = insertData;
-      console.log('Guest patient created successfully:', createdPatient);
-      
+    // Call the register_guest_patient function
+  const { data, error } = await supabase
+      .rpc('register_guest_patient', params);
+  
+  if (error) {
+    console.error('Error creating guest patient:', error);
       return { 
-        success: true,
-        patient: {
-          id: `guest_${createdPatient.id}`,
-          full_name: createdPatient.full_name,
-          phone_number: createdPatient.phone_number,
-          email: createdPatient.email,
-          date_of_birth: createdPatient.date_of_birth,
-          gender: createdPatient.gender,
-          address: createdPatient.address,
-          created_at: createdPatient.created_at,
-          updated_at: createdPatient.updated_at,
-          patient_type: 'guest',
-          reference_id: createdPatient.id,
-          user_id: null
-        }
+        success: false, 
+        message: `Database error: ${error.message}. Code: ${error.code}` 
       };
     }
     
-    // If RPC succeeded
-    console.log('Guest patient created successfully via RPC:', newPatient);
+    if (!data) {
+      console.error('No data returned from register_guest_patient');
+      return { 
+        success: false, 
+        message: 'No data returned from server. Patient could not be created.' 
+      };
+    }
+    
+    console.log('Guest patient created successfully:', data);
+    
+    // Convert the JSONB response to a Patient object
+    const patientResult = data as unknown as Patient;
     
     return { 
       success: true, 
-      patient: {
-        id: `guest_${newPatient.id}`,
-        full_name: newPatient.full_name,
-        phone_number: newPatient.phone_number,
-        email: newPatient.email,
-        date_of_birth: newPatient.date_of_birth,
-        gender: newPatient.gender,
-        address: newPatient.address,
-        created_at: newPatient.created_at,
-        updated_at: newPatient.updated_at,
-        patient_type: 'guest',
-        reference_id: newPatient.id,
-        user_id: null
-      }
+      patient: patientResult
     };
   } catch (error) {
     console.error('Error in createGuestPatient:', error);
     return { 
       success: false, 
-      message: error instanceof Error ? error.message : 'An unexpected error occurred' 
-    };
-  }
-}
-
-/**
- * Verifies if a patient exists in the database by ID
- * This function is used to confirm a newly created patient record is fully committed
- */
-export async function verifyPatientExists(patientId: string): Promise<{ 
-  success: boolean; 
-  patient?: Patient; 
-  message?: string 
-}> {
-  console.log('Verifying patient existence:', patientId);
-  const supabase = await getSupabaseClient();
-  
-  try {
-    // First, check if the patient exists in the patients table
-    const { data: patient, error } = await supabase
-      .from('all_patients')
-      .select('*')
-      .eq('id', patientId)
-      .single();
-    
-    if (error) {
-      console.error('Error verifying patient:', error);
-      return { 
-        success: false, 
-        message: `Database error: ${error.message}` 
-      };
-    }
-    
-    if (!patient) {
-      console.log('Patient not found in database:', patientId);
-      return { 
-        success: false, 
-        message: 'Patient not found in database' 
-      };
-    }
-    
-    console.log('Patient verified successfully:', patientId);
-    return {
-      success: true,
-      patient: patient as Patient
-    };
-  } catch (error: unknown) {
-    console.error('Unexpected error verifying patient:', error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    return { 
-      success: false, 
-      message: `Failed to verify patient: ${errorMessage}` 
+      message: error instanceof Error 
+        ? `Error: ${error.message}` 
+        : 'Unknown error occurred during guest patient creation'
     };
   }
 }
@@ -3096,54 +3529,18 @@ export async function createGuestPatientAction(formData: FormData) {
  */
 export async function fetchPatientById(patientId: string): Promise<Patient | null> {
   try {
-    if (!patientId) return null;
-    
   const supabase = await getSupabaseClient();
   
-    // Check if this is a guest patient ID (starts with 'guest_')
-    if (patientId.startsWith('guest_')) {
-      const actualId = patientId.substring(6); // Remove 'guest_' prefix
-      
-      const { data: guestPatient, error: guestError } = await supabase
-        .from('guest_patients')
-        .select('*')
-        .eq('id', actualId)
-        .single();
-      
-      if (guestError || !guestPatient) {
-        console.error('Error fetching guest patient:', guestError);
+    // Use the get_patient_by_id function for both regular and guest patients
+    const { data: result, error } = await supabase
+      .rpc('get_patient_by_id', { p_id: patientId });
+    
+    if (error || !result) {
+    console.error('Error fetching patient:', error);
     return null;
   }
   
-      return {
-        id: `guest_${guestPatient.id}`,
-        full_name: guestPatient.full_name,
-        phone_number: guestPatient.phone_number,
-        email: guestPatient.email,
-        date_of_birth: guestPatient.date_of_birth,
-        gender: guestPatient.gender,
-        address: guestPatient.address,
-        created_at: guestPatient.created_at,
-        updated_at: guestPatient.updated_at,
-        patient_type: 'guest',
-        reference_id: guestPatient.id,
-        user_id: null
-      };
-    } else {
-      // Regular patient
-      const { data: regularPatient, error: regularError } = await supabase
-        .from('all_patients')
-        .select('*')
-        .eq('id', patientId)
-        .single();
-      
-      if (regularError || !regularPatient) {
-        console.error('Error fetching regular patient:', regularError);
-        return null;
-      }
-      
-      return regularPatient as Patient;
-    }
+    return result as unknown as Patient;
   } catch (error) {
     console.error('Error in fetchPatientById:', error);
     return null;

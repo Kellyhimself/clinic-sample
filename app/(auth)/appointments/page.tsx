@@ -48,7 +48,8 @@ export default async function AppointmentsPage() {
       payment_status: appt.payment_status,
       payment_method: appt.payment_method,
       transaction_id: appt.transaction_id,
-      doctor: appt.doctor
+      doctor: appt.doctor,
+      patientId: appt.patient_id
     }));
 
     async function confirmAppointment(formData: FormData) {
@@ -104,8 +105,8 @@ export default async function AppointmentsPage() {
     }
 
     return (
-      <div className="container mx-auto">
-        <h1 className="text-2xl font-semibold mb-6">Appointments</h1>
+      <div className="w-full px-2 sm:px-4 md:container md:mx-auto">
+        <h1 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-6 pt-2">Appointments</h1>
         <AppointmentsTable
           appointments={appointments}
           userRole={userRole}
@@ -117,8 +118,8 @@ export default async function AppointmentsPage() {
   } catch (error) {
     console.error("AppointmentsPage - Error rendering appointments:", error);
     return (
-      <div className="container mx-auto">
-        <h1 className="text-2xl font-semibold mb-6">Appointments</h1>
+      <div className="w-full px-2 sm:px-4 md:container md:mx-auto">
+        <h1 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-6 pt-2">Appointments</h1>
         <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded">
           Error loading appointments. Please try again later.
         </div>

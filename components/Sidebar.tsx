@@ -25,8 +25,6 @@ import {
   Boxes,
   Receipt,
   Truck,
-  X,
-  Menu,
   CreditCard,
   LineChart,
   HeartPulse,
@@ -68,15 +66,34 @@ interface Medication {
   }[];
 }
 
-export default function Sidebar({ userRole }: { userRole: string }) {
+interface SidebarProps {
+  userRole: string;
+  closeSidebar?: () => void; // Optional callback to close the sidebar when a link is clicked
+}
+
+export default function Sidebar({ userRole, closeSidebar }: SidebarProps) {
   const pathname = usePathname();
-  const [isCollapsed, setIsCollapsed] = useState(false);
   const [hasStockAlerts, setHasStockAlerts] = useState(false);
   const [lowStockCount, setLowStockCount] = useState(0);
   const [expiringCount, setExpiringCount] = useState(0);
   const [pendingPaymentsCount, setPendingPaymentsCount] = useState(0);
   const [pendingAppointments, setPendingAppointments] = useState(0); 
   const [pendingSales, setPendingSales] = useState(0);
+  const [isMobileView, setIsMobileView] = useState(false);
+  
+  // Check if mobile view for handling navigation
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileView(window.innerWidth < 768);
+    };
+    
+    // Set initial state
+    handleResize();
+    
+    // Add resize listener
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
   // Debug userRole
   useEffect(() => {
@@ -162,7 +179,30 @@ export default function Sidebar({ userRole }: { userRole: string }) {
 
   const baseNavItems: NavItem[] = [
     { label: 'Dashboard', href: '/dashboard', icon: <Home size={18} /> },
-    { label: 'Book Appointment', href: '/bookAppointment', icon: <Calendar size={18} /> },
+    { 
+      label: 'Appointments', 
+      href: '/bookAppointment', 
+      icon: <Calendar size={18} />,
+      subItems: [
+        { 
+          label: 'Book New Appointment', 
+          href: '/bookAppointment', 
+          icon: <Plus size={18} /> 
+        },
+        { 
+          label: 'View Appointments', 
+          href: '/appointments', 
+          icon: <Calendar size={18} />,
+          roles: ['admin', 'staff', 'doctor']
+        },
+        { 
+          label: 'Appointment Schedule', 
+          href: '/appointments/schedule', 
+          icon: <Calendar size={18} />,
+          roles: ['admin', 'staff', 'doctor']
+        }
+      ]
+    },
     { 
       label: 'Cashier',
       href: '/cashier',
@@ -366,20 +406,14 @@ export default function Sidebar({ userRole }: { userRole: string }) {
 
   const staffNavItems: NavItem[] = [
     { 
-      label: 'Appointments', 
-      href: '/appointments', 
-      icon: <Calendar size={18} />, 
+      label: 'Patient Management', 
+      href: '/dashboard/patients', 
+      icon: <Users size={18} />, 
       roles: ['admin', 'staff', 'doctor'],
       subItems: [
-        { label: 'View Appointments', href: '/appointments', icon: <Calendar size={18} /> },
-        { label: 'Schedule', href: '/appointments/schedule', icon: <Calendar size={18} /> }
+        { label: 'Patient List', href: '/dashboard/patients', icon: <Users size={18} /> },
+        { label: 'New Patient', href: '/signup', icon: <Plus size={18} /> }
       ] 
-    },
-    { 
-      label: 'Patient List', 
-      href: '/dashboard/patients', 
-      icon: <Users size={18} />,
-      roles: ['admin', 'staff', 'doctor']
     },
   ];
 
@@ -420,62 +454,54 @@ export default function Sidebar({ userRole }: { userRole: string }) {
     return item.roles.includes(userRole);
   };
 
+  // Handle link clicks - close sidebar on mobile
   const handleItemClick = () => {
-    if (window.innerWidth < 768) {
-      setIsCollapsed(true);
+    if (isMobileView && closeSidebar) {
+      closeSidebar();
     }
   };
 
   return (
-    <aside className={cn(
-      "h-screen bg-gradient-to-b from-blue-100 to-teal-100 border-r border-blue-200 shadow-md flex flex-col p-4 transition-all duration-300",
-      isCollapsed ? "w-0 p-0 border-0" : "w-64"
-    )}>
-      <div className={cn(
-        "flex items-center justify-between mb-6",
-        isCollapsed ? "hidden" : ""
-      )}>
-        <h1 className="text-xl font-bold text-center text-blue-700 bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent">ClinicPanel</h1>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setIsCollapsed(true)}
-          className="md:hidden text-blue-600 hover:text-blue-700 hover:bg-blue-100 rounded-full"
-        >
-          <X className="h-4 w-4" />
-        </Button>
+    <div className="h-screen flex flex-col">
+      {/* Header with logo */}
+      <div className="flex items-center justify-between mb-4 py-2">
+        <h1 className="text-xl font-bold text-blue-700 bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent">ClinicPanel</h1>
       </div>
-      <ScrollArea className={cn("flex-1", isCollapsed ? "hidden" : "")}>
+      
+      {/* Scrollable navigation */}
+      <ScrollArea className="flex-1">
         <nav className="space-y-2">
-          <div className="text-sm text-blue-700 mb-2 px-2 font-medium">Role: <span className="font-semibold bg-blue-100 px-2 py-0.5 rounded-full">{userRole}</span></div>
+          <div className="text-sm text-blue-700 mb-2 px-2 font-medium">
+            Role: <span className="font-semibold bg-blue-100 px-2 py-0.5 rounded-full">{userRole}</span>
+          </div>
+          
           {navItems.map((item) => (
             hasAccess(item) && (
-            <div key={item.label}>
-              {item.subItems ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
+              <div key={item.label}>
+                {item.subItems ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
                       <Button 
                         variant="ghost" 
                         className="w-full flex items-center justify-between p-2 rounded-lg text-blue-700 hover:bg-blue-100 focus:outline-none"
-                        onClick={handleItemClick}
                       >
                         <span className="flex items-center gap-3 font-medium text-sm">{item.icon} {item.label}</span>
-                      <ChevronDown className="h-4 w-4 text-blue-600" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56 bg-white shadow-lg rounded-lg border border-blue-100">
+                        <ChevronDown className="h-4 w-4 text-blue-600" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-56 bg-white shadow-lg rounded-lg border border-blue-100">
                       <DropdownMenuLabel className="font-semibold text-blue-700 text-sm">{item.label}</DropdownMenuLabel>
-                    <DropdownMenuSeparator className="bg-blue-100" />
-                    {item.subItems.map((subItem) => (
+                      <DropdownMenuSeparator className="bg-blue-100" />
+                      {item.subItems.map((subItem) => (
                         hasAccess(subItem) && (
-                      <DropdownMenuItem key={subItem.label} asChild>
+                          <DropdownMenuItem key={subItem.label} asChild>
                             <Link 
                               href={subItem.href} 
                               className={`flex items-center p-2 text-blue-600 hover:bg-blue-50 font-medium text-sm ${pathname === subItem.href ? 'bg-blue-100 text-blue-700 rounded-md' : ''}`}
                               onClick={handleItemClick}
                             >
-                          {subItem.icon && <span className="mr-2">{subItem.icon}</span>}
-                          {subItem.label}
+                              {subItem.icon && <span className="mr-2">{subItem.icon}</span>}
+                              {subItem.label}
                               {subItem.hasAlerts && (
                                 <TooltipProvider>
                                   <Tooltip>
@@ -502,36 +528,30 @@ export default function Sidebar({ userRole }: { userRole: string }) {
                                   </Tooltip>
                                 </TooltipProvider>
                               )}
-                        </Link>
-                      </DropdownMenuItem>
+                            </Link>
+                          </DropdownMenuItem>
                         )
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
                   <Link 
-                    href={item.href} 
-                    className={`flex items-center gap-3 p-2 rounded-lg text-blue-600 hover:bg-blue-100 font-medium text-sm ${pathname === item.href ? 'bg-blue-100 text-blue-700' : ''}`}
+                    href={item.href}
+                    className={cn(
+                      "flex items-center gap-3 p-2 rounded-lg hover:bg-blue-100 text-blue-600 font-medium text-sm",
+                      pathname === item.href ? 'bg-blue-100 text-blue-700' : ''
+                    )}
                     onClick={handleItemClick}
                   >
-                  {item.icon} <span>{item.label}</span>
-                </Link>
-              )}
-            </div>
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </Link>
+                )}
+              </div>
             )
           ))}
         </nav>
       </ScrollArea>
-      {isCollapsed && (
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setIsCollapsed(false)}
-          className="absolute top-4 left-4 md:hidden bg-blue-100 text-blue-600 hover:bg-blue-200 hover:text-blue-700 rounded-full shadow-md"
-        >
-          <Menu className="h-6 w-6" />
-        </Button>
-      )}
-    </aside>
+    </div>
   );
 }

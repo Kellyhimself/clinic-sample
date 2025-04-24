@@ -8,7 +8,7 @@ export default async function NewSalePage() {
     const medications = await fetchMedications();
 
     return (
-      <div className="container mx-auto py-4">
+      <div className="w-full">
         <NewSaleForm 
           initialPatients={patients}
           initialMedications={medications}
@@ -18,8 +18,8 @@ export default async function NewSalePage() {
   } catch (error) {
     console.error('Error loading new sale page:', error);
     return (
-      <div className="container mx-auto py-6">
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+      <div className="p-4">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
           {error instanceof Error ? error.message : 'An error occurred while loading the page'}
         </div>
       </div>

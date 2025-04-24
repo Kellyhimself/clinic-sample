@@ -16,6 +16,7 @@ import {
 import { createSale } from "@/lib/authActions";
 import type { Patient, Medication } from "@/types/supabase";
 import { ArrowLeft } from "lucide-react";
+import GuestPatientDialog from '@/components/GuestPatientDialog';
 
 interface SaleItem {
   medication_id: string;
@@ -129,6 +130,21 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
     toast.success("Item removed from cart");
   };
 
+  const handleGuestPatientCreated = async (patient: Patient) => {
+    try {
+      // Simply use the patient data as returned from the API
+      console.log('Using newly created guest patient:', patient);
+      
+      setSelectedPatient(patient);
+      setSearchQuery("");
+      setStep(2);
+      toast.success(`New guest patient ${patient.full_name} created and selected`);
+    } catch (error) {
+      console.error("Error processing guest patient:", error);
+      toast.error("Error processing guest patient");
+    }
+  };
+
   const handleSubmit = async () => {
     if (!selectedPatient) {
       toast.error("Please select a patient");
@@ -143,8 +159,12 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
     setIsSubmitting(true);
     try {
       const totalAmount = items.reduce((sum, item) => sum + item.total_price, 0);
+      
+      // No need to modify the patientId here anymore - our backend handles it properly
+      const patientId = selectedPatient.id;
+
       const sale = await createSale({
-        patient_id: selectedPatient.id,
+        patient_id: patientId,
         items: items.map(item => ({
           medication_id: item.medication_id,
           batch_id: item.batch_id,
@@ -152,6 +172,7 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
           unit_price: item.unit_price,
           total_price: item.total_price
         })),
+        payment_method: "",
         payment_status: "unpaid",
         total_amount: totalAmount
       });
@@ -182,7 +203,7 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50 p-2">
-      <div className="max-w-full mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
+      <div className="w-full max-w-[1400px] mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
         <div className="p-2 border-b">
           <div className="flex items-center gap-2">
             <Button
@@ -202,14 +223,14 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
           )}
         </div>
 
-        <div className="p-2">
+        <div className="p-4">
           {/* Step Indicator */}
-          <div className="flex justify-center mb-1">
+          <div className="flex justify-center mb-3">
             <div className="flex items-center space-x-1">
               {[1, 2, 3].map((stepNumber) => (
                 <div key={stepNumber} className="flex items-center">
                   <div
-                    className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${
+                    className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
                       step === stepNumber
                         ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
                         : step > stepNumber
@@ -221,7 +242,7 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
                   </div>
                   {stepNumber < 3 && (
                     <div
-                      className={`w-8 h-0.5 ${
+                      className={`w-12 h-0.5 ${
                         step > stepNumber ? 'bg-gradient-to-r from-green-500 to-green-600' : 'bg-gray-200'
                       }`}
                     />
@@ -232,23 +253,27 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
           </div>
 
           {/* Main Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
             {/* Left Column - Form Steps */}
-            <div className="space-y-2">
+            <div className="lg:col-span-3 space-y-4">
               {/* Step Content */}
               <div className="space-y-2">
                 {step === 1 && (
                   <div className="space-y-1">
-                    <div className="flex flex-col gap-0.5">
+                    <div className="flex justify-between items-center">
                       <Label className="text-xs">Search Patient</Label>
-                      <Input
-                        type="text"
-                        placeholder="Search by name or ID"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
+                      <GuestPatientDialog 
+                        onPatientCreated={handleGuestPatientCreated} 
+                        triggerButtonText="Add Guest"
                       />
                     </div>
+                    <Input
+                      type="text"
+                      placeholder="Search by name or ID"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
+                    />
                     <div className="max-h-[150px] overflow-y-auto">
                       {filteredPatients.map((patient) => (
                         <div
@@ -259,6 +284,10 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
                           onClick={() => handlePatientSelect(patient)}
                         >
                           <div className="font-medium text-xs">{patient.full_name}</div>
+                          <div className="text-[10px] text-gray-500">
+                            {patient.patient_type === 'guest' && <span className="bg-amber-100 text-amber-800 px-1 rounded-sm mr-1">Guest</span>}
+                            {patient.phone_number || 'No phone'}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -366,12 +395,12 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
             </div>
 
             {/* Right Column - Current Sale Items */}
-            <div className="space-y-2">
-              <div className="space-y-1">
+            <div className="lg:col-span-2 space-y-4">
+              <div className="space-y-2">
                 <h3 className="font-medium text-xs">Current Sale Items</h3>
-                <div className="max-h-[150px] overflow-y-auto">
+                <div className="max-h-[300px] overflow-y-auto">
                   {items.map((item, index) => (
-                    <div key={index} className="p-1 border rounded-lg mb-0.5 flex flex-col bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
+                    <div key={index} className="p-2 border rounded-lg mb-1 flex flex-col bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <div className="font-medium text-xs">{item.medication.name}</div>
@@ -406,9 +435,24 @@ export default function NewSaleForm({ initialPatients = [], initialMedications =
                       </div>
                     </div>
                   ))}
+                  
+                  {items.length === 0 && (
+                    <div className="text-center text-[11px] text-gray-500 italic p-4 border rounded-lg border-dashed">
+                      No items added to cart yet
+                    </div>
+                  )}
                 </div>
-                <div className="text-right space-y-0.5">
-                  <div className="text-[10px] text-gray-600">Pharmacy Total: ${pharmacyTotal.toFixed(2)}</div>
+                
+                <div className="text-right space-y-1 p-2 border rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
+                  <div className="text-[11px] text-gray-600 flex justify-between">
+                    <span>Subtotal:</span>
+                    <span className="font-medium">${pharmacyTotal.toFixed(2)}</span>
+                  </div>
+                  <div className="h-px bg-gray-200 my-1"></div>
+                  <div className="text-xs font-medium flex justify-between text-blue-700">
+                    <span>Total:</span>
+                    <span>${pharmacyTotal.toFixed(2)}</span>
+                  </div>
                 </div>
               </div>
 

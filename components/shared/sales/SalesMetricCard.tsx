@@ -26,22 +26,22 @@ export default function SalesMetricCard({
   description,
 }: SalesMetricCardProps) {
   return (
-    <Card className={`bg-gradient-to-br ${colorClass} shadow-sm`}>
-      <CardContent className="p-3 md:p-4 flex flex-col">
+    <Card className={`bg-gradient-to-br ${colorClass} shadow-sm overflow-hidden`}>
+      <CardContent className="p-2 md:p-3 lg:p-4 flex flex-col">
         <div className="flex justify-between items-center mb-1 md:mb-2">
-          <p className="text-xs md:text-sm font-medium">{title}</p>
+          <p className="text-[10px] md:text-xs lg:text-sm font-medium truncate pr-1">{title}</p>
           {icon}
         </div>
-        <p className="text-sm md:text-xl lg:text-2xl font-bold">{value}</p>
+        <p className="text-xs sm:text-sm md:text-lg lg:text-xl font-bold truncate">{value}</p>
         {subValue && (
-          <p className="text-[10px] md:text-xs mt-1">{subValue}</p>
+          <p className="text-[8px] sm:text-[10px] md:text-xs truncate mt-0.5 md:mt-1">{subValue}</p>
         )}
         {trend && (
-          <div className="flex items-center gap-1 mt-1">
-            <span className={`text-xs font-medium ${trend.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+          <div className="flex items-center gap-1 mt-0.5 md:mt-1">
+            <span className={`text-[10px] md:text-xs font-medium ${trend.isPositive ? 'text-green-600' : 'text-red-600'}`}>
               {trend.value}
             </span>
-            {description && <span className="text-[10px] md:text-xs text-gray-600">{description}</span>}
+            {description && <span className="text-[8px] md:text-[10px] text-gray-600 truncate">{description}</span>}
           </div>
         )}
       </CardContent>

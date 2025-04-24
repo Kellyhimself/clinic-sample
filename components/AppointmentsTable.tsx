@@ -19,6 +19,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowUpDown, ArrowLeft } from 'lucide-react';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
+import { MoreVertical, Check, X } from 'lucide-react';
 import { createClientSupabaseClient } from '@/lib/supabase-client';
 import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,6 +37,18 @@ interface AppointmentsTableProps {
   userRole: string;
   confirmAppointment: (formData: FormData) => Promise<void>;
   cancelAppointment: (formData: FormData) => Promise<void>;
+}
+
+function PatientBadge({ patientId }: { patientId?: string }) {
+  if (!patientId) return null;
+  
+  const isGuest = patientId.startsWith('guest_');
+  
+  return isGuest ? (
+    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 ml-2">
+      Guest
+    </span>
+  ) : null;
 }
 
 export default function AppointmentsTable({
@@ -46,6 +65,21 @@ export default function AppointmentsTable({
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const router = useRouter();
   const supabase = createClientSupabaseClient();
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Check if mobile view
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    
+    // Set initial state
+    handleResize();
+    
+    // Add resize listener
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     console.log('Initial appointments received:', initialAppointments);
@@ -58,6 +92,13 @@ export default function AppointmentsTable({
 
     const setupSubscription = async () => {
       try {
+        // Get authenticated user first using getUser() instead of getSession()
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          console.error('User not authenticated, cannot setup real-time subscription');
+          return;
+        }
+
         channel = supabase
           .channel('appointments-channel')
           .on(
@@ -201,13 +242,20 @@ export default function AppointmentsTable({
       cell: ({ row }) => row.original.services?.name || 'Custom',
       filterFn: (row: Row<Appointment>, id: string, filterValue: unknown) =>
         String(row.getValue(id) ?? 'Custom').toLowerCase().includes(String(filterValue).toLowerCase()),
+      enableHiding: true,
+      size: 150,
     },
     {
       accessorKey: 'profiles.full_name',
       id: 'profiles.full_name',
       header: 'Patient',
-      enableHiding: !isAdminOrStaff,
-      cell: ({ row }) => row.original.profiles?.full_name || 'N/A',
+      enableHiding: true,
+      cell: ({ row }) => (
+        <div className="flex flex-col sm:flex-row sm:items-center">
+          <span className="truncate max-w-[120px]">{row.original.profiles?.full_name || 'N/A'}</span>
+          <PatientBadge patientId={row.original.patient_id} />
+        </div>
+      ),
       filterFn: (row: Row<Appointment>, id: string, filterValue: unknown) =>
         String(row.getValue(id) ?? 'N/A').toLowerCase().includes(String(filterValue).toLowerCase()),
     },
@@ -227,6 +275,7 @@ export default function AppointmentsTable({
               ? 'destructive'
               : 'secondary'
           }
+          className="whitespace-nowrap"
         >
           {row.original.status}
         </Badge>
@@ -238,46 +287,55 @@ export default function AppointmentsTable({
     ? [
         {
           id: 'actions',
-          header: 'Actions',
+          header: '',
+          size: 40,
           cell: ({ row }: { row: Row<Appointment> }) => {
             const appointment = row.original;
             const isPending = appointment.status === 'pending';
 
+            if (!isPending) return null;
+
             return (
-              <div className="flex gap-2">
-                {isPending && (
-                  <>
-                    <form action={confirmAppointment}>
-                      <input type="hidden" name="id" value={appointment.id} />
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <form action={confirmAppointment}>
+                    <input type="hidden" name="id" value={appointment.id} />
+                    <DropdownMenuItem asChild>
+                      <button
                         type="submit"
-                        className="bg-green-50 text-green-700 hover:bg-green-100 border-green-200"
+                        className="flex w-full items-center cursor-pointer"
                       >
-                        Confirm
-                      </Button>
-                    </form>
-                    <form action={cancelAppointment}>
-                      <input type="hidden" name="id" value={appointment.id} />
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                        <Check className="mr-2 h-4 w-4 text-green-600" />
+                        <span>Confirm</span>
+                      </button>
+                    </DropdownMenuItem>
+                  </form>
+                  <form action={cancelAppointment}>
+                    <input type="hidden" name="id" value={appointment.id} />
+                    <DropdownMenuItem asChild>
+                      <button
                         type="submit"
-                        className="bg-red-50 text-red-700 hover:bg-red-100 border-red-200"
+                        className="flex w-full items-center cursor-pointer"
                       >
-                        Cancel
-                      </Button>
-                    </form>
-                  </>
-                )}
-              </div>
+                        <X className="mr-2 h-4 w-4 text-red-600" />
+                        <span>Cancel</span>
+                      </button>
+                    </DropdownMenuItem>
+                  </form>
+                </DropdownMenuContent>
+              </DropdownMenu>
             );
           },
         },
       ]
     : [];
 
+  // Create combined columns array
   const columns = [...baseColumns, ...actionColumn];
 
   const table = useReactTable({
@@ -291,6 +349,19 @@ export default function AppointmentsTable({
     getFilteredRowModel: getFilteredRowModel(),
   });
 
+  // Effect to toggle column visibility when screen size changes
+  useEffect(() => {
+    if (isMobile) {
+      table.getColumn('services.name')?.toggleVisibility(false);
+      if (!isAdminOrStaff) {
+        table.getColumn('profiles.full_name')?.toggleVisibility(false);
+      }
+    } else {
+      table.getColumn('services.name')?.toggleVisibility(true);
+      table.getColumn('profiles.full_name')?.toggleVisibility(true);
+    }
+  }, [isMobile, table, isAdminOrStaff]);
+
   const handleFilterChange = (value: string) => {
     setFilterValue(value);
     const columnId =
@@ -299,25 +370,25 @@ export default function AppointmentsTable({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 mobile-container">
       <Card>
-        <CardHeader>
-          <div className="flex items-center gap-4">
+        <CardHeader className="p-2 sm:p-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => router.back()}
-              className="h-8 w-8"
+              className="h-7 w-7"
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <CardTitle>Appointments</CardTitle>
+            <CardTitle className="text-base sm:text-lg">Appointments</CardTitle>
           </div>
         </CardHeader>
-        <div className="p-4 md:p-6">
-          <div className="max-w-full mx-auto bg-white rounded-lg overflow-hidden">
+        <div className="p-2 sm:p-4 md:p-6">
+          <div className="w-full mx-auto bg-white rounded-lg overflow-hidden">
             {isAdminOrStaff && (
-              <div className="p-4 border-b flex flex-col sm:flex-row gap-4">
+              <div className="p-2 sm:p-4 border-b flex flex-col sm:flex-row gap-2 sm:gap-4">
                 <Select
                   value={filterType}
                   onValueChange={(value) => {
@@ -334,7 +405,7 @@ export default function AppointmentsTable({
                     );
                   }}
                 >
-                  <SelectTrigger className="w-[180px] text-sm border-gray-300 focus:border-blue-500">
+                  <SelectTrigger className="w-full sm:w-[180px] text-sm border-gray-300 focus:border-blue-500 h-8">
                     <SelectValue placeholder="Select filter" />
                   </SelectTrigger>
                   <SelectContent>
@@ -350,24 +421,20 @@ export default function AppointmentsTable({
                   })`}
                   value={filterValue}
                   onChange={(e) => handleFilterChange(e.target.value)}
-                  className="max-w-xs text-sm border-gray-300 focus:border-blue-500 p-2 rounded border"
+                  className="w-full sm:max-w-xs text-sm border-gray-300 focus:border-blue-500 p-2 rounded border h-8"
                 />
               </div>
             )}
-            <div className="overflow-x-auto">
-              <Table>
+            <div className="w-full overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <Table className="w-full border-collapse">
                 <TableHeader>
                   {table.getHeaderGroups().map((headerGroup) => (
                     <TableRow key={headerGroup.id} className="bg-gray-50">
                       {headerGroup.headers.map((header) => (
                         <TableHead
                           key={header.id}
-                          className={`text-xs font-medium text-gray-700 ${
-                            header.id === 'date' ||
-                            header.id === 'profiles.full_name'
-                              ? 'hidden sm:table-cell'
-                              : ''
-                          }`}
+                          className="text-xs font-medium text-gray-700 p-1 sm:p-2"
+                          style={{ width: header.column.getSize() === 150 ? 'auto' : header.column.getSize() }}
                         >
                           {flexRender(header.column.columnDef.header, header.getContext())}
                         </TableHead>
@@ -378,16 +445,14 @@ export default function AppointmentsTable({
                 <TableBody>
                   {table.getRowModel().rows.length ? (
                     table.getRowModel().rows.map((row) => (
-                      <TableRow key={row.id} className="hover:bg-gray-100">
+                      <TableRow 
+                        key={row.id} 
+                        className="hover:bg-gray-100 border-b cursor-pointer transition-colors"
+                      >
                         {row.getVisibleCells().map((cell) => (
                           <TableCell
                             key={cell.id}
-                            className={`text-sm text-gray-900 ${
-                              cell.column.id === 'date' ||
-                              cell.column.id === 'profiles.full_name'
-                                ? 'hidden sm:table-cell'
-                                : ''
-                            }`}
+                            className="text-xs sm:text-sm text-gray-900 p-1 sm:p-2 whitespace-nowrap"
                           >
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </TableCell>

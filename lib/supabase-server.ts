@@ -5,11 +5,11 @@ import { cookies } from 'next/headers';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '@/types/supabase';
 
-// Server-side Supabase client
+// Server-side Supabase client with enhanced support for views
 export async function getSupabaseClient(): Promise<SupabaseClient<Database>> {
   const cookieStore = await cookies();
 
-  return createServerClient<Database>(
+  const client = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -34,6 +34,8 @@ export async function getSupabaseClient(): Promise<SupabaseClient<Database>> {
       },
     }
   );
+
+  return client;
 }
 
 // Server actions for cookie operations
