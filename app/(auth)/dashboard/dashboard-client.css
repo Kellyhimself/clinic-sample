@@ -1,0 +1,551 @@
+/* Mobile responsiveness for Dashboard Client */
+
+/* Base container styles */
+.dashboard-container {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  padding: 0.5rem;
+  margin: 0 !important;
+  box-sizing: border-box;
+}
+
+/* Card component styles */
+.dashboard-card {
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 0.75rem;
+  background-color: white;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Horizontal scrolling container for navigation buttons */
+.dashboard-scroll-x {
+  display: flex;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  margin: 0 -0.5rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+  width: calc(100% + 1rem);
+  box-sizing: border-box;
+}
+
+.dashboard-scroll-x::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+.dashboard-scroll-x > * {
+  flex-shrink: 0;
+  margin-right: 0.5rem;
+}
+
+/* Dashboard metrics grid layout */
+.dashboard-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Narrow Mobile (≤358px) Styles */
+@media (max-width: 358px) {
+  /* Container spacing - tighter for smallest screens */
+  .dashboard-container {
+    padding: 0.25rem;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+  
+  /* Typography */
+  .xs-text {
+    font-size: 0.65rem !important;
+  }
+  
+  .xs-heading {
+    font-size: 0.85rem !important;
+    max-width: 180px !important;
+  }
+  
+  /* Navigation buttons - smaller on narrow screens */
+  .xs-nav-button {
+    font-size: 0.65rem !important;
+    padding: 0.25rem 0.5rem !important;
+    height: 1.75rem !important;
+    min-width: 0 !important;
+    max-width: 120px !important;
+    white-space: normal !important;
+  }
+  
+  .xs-nav-icon {
+    height: 0.75rem !important;
+    width: 0.75rem !important;
+    flex-shrink: 0 !important;
+  }
+  
+  /* Tighter spacing */
+  .xs-padding {
+    padding: 0.375rem !important;
+  }
+  
+  .xs-margin {
+    margin: 0.25rem !important;
+  }
+  
+  /* Stack metrics/cards in a single column */
+  .dashboard-metrics {
+    grid-template-columns: 1fr;
+    gap: 0.375rem;
+  }
+  
+  /* Dashboard quick actions - single column for narrowest screens */
+  .dashboard-quick-actions {
+    grid-template-columns: 1fr;
+    gap: 0.375rem;
+    width: 100%;
+  }
+  
+  /* Management section cards - single column for narrowest screens */
+  .dashboard-management-cards {
+    grid-template-columns: 1fr;
+    gap: 0.375rem;
+  }
+  
+  /* Quick action icons - smaller */
+  .xs-action-icon {
+    width: 2.25rem !important;
+    height: 2.25rem !important;
+    flex-shrink: 0 !important;
+  }
+  
+  .xs-action-icon-inner {
+    height: 0.9rem !important;
+    width: 0.9rem !important;
+  }
+  
+  /* Card content - tighter padding */
+  .xs-card-content {
+    padding: 0.375rem !important;
+    gap: 0.375rem !important;
+    flex-direction: column !important;
+  }
+  
+  /* Button styling - smaller and tighter */
+  .xs-button {
+    font-size: 0.65rem !important;
+    height: 1.75rem !important;
+    padding: 0.25rem 0.375rem !important;
+    min-width: 0 !important;
+    white-space: nowrap !important;
+  }
+  
+  /* Top header adjustments */
+  .xs-top-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.375rem !important;
+    margin-bottom: 0.375rem !important;
+    width: 100% !important;
+  }
+  
+  /* Optimize button placement for smaller screens */
+  .xs-button-container {
+    width: 100% !important;
+    margin-top: 0.25rem !important;
+  }
+  
+  /* Cards for smallest screens */
+  .xs-card {
+    margin-bottom: 0.375rem !important;
+    width: 100% !important;
+  }
+  
+  /* Make scroll container fit without overflow */
+  .dashboard-scroll-x {
+    width: 100%;
+    margin: 0;
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+  }
+  
+  /* Dashboard navigation bar */
+  .xs-nav-bar {
+    padding: 0.25rem !important;
+    margin-bottom: 0.375rem !important;
+  }
+  
+  /* Management card icons */
+  .xs-icon-container {
+    min-width: 1.75rem !important;
+    width: 1.75rem !important;
+    height: 1.75rem !important;
+  }
+  
+  /* Card title container */
+  .xs-title-container {
+    max-width: calc(100% - 2.5rem) !important;
+    width: calc(100% - 2.5rem) !important;
+  }
+  
+  /* Hidden elements */
+  .xs-hidden {
+    display: none !important;
+  }
+  
+  /* Force text to truncate */
+  .xs-truncate {
+    max-width: 100% !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: block !important;
+  }
+  
+  /* Card layout adjustments */
+  .xs-card-layout {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+  }
+  
+  /* Force smaller icons in card content */
+  .xs-inner-content {
+    padding: 0.25rem !important;
+  }
+  
+  /* Main container width constraint */
+  .xs-main-container {
+    max-width: calc(100vw - 0.5rem) !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+}
+
+/* Small Medium Mobile (359px-409px) Styles */
+@media (min-width: 359px) and (max-width: 409px) {
+  /* Container spacing - slightly more generous than xs */
+  .dashboard-container {
+    padding: 0.375rem;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+  
+  /* Main container width constraint */
+  .xsm-main-container {
+    max-width: calc(100vw - 0.75rem) !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+    width: 100% !important;
+    overflow-x: hidden !important;
+  }
+  
+  /* Top header */
+  .xsm-top-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.45rem !important;
+    margin-bottom: 0.45rem !important;
+    width: 100% !important;
+  }
+  
+  /* Optimize button placement */
+  .xsm-button-container {
+    width: 100% !important;
+    margin-top: 0.35rem !important;
+  }
+  
+  /* Navigation bar */
+  .xsm-nav-bar {
+    padding: 0.35rem !important;
+    margin-bottom: 0.45rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Custom scrollbar for small medium mobile */
+  .xsm-scrollbar {
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+    max-width: 100% !important;
+  }
+  
+  .xsm-scrollbar::-webkit-scrollbar {
+    display: none !important;
+  }
+  
+  /* Card title container */
+  .xsm-title-container {
+    max-width: calc(100% - 2.75rem) !important;
+    width: calc(100% - 2.75rem) !important;
+  }
+  
+  /* Force smaller icons in card content */
+  .xsm-inner-content {
+    padding: 0.35rem !important;
+  }
+  
+  /* Typography - slightly larger than xs */
+  .xsm-text {
+    font-size: 0.7rem !important;
+  }
+  
+  .xsm-heading {
+    font-size: 0.9rem !important;
+  }
+  
+  /* Navigation buttons - slightly larger than xs */
+  .xsm-nav-button {
+    font-size: 0.7rem !important;
+    padding: 0.3rem 0.6rem !important;
+    height: 1.85rem !important;
+    min-width: 0 !important;
+    max-width: 130px !important;
+  }
+  
+  .xsm-nav-icon {
+    height: 0.85rem !important;
+    width: 0.85rem !important;
+    flex-shrink: 0 !important;
+  }
+  
+  /* Tighter spacing */
+  .xsm-padding {
+    padding: 0.5rem !important;
+  }
+  
+  .xsm-margin {
+    margin: 0.35rem !important;
+  }
+  
+  /* 2-column grid for metrics cards */
+  .dashboard-metrics {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  
+  /* Dashboard quick actions - 2 columns for this screen range */
+  .dashboard-quick-actions {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.45rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Management section cards - 2 columns for this screen range */
+  .dashboard-management-cards {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.45rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Quick action icons - slightly smaller */
+  .xsm-action-icon {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+    flex-shrink: 0 !important;
+  }
+  
+  .xsm-action-icon-inner {
+    height: 1rem !important;
+    width: 1rem !important;
+  }
+  
+  /* Card content - adjusted padding */
+  .xsm-card-content {
+    padding: 0.5rem !important;
+    gap: 0.5rem !important;
+  }
+  
+  /* Button styling - optimized for this range */
+  .xsm-button {
+    font-size: 0.7rem !important;
+    height: 1.9rem !important;
+    padding: 0.3rem 0.5rem !important;
+    min-width: 0 !important;
+    white-space: nowrap !important;
+    width: 100% !important;
+  }
+  
+  /* Hidden elements */
+  .xsm-hidden {
+    display: none !important;
+  }
+  
+  /* Make scroll container fit without overflow */
+  .dashboard-scroll-x {
+    width: 100% !important;
+    margin: 0 !important;
+    padding-left: 0.25rem !important;
+    padding-right: 0.25rem !important;
+    overflow-x: auto !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Card sizing */
+  .xsm-card {
+    width: 100% !important;
+    margin-bottom: 0.45rem !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Management card icons */
+  .xsm-icon-container {
+    min-width: 1.85rem !important;
+    width: 1.85rem !important;
+    height: 1.85rem !important;
+  }
+  
+  /* Force text to truncate */
+  .xsm-truncate {
+    max-width: 100% !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: block !important;
+  }
+}
+
+/* Medium Mobile (410px-480px) Styles */
+@media (min-width: 410px) and (max-width: 480px) {
+  /* Container spacing - more horizontal space than xsm */
+  .dashboard-container {
+    padding: 0.5rem;
+  }
+  
+  /* Typography - slightly larger than xsm */
+  .sm-text {
+    font-size: 0.75rem !important;
+  }
+  
+  .sm-heading {
+    font-size: 0.95rem !important;
+  }
+  
+  /* Navigation buttons - horizontally stretched from xsm */
+  .sm-nav-button {
+    font-size: 0.75rem !important;
+    padding: 0.375rem 0.75rem !important;
+    height: 2rem !important;
+  }
+  
+  .sm-nav-icon {
+    height: 1rem !important;
+    width: 1rem !important;
+  }
+  
+  /* Spacing - more generous than xsm */
+  .sm-padding {
+    padding: 0.75rem !important;
+  }
+  
+  .sm-margin {
+    margin: 0.5rem !important;
+  }
+  
+  /* Dashboard metrics - two columns at this size */
+  .dashboard-metrics {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+  
+  /* Dashboard quick actions */
+  .dashboard-quick-actions {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+  
+  /* Management section cards */
+  .dashboard-management-cards {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+  
+  /* Quick action icons */
+  .sm-action-icon {
+    width: 3rem !important;
+    height: 3rem !important;
+  }
+  
+  .sm-action-icon-inner {
+    height: 1.5rem !important;
+    width: 1.5rem !important;
+  }
+  
+  /* Card content */
+  .sm-card-content {
+    padding: 0.75rem !important;
+    gap: 0.75rem !important;
+  }
+  
+  /* Button styling */
+  .sm-button {
+    font-size: 0.75rem !important;
+    height: 2rem !important;
+    padding: 0.375rem 0.75rem !important;
+  }
+  
+  /* Hidden elements */
+  .sm-hidden {
+    display: none !important;
+  }
+}
+
+/* Larger screens (>480px) */
+@media (min-width: 481px) {
+  .dashboard-container {
+    padding: 1rem;
+  }
+  
+  .dashboard-card {
+    margin-bottom: 1rem;
+  }
+  
+  .dashboard-metrics {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .dashboard-metrics {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  .dashboard-scroll-x {
+    overflow: visible;
+    flex-wrap: wrap;
+    margin: 0;
+    padding: 0;
+    gap: 0.5rem;
+  }
+}
+
+/* Utility classes */
+.truncate-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Card and section animations */
+.hover-scale {
+  transition: transform 0.2s ease-in-out;
+}
+
+.hover-scale:hover {
+  transform: scale(1.02);
+} 

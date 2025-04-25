@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -123,6 +124,12 @@
 
 /* Add responsive utilities */
 @layer utilities {
+  /* Box-sizing reset for consistent sizing */
+  * {
+    box-sizing: border-box;
+  }
+
+  /* Base mobile container */
   .mobile-container {
     max-width: 100%;
     overflow-x: hidden;
@@ -162,6 +169,82 @@
   
   .mobile-text-sm {
     font-size: 0.75rem;
+  }
+  
+  /* Specific styles for narrow screens (360px) */
+  @media (max-width: 360px) {
+    .xs-only\:text-xs {
+      font-size: 0.6rem;
+    }
+    
+    .xs-only\:p-1 {
+      padding: 0.25rem;
+    }
+    
+    .xs-only\:flex-col {
+      flex-direction: column;
+    }
+    
+    .xs-only\:gap-1 {
+      gap: 0.25rem;
+    }
+    
+    .xs-only\:w-full {
+      width: 100%;
+    }
+    
+    .xs-only\:grid-cols-1 {
+      grid-template-columns: repeat(1, minmax(0, 1fr));
+    }
+    
+    .xs-only\:hidden {
+      display: none;
+    }
+    
+    .xs-only\:block {
+      display: block;
+    }
+    
+    /* Card-based layout for tables */
+    .mobile-card-view table,
+    .mobile-card-view thead,
+    .mobile-card-view tbody,
+    .mobile-card-view tr,
+    .mobile-card-view th,
+    .mobile-card-view td {
+      display: block;
+      width: 100%;
+    }
+    
+    .mobile-card-view thead {
+      display: none;
+    }
+    
+    .mobile-card-view td {
+      position: relative;
+      padding-left: 50%;
+      text-align: right;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+    
+    .mobile-card-view td:before {
+      content: attr(data-label);
+      position: absolute;
+      left: 0.5rem;
+      width: 45%;
+      padding-right: 0.5rem;
+      font-weight: 600;
+      text-align: left;
+    }
+    
+    .mobile-card-view tr {
+      margin-bottom: 0.5rem;
+      border-bottom: 2px solid rgba(0, 0, 0, 0.1);
+      border-radius: 0.25rem;
+      background-color: white;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      padding: 0.5rem;
+    }
   }
   
   /* Manager component styles */
@@ -295,5 +378,72 @@
       padding-left: 0.5rem !important;
       padding-right: 0.5rem !important;
     }
+  }
+}
+
+/* Add responsive styling for all three screen brackets */
+/* Smallest screens (≤358px) */
+@media (max-width: 358px) {
+  html, body {
+    font-size: 14px;
+  }
+  
+  /* Prevent horizontal overflow on smallest screens */
+  .overflow-x-auto {
+    max-width: 100vw;
+  }
+  
+  /* Ensure buttons and interactive elements are big enough to tap */
+  button, 
+  [role="button"],
+  a {
+    min-height: 36px;
+    min-width: 36px;
+  }
+}
+
+/* Small-Medium Mobile (359px-409px) */
+@media (min-width: 359px) and (max-width: 409px) {
+  html, body {
+    font-size: 14px;
+  }
+  
+  /* Critical fix for toggle menu visibility */
+  .sm\:hidden {
+    display: flex !important;
+    visibility: visible !important;
+  }
+  
+  /* Ensure the dropdown trigger (menu button) is always visible */
+  [class*="DropdownMenuTrigger"],
+  button[aria-haspopup="menu"] {
+    margin-right: 8px !important;
+    display: flex !important;
+    visibility: visible !important;
+  }
+  
+  /* Prevent overflow issues in this specific range */
+  body {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+  
+  /* Ensure main content areas don't overflow */
+  main {
+    max-width: calc(100vw - 16px);
+    overflow-x: hidden;
+  }
+}
+
+/* Medium Mobile (410px-480px) */
+@media (min-width: 410px) and (max-width: 480px) {
+  html, body {
+    font-size: 15px;
+  }
+  
+  /* Ensure main content areas don't overflow */
+  main {
+    max-width: calc(100vw - 24px);
+    overflow-x: hidden;
   }
 }

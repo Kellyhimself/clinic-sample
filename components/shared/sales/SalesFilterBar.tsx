@@ -11,6 +11,12 @@ interface SalesFilterBarProps {
   timeframe: TimeframeType;
   onTimeframeChange: (timeframe: TimeframeType) => void;
   additionalFilters?: React.ReactNode;
+  customClasses?: {
+    searchInput?: string;
+    timeframeSelect?: string;
+    button?: string;
+    filterItem?: string;
+  };
 }
 
 export default function SalesFilterBar({
@@ -19,19 +25,20 @@ export default function SalesFilterBar({
   timeframe,
   onTimeframeChange,
   additionalFilters,
+  customClasses = {}
 }: SalesFilterBarProps) {
   return (
     <div className="space-y-3">
       <Tabs 
         value={timeframe}
         onValueChange={(value) => onTimeframeChange(value as TimeframeType)}
-        className="mb-3 md:mb-4"
+        className={`mb-3 md:mb-4 ${customClasses.timeframeSelect || ''}`}
       >
-        <TabsList className="grid grid-cols-4 w-full max-w-full md:max-w-md h-8 md:h-10 px-0">
-          <TabsTrigger value="all" className="text-[10px] md:text-xs lg:text-sm px-0 md:px-2">All Time</TabsTrigger>
-          <TabsTrigger value="today" className="text-[10px] md:text-xs lg:text-sm px-0 md:px-2">Today</TabsTrigger>
-          <TabsTrigger value="week" className="text-[10px] md:text-xs lg:text-sm px-0 md:px-2">This Week</TabsTrigger>
-          <TabsTrigger value="month" className="text-[10px] md:text-xs lg:text-sm px-0 md:px-2">This Month</TabsTrigger>
+        <TabsList className={`grid grid-cols-4 w-full max-w-full md:max-w-md h-8 md:h-10 px-0 ${customClasses.filterItem || ''}`}>
+          <TabsTrigger value="all" className={`text-[10px] md:text-xs lg:text-sm px-0 md:px-2 ${customClasses.button || ''}`}>All Time</TabsTrigger>
+          <TabsTrigger value="today" className={`text-[10px] md:text-xs lg:text-sm px-0 md:px-2 ${customClasses.button || ''}`}>Today</TabsTrigger>
+          <TabsTrigger value="week" className={`text-[10px] md:text-xs lg:text-sm px-0 md:px-2 ${customClasses.button || ''}`}>This Week</TabsTrigger>
+          <TabsTrigger value="month" className={`text-[10px] md:text-xs lg:text-sm px-0 md:px-2 ${customClasses.button || ''}`}>This Month</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -40,7 +47,7 @@ export default function SalesFilterBar({
           placeholder="Search..."
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full md:w-64 text-xs md:text-sm h-9 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
+          className={`w-full md:w-64 text-xs md:text-sm h-9 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200 ${customClasses.searchInput || ''}`}
         />
         {additionalFilters}
       </div>

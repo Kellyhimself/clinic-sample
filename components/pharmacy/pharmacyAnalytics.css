@@ -1,0 +1,234 @@
+/* Mobile responsiveness for Pharmacy Analytics and Reports components */
+
+/* Base styles for analytics components */
+.pharmacy-analytics-container {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  padding: 0.5rem;
+}
+
+.pharmacy-chart-placeholder {
+  height: auto;
+  min-height: 150px;
+  padding: 1rem;
+}
+
+.pharmacy-card {
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 0.75rem;
+}
+
+.pharmacy-tab-content {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* List styling */
+.pharmacy-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+/* Grid layouts */
+.pharmacy-grid {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.pharmacy-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+/* Vertical spacing */
+.pharmacy-space-y {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Small screens (≤358px) */
+@media (max-width: 358px) {
+  /* Text sizes */
+  .xs-text {
+    font-size: 0.65rem !important;
+  }
+  
+  .xs-heading {
+    font-size: 0.85rem !important;
+  }
+
+  .xs-icon {
+    width: 0.85rem !important;
+    height: 0.85rem !important;
+  }
+  
+  /* Spacing */
+  .xs-padding {
+    padding: 0.5rem !important;
+  }
+  
+  .xs-margin {
+    margin-bottom: 0.5rem !important;
+  }
+  
+  /* Single column layouts */
+  .pharmacy-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  /* Compact cards */
+  .pharmacy-card {
+    margin-bottom: 0.5rem;
+  }
+  
+  /* Chart placeholder */
+  .pharmacy-chart-placeholder {
+    min-height: 120px;
+  }
+  
+  /* Tab adjustments */
+  .pharmacy-tabs-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+  
+  .pharmacy-tab-trigger {
+    flex: 1 0 calc(50% - 0.25rem);
+    font-size: 0.65rem !important;
+    padding: 0.25rem !important;
+    min-width: 0 !important;
+    height: auto !important;
+  }
+  
+  /* Tighter list items */
+  .pharmacy-list-item {
+    padding: 0.25rem;
+    font-size: 0.65rem;
+  }
+  
+  /* Button adjustments */
+  .pharmacy-button-xs {
+    height: 1.75rem !important;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    font-size: 0.65rem !important;
+  }
+  
+  /* Grid layout for reports */
+  .pharmacy-reports-grid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  
+  /* Hidden elements on small screens */
+  .xs-hidden {
+    display: none !important;
+  }
+}
+
+/* Medium screens (359px-480px) */
+@media (min-width: 359px) and (max-width: 480px) {
+  /* Text sizes */
+  .sm-text {
+    font-size: 0.75rem !important;
+  }
+  
+  .sm-heading {
+    font-size: 1rem !important;
+  }
+  
+  .sm-icon {
+    width: 1rem !important;
+    height: 1rem !important;
+  }
+  
+  /* Spacing */
+  .sm-padding {
+    padding: 0.75rem !important;
+  }
+  
+  .sm-margin {
+    margin-bottom: 0.75rem !important;
+  }
+  
+  /* Two column layouts */
+  .pharmacy-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+  
+  /* Chart placeholder */
+  .pharmacy-chart-placeholder {
+    min-height: 180px;
+  }
+  
+  /* Tab adjustments */
+  .pharmacy-tabs-list {
+    flex-wrap: wrap;
+  }
+  
+  .pharmacy-tab-trigger {
+    font-size: 0.75rem !important;
+    padding: 0.5rem 0.75rem !important;
+  }
+  
+  /* List items */
+  .pharmacy-list-item {
+    padding: 0.5rem;
+    font-size: 0.75rem;
+  }
+  
+  /* Button adjustments */
+  .pharmacy-button-sm {
+    height: 2rem !important;
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+    font-size: 0.75rem !important;
+  }
+  
+  /* Grid layout for reports */
+  .pharmacy-reports-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+}
+
+/* Larger screens adjustments (>480px) */
+@media (min-width: 481px) {
+  .pharmacy-analytics-container {
+    padding: 1rem;
+  }
+  
+  .pharmacy-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  
+  .pharmacy-space-y {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .pharmacy-chart-placeholder {
+    min-height: 250px;
+  }
+}
+
+@media (min-width: 768px) {
+  .pharmacy-metrics-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  .pharmacy-reports-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+} 

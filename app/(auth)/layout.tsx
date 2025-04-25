@@ -26,13 +26,16 @@ export default function AuthLayout({
   useEffect(() => {
     const checkSession = async () => {
       try {
-        // Use getUser() for improved security as recommended by Supabase
+        // SECURITY BEST PRACTICE: 
+        // First verify user with getUser() which authenticates via the Supabase server
+        // This ensures the user data is authentic and not just read from cookies
         const { data: { user: authUser }, error: userError } = await supabase.auth.getUser();
         
         if (userError) throw userError;
 
         if (authUser) {
-          // Get the session just for the tokens (can't avoid this part)
+          // After authentication is verified, we can get the session tokens
+          // We only use getSession() to access tokens, not to verify authentication
           const { data: { session } } = await supabase.auth.getSession();
           
           if (session) {

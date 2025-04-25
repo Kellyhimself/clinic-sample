@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import QueryProvider from "@/components/providers/QueryProvider";
+import { viewport } from "./viewport-meta";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -19,6 +20,19 @@ export const metadata: Metadata = {
   description: "A comprehensive system for managing clinic and pharmacy operations",
 };
 
+// Define viewport settings
+export const viewportMeta = {
+  width: "device-width",
+  initialScale: 1,
+  minimumScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover" as const,
+  userScalable: true,
+};
+
+// Export the viewport configuration
+export { viewport };
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -26,11 +40,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <meta name="viewport" content={`width=${viewportMeta.width}, initial-scale=${viewportMeta.initialScale}, minimum-scale=${viewportMeta.minimumScale}, maximum-scale=${viewportMeta.maximumScale}, viewport-fit=${viewportMeta.viewportFit}, user-scalable=${viewportMeta.userScalable ? 'yes' : 'no'}`} />
+      </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden`}
       >
         <QueryProvider>
-          {children}
+          <div className="min-h-screen max-w-full">
+            {children}
+          </div>
           <Toaster position="top-right" />
         </QueryProvider>
       </body>

@@ -9,6 +9,9 @@ import { BarChart, Activity, Package2, DollarSign, TrendingUp, AlertTriangle } f
 import SalesFilterBar, { TimeframeType } from '@/components/shared/sales/SalesFilterBar';
 import SalesMetricCard from '@/components/shared/sales/SalesMetricCard';
 
+// Import responsive CSS
+import './pharmacyAnalytics.css';
+
 // Import server actions
 import { getTopSellingMedications, calculateProfitAndReorders } from '@/lib/rpcActions';
 
@@ -37,6 +40,24 @@ export default function PharmacyAnalyticsDashboard() {
   const [profitData, setProfitData] = useState<ProfitAndReorderData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isNarrowMobile, setIsNarrowMobile] = useState(false);
+  const [isMediumMobile, setIsMediumMobile] = useState(false);
+  
+  // Check screen size on component mount and resize
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      setIsNarrowMobile(width <= 358);
+      setIsMediumMobile(width > 358 && width <= 480);
+    };
+    
+    // Set initial state
+    handleResize();
+    
+    // Add resize listener
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
   // Calculate analytics from the profit data
   const totalRevenue = profitData.reduce((sum, item) => sum + item.total_sales, 0);
@@ -91,16 +112,22 @@ export default function PharmacyAnalyticsDashboard() {
   }
   
   return (
-    <div className="space-y-4 p-2 md:p-4 lg:p-6">
-      <h2 className="text-xl md:text-2xl font-bold text-gray-800 leading-tight">Pharmacy Analytics Dashboard</h2>
+    <div className="pharmacy-analytics-container">
+      <h2 className={`${isNarrowMobile ? 'xs-heading' : isMediumMobile ? 'sm-heading' : 'text-xl md:text-2xl'} font-bold text-gray-800 leading-tight mb-4`}>
+        Pharmacy Analytics Dashboard
+      </h2>
       
       {/* Filter Controls */}
-      <Card className="mb-4">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Filter Analytics</CardTitle>
-          <CardDescription>Select time period and search for specific medications</CardDescription>
+      <Card className={`pharmacy-card ${isNarrowMobile ? 'xs-margin' : isMediumMobile ? 'sm-margin' : 'mb-4'}`}>
+        <CardHeader className={`${isNarrowMobile ? 'xs-padding pb-1' : isMediumMobile ? 'sm-padding pb-2' : 'pb-2'}`}>
+          <CardTitle className={`${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}`}>
+            Filter Analytics
+          </CardTitle>
+          <CardDescription className={isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}>
+            Select time period and search for specific medications
+          </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className={isNarrowMobile ? 'xs-padding' : isMediumMobile ? 'sm-padding' : ''}>
           <SalesFilterBar
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
@@ -112,83 +139,113 @@ export default function PharmacyAnalyticsDashboard() {
       
       {/* Error message if any */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-4" role="alert">
-          <p className="font-medium">Error:</p>
-          <p>{error}</p>
+        <div className={`bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md ${isNarrowMobile ? 'xs-margin' : isMediumMobile ? 'sm-margin' : 'mb-4'}`} role="alert">
+          <p className={`font-medium ${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}`}>Error:</p>
+          <p className={isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}>{error}</p>
         </div>
       )}
       
       {/* Key Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className={`pharmacy-metrics-grid ${isNarrowMobile ? 'xs-margin' : isMediumMobile ? 'sm-margin' : 'mb-8'}`}>
         <SalesMetricCard
           title="Total Revenue"
           value={new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(totalRevenue)}
-          icon={<DollarSign className="h-4 w-4 text-emerald-600" />}
+          icon={<DollarSign className={`${isNarrowMobile ? 'xs-icon' : isMediumMobile ? 'sm-icon' : 'h-4 w-4'} text-emerald-600`} />}
           colorClass="from-emerald-50 to-emerald-100 border-emerald-200 text-emerald-600"
         />
         
         <SalesMetricCard
           title="Total Profit"
           value={new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(totalProfit)}
-          icon={<TrendingUp className="h-4 w-4 text-indigo-600" />}
+          icon={<TrendingUp className={`${isNarrowMobile ? 'xs-icon' : isMediumMobile ? 'sm-icon' : 'h-4 w-4'} text-indigo-600`} />}
           colorClass="from-indigo-50 to-indigo-100 border-indigo-200 text-indigo-600"
         />
         
         <SalesMetricCard
           title="Average Margin"
           value={`${averageMargin.toFixed(1)}%`}
-          icon={<Activity className="h-4 w-4 text-blue-600" />}
+          icon={<Activity className={`${isNarrowMobile ? 'xs-icon' : isMediumMobile ? 'sm-icon' : 'h-4 w-4'} text-blue-600`} />}
           colorClass="from-blue-50 to-blue-100 border-blue-200 text-blue-600"
         />
         
         <SalesMetricCard
           title="Items Needing Reorder"
           value={`${itemsNeedingReorder}`}
-          icon={<AlertTriangle className="h-4 w-4 text-amber-600" />}
+          icon={<AlertTriangle className={`${isNarrowMobile ? 'xs-icon' : isMediumMobile ? 'sm-icon' : 'h-4 w-4'} text-amber-600`} />}
           colorClass="from-amber-50 to-amber-100 border-amber-200 text-amber-600"
         />
       </div>
       
       {/* Tabs for different analytics views */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="mb-6">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="top-selling">Top Selling</TabsTrigger>
-          <TabsTrigger value="profit-margin">Profit Margins</TabsTrigger>
-          <TabsTrigger value="reorder">Reorder Alerts</TabsTrigger>
+        <TabsList className={`pharmacy-tabs-list ${isNarrowMobile ? 'xs-margin' : isMediumMobile ? 'sm-margin' : 'mb-6'}`}>
+          <TabsTrigger 
+            value="overview" 
+            className={`pharmacy-tab-trigger ${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}`}
+          >
+            Overview
+          </TabsTrigger>
+          <TabsTrigger 
+            value="top-selling"
+            className={`pharmacy-tab-trigger ${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}`}
+          >
+            Top Selling
+          </TabsTrigger>
+          <TabsTrigger 
+            value="profit-margin"
+            className={`pharmacy-tab-trigger ${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}`}
+          >
+            Profit Margins
+          </TabsTrigger>
+          <TabsTrigger 
+            value="reorder"
+            className={`pharmacy-tab-trigger ${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}`}
+          >
+            Reorder Alerts
+          </TabsTrigger>
         </TabsList>
         
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="pharmacy-grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Top 5 Selling Medications Card */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2">
-                  <Package2 className="h-5 w-5 text-emerald-600" />
+            <Card className="pharmacy-card">
+              <CardHeader className={`${isNarrowMobile ? 'xs-padding pb-1' : isMediumMobile ? 'sm-padding pb-2' : 'pb-2'}`}>
+                <CardTitle className={`flex items-center gap-2 ${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}`}>
+                  <Package2 className={`${isNarrowMobile ? 'xs-icon' : isMediumMobile ? 'sm-icon' : 'h-5 w-5'} text-emerald-600`} />
                   <span>Top 5 Selling Medications</span>
                 </CardTitle>
-                <CardDescription>By quantity sold</CardDescription>
+                <CardDescription className={isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}>
+                  By quantity sold
+                </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className={isNarrowMobile ? 'xs-padding' : isMediumMobile ? 'sm-padding' : ''}>
                 {loading ? (
-                  <div className="text-center py-4">Loading...</div>
+                  <div className={`text-center py-4 ${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}`}>
+                    Loading...
+                  </div>
                 ) : topSellingMeds.length === 0 ? (
-                  <div className="text-center py-4 text-gray-500">No data available</div>
+                  <div className={`text-center py-4 text-gray-500 ${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}`}>
+                    No data available
+                  </div>
                 ) : (
                   <div className="space-y-2">
                     {topSellingMeds.slice(0, 5).map((med, index) => (
                       <div 
                         key={med.medication_id}
-                        className="flex items-center justify-between p-2 rounded-md bg-gray-50"
+                        className={`pharmacy-list-item p-2 rounded-md bg-gray-50 ${isNarrowMobile ? 'xs-padding' : ''}`}
                       >
                         <div className="flex items-center gap-2">
-                          <span className="flex items-center justify-center bg-emerald-100 text-emerald-700 h-6 w-6 rounded-full text-xs font-medium">
+                          <span className={`flex items-center justify-center bg-emerald-100 text-emerald-700 ${isNarrowMobile ? 'h-5 w-5 xs-text' : isMediumMobile ? 'h-5 w-5 sm-text' : 'h-6 w-6 text-xs'} rounded-full font-medium`}>
                             {index + 1}
                           </span>
-                          <span className="font-medium">{med.medication_name}</span>
+                          <span className={`font-medium ${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}`}>
+                            {med.medication_name}
+                          </span>
                         </div>
-                        <span>{med.total_quantity} units</span>
+                        <span className={isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}>
+                          {med.total_quantity} units
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -197,19 +254,25 @@ export default function PharmacyAnalyticsDashboard() {
             </Card>
             
             {/* Top Profit Margin Medications Card */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-indigo-600" />
+            <Card className="pharmacy-card">
+              <CardHeader className={`${isNarrowMobile ? 'xs-padding pb-1' : isMediumMobile ? 'sm-padding pb-2' : 'pb-2'}`}>
+                <CardTitle className={`flex items-center gap-2 ${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}`}>
+                  <TrendingUp className={`${isNarrowMobile ? 'xs-icon' : isMediumMobile ? 'sm-icon' : 'h-5 w-5'} text-indigo-600`} />
                   <span>Top 5 Profit Margin Medications</span>
                 </CardTitle>
-                <CardDescription>By percentage margin</CardDescription>
+                <CardDescription className={isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}>
+                  By percentage margin
+                </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className={isNarrowMobile ? 'xs-padding' : isMediumMobile ? 'sm-padding' : ''}>
                 {loading ? (
-                  <div className="text-center py-4">Loading...</div>
+                  <div className={`text-center py-4 ${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}`}>
+                    Loading...
+                  </div>
                 ) : profitData.length === 0 ? (
-                  <div className="text-center py-4 text-gray-500">No data available</div>
+                  <div className={`text-center py-4 text-gray-500 ${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}`}>
+                    No data available
+                  </div>
                 ) : (
                   <div className="space-y-2">
                     {[...profitData]
@@ -218,15 +281,19 @@ export default function PharmacyAnalyticsDashboard() {
                       .map((item, index) => (
                         <div 
                           key={item.id}
-                          className="flex items-center justify-between p-2 rounded-md bg-gray-50"
+                          className={`pharmacy-list-item p-2 rounded-md bg-gray-50 ${isNarrowMobile ? 'xs-padding' : ''}`}
                         >
                           <div className="flex items-center gap-2">
-                            <span className="flex items-center justify-center bg-indigo-100 text-indigo-700 h-6 w-6 rounded-full text-xs font-medium">
+                            <span className={`flex items-center justify-center bg-indigo-100 text-indigo-700 ${isNarrowMobile ? 'h-5 w-5 xs-text' : isMediumMobile ? 'h-5 w-5 sm-text' : 'h-6 w-6 text-xs'} rounded-full font-medium`}>
                               {index + 1}
                             </span>
-                            <span className="font-medium">{item.name}</span>
+                            <span className={`font-medium ${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}`}>
+                              {item.name}
+                            </span>
                           </div>
-                          <span>{item.profit_margin.toFixed(1)}%</span>
+                          <span className={isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}>
+                            {item.profit_margin.toFixed(1)}%
+                          </span>
                         </div>
                       ))}
                   </div>
@@ -235,19 +302,25 @@ export default function PharmacyAnalyticsDashboard() {
             </Card>
             
             {/* Items Needing Reorder Card */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-amber-600" />
+            <Card className="pharmacy-card">
+              <CardHeader className={`${isNarrowMobile ? 'xs-padding pb-1' : isMediumMobile ? 'sm-padding pb-2' : 'pb-2'}`}>
+                <CardTitle className={`flex items-center gap-2 ${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}`}>
+                  <AlertTriangle className={`${isNarrowMobile ? 'xs-icon' : isMediumMobile ? 'sm-icon' : 'h-5 w-5'} text-amber-600`} />
                   <span>Items Needing Reorder</span>
                 </CardTitle>
-                <CardDescription>Below reorder threshold</CardDescription>
+                <CardDescription className={isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}>
+                  Below reorder threshold
+                </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className={isNarrowMobile ? 'xs-padding' : isMediumMobile ? 'sm-padding' : ''}>
                 {loading ? (
-                  <div className="text-center py-4">Loading...</div>
+                  <div className={`text-center py-4 ${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}`}>
+                    Loading...
+                  </div>
                 ) : profitData.filter(item => item.reorder_suggested).length === 0 ? (
-                  <div className="text-center py-4 text-gray-500">No items need reordering</div>
+                  <div className={`text-center py-4 text-gray-500 ${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}`}>
+                    No items need reordering
+                  </div>
                 ) : (
                   <div className="space-y-2">
                     {profitData
@@ -256,10 +329,16 @@ export default function PharmacyAnalyticsDashboard() {
                       .map((item) => (
                         <div 
                           key={item.id}
-                          className="flex items-center justify-between p-2 rounded-md bg-amber-50"
+                          className={`pharmacy-list-item p-2 rounded-md bg-amber-50 ${isNarrowMobile ? 'xs-padding' : ''}`}
                         >
-                          <span className="font-medium">{item.name}</span>
-                          <Button variant="outline" size="sm" className="h-7 text-xs">
+                          <span className={`font-medium ${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}`}>
+                            {item.name}
+                          </span>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className={`${isNarrowMobile ? 'pharmacy-button-xs' : isMediumMobile ? 'pharmacy-button-sm' : 'h-7 text-xs'}`}
+                          >
                             Order More
                           </Button>
                         </div>
@@ -267,7 +346,7 @@ export default function PharmacyAnalyticsDashboard() {
                     {profitData.filter(item => item.reorder_suggested).length > 5 && (
                       <Button 
                         variant="ghost" 
-                        className="w-full text-xs text-amber-700"
+                        className={`w-full ${isNarrowMobile ? 'xs-text pharmacy-button-xs' : isMediumMobile ? 'sm-text pharmacy-button-sm' : 'text-xs'} text-amber-700`}
                         onClick={() => setActiveTab('reorder')}
                       >
                         View all {profitData.filter(item => item.reorder_suggested).length} items
@@ -279,60 +358,64 @@ export default function PharmacyAnalyticsDashboard() {
             </Card>
             
             {/* Sales vs Costs Chart */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart className="h-5 w-5 text-blue-600" />
+            <Card className="pharmacy-card">
+              <CardHeader className={`${isNarrowMobile ? 'xs-padding pb-1' : isMediumMobile ? 'sm-padding pb-2' : 'pb-2'}`}>
+                <CardTitle className={`flex items-center gap-2 ${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}`}>
+                  <BarChart className={`${isNarrowMobile ? 'xs-icon' : isMediumMobile ? 'sm-icon' : 'h-5 w-5'} text-blue-600`} />
                   <span>Revenue Breakdown</span>
                 </CardTitle>
-                <CardDescription>Sales, costs, and profit</CardDescription>
+                <CardDescription className={isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}>
+                  Sales, costs, and profit
+                </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="h-48 rounded-md bg-gray-50 flex items-center justify-center">
+              <CardContent className={isNarrowMobile ? 'xs-padding' : isMediumMobile ? 'sm-padding' : ''}>
+                <div className={`pharmacy-chart-placeholder rounded-md bg-gray-50 flex items-center justify-center ${isNarrowMobile ? 'h-36' : isMediumMobile ? 'h-40' : 'h-48'}`}>
                   {loading ? (
-                    <div>Loading chart data...</div>
+                    <div className={isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}>
+                      Loading chart data...
+                    </div>
                   ) : (
                     <div className="space-y-4 w-full px-4">
                       <div className="space-y-1">
-                        <div className="flex justify-between text-sm">
+                        <div className={`flex justify-between ${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : 'text-sm'}`}>
                           <span>Total Revenue</span>
                           <span className="font-medium">
                             {new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(totalRevenue)}
                           </span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2.5">
+                        <div className="w-full bg-gray-200 rounded-full h-2">
                           <div 
-                            className="bg-emerald-500 h-2.5 rounded-full" 
+                            className="bg-emerald-500 h-2 rounded-full" 
                             style={{ width: '100%' }}
                           ></div>
                         </div>
                       </div>
                       
                       <div className="space-y-1">
-                        <div className="flex justify-between text-sm">
+                        <div className={`flex justify-between ${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : 'text-sm'}`}>
                           <span>Total Cost</span>
                           <span className="font-medium">
                             {new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(totalCost)}
                           </span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2.5">
+                        <div className="w-full bg-gray-200 rounded-full h-2">
                           <div 
-                            className="bg-red-500 h-2.5 rounded-full" 
+                            className="bg-red-500 h-2 rounded-full" 
                             style={{ width: `${(totalCost / totalRevenue) * 100}%` }}
                           ></div>
                         </div>
                       </div>
                       
                       <div className="space-y-1">
-                        <div className="flex justify-between text-sm">
+                        <div className={`flex justify-between ${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : 'text-sm'}`}>
                           <span>Total Profit</span>
                           <span className="font-medium">
                             {new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(totalProfit)}
                           </span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2.5">
+                        <div className="w-full bg-gray-200 rounded-full h-2">
                           <div 
-                            className="bg-indigo-500 h-2.5 rounded-full" 
+                            className="bg-indigo-500 h-2 rounded-full" 
                             style={{ width: `${(totalProfit / totalRevenue) * 100}%` }}
                           ></div>
                         </div>

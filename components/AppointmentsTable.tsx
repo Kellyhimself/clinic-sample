@@ -32,6 +32,9 @@ import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import type { Appointment } from '@/types/supabase';
 
+// Import the CSS file for mobile responsiveness
+import './appointmentsTable.css';
+
 interface AppointmentsTableProps {
   appointments: Appointment[];
   userRole: string;
@@ -66,11 +69,16 @@ export default function AppointmentsTable({
   const router = useRouter();
   const supabase = createClientSupabaseClient();
   const [isMobile, setIsMobile] = useState(false);
+  const [isNarrowMobile, setIsNarrowMobile] = useState(false);
+  const [isMediumMobile, setIsMediumMobile] = useState(false);
 
-  // Check if mobile view
+  // Check if mobile view with adjusted breakpoints
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 640);
+      const width = window.innerWidth;
+      setIsMobile(width < 640);
+      setIsNarrowMobile(width <= 358);
+      setIsMediumMobile(width > 358 && width <= 480);
     };
     
     // Set initial state
@@ -352,15 +360,27 @@ export default function AppointmentsTable({
   // Effect to toggle column visibility when screen size changes
   useEffect(() => {
     if (isMobile) {
+      // Hide service column on all mobile screens
       table.getColumn('services.name')?.toggleVisibility(false);
-      if (!isAdminOrStaff) {
+      
+      // For medium mobile screens, decide visibility based on role
+      if (isMediumMobile) {
+        if (isAdminOrStaff) {
+          // Show patient column for admin/staff on medium screens
+          table.getColumn('profiles.full_name')?.toggleVisibility(true);
+        } else {
+          table.getColumn('profiles.full_name')?.toggleVisibility(false);
+        }
+      } else if (isNarrowMobile) {
+        // On narrow screens, hide patient column for everyone
         table.getColumn('profiles.full_name')?.toggleVisibility(false);
       }
     } else {
+      // On larger screens, show all columns
       table.getColumn('services.name')?.toggleVisibility(true);
       table.getColumn('profiles.full_name')?.toggleVisibility(true);
     }
-  }, [isMobile, table, isAdminOrStaff]);
+  }, [isMobile, isNarrowMobile, isMediumMobile, table, isAdminOrStaff]);
 
   const handleFilterChange = (value: string) => {
     setFilterValue(value);
@@ -369,8 +389,140 @@ export default function AppointmentsTable({
     setColumnFilters(value ? [{ id: columnId, value }] : []);
   };
 
+  // Function to render card-style rows for mobile view
+  const renderMobileCards = () => {
+    return table.getRowModel().rows.map((row) => (
+      <div key={row.id} className="mobile-card mb-4 p-3 border rounded-lg shadow-sm bg-white">
+        <div className="flex justify-between items-center mb-2">
+          <div>
+            <span className="font-medium">Date: </span>
+            <span>{new Date(row.original.date).toLocaleDateString()}</span>
+          </div>
+          <Badge
+            variant={
+              row.original.status === 'confirmed'
+                ? 'default'
+                : row.original.status === 'cancelled'
+                ? 'destructive'
+                : 'secondary'
+            }
+            className="whitespace-nowrap"
+          >
+            {row.original.status}
+          </Badge>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-1">
+          <div>
+            <span className="font-medium">Time: </span>
+            <span>{row.original.time}</span>
+          </div>
+          
+          {isAdminOrStaff && (
+            <div>
+              <span className="font-medium">Patient: </span>
+              <span className="truncate block">{row.original.profiles?.full_name || 'N/A'}</span>
+              <PatientBadge patientId={row.original.patient_id} />
+            </div>
+          )}
+          
+          <div className="mt-1">
+            <span className="font-medium">Service: </span>
+            <span>{row.original.services?.name || 'Custom'}</span>
+          </div>
+        </div>
+        
+        {isAdminOrStaff && row.original.status === 'pending' && (
+          <div className="mt-3 flex gap-2 justify-end">
+            <form action={confirmAppointment} className="inline">
+              <input type="hidden" name="id" value={row.original.id} />
+              <Button 
+                type="submit" 
+                size="sm" 
+                variant="outline" 
+                className="h-8 px-2 flex items-center text-xs"
+              >
+                <Check className="mr-1 h-3 w-3 text-green-600" />
+                Confirm
+              </Button>
+            </form>
+            <form action={cancelAppointment} className="inline">
+              <input type="hidden" name="id" value={row.original.id} />
+              <Button 
+                type="submit" 
+                size="sm" 
+                variant="outline" 
+                className="h-8 px-2 flex items-center text-xs"
+              >
+                <X className="mr-1 h-3 w-3 text-red-600" />
+                Cancel
+              </Button>
+            </form>
+          </div>
+        )}
+      </div>
+    ));
+  };
+
+  // Function for compact table rows for medium mobile screens
+  const renderCompactTable = () => {
+    return (
+      <div className="compact-table-container p-1">
+        <Table className="w-full border-collapse text-xs">
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id} className="bg-gray-50">
+                {headerGroup.headers.map((header) => (
+                  <TableHead
+                    key={header.id}
+                    className="py-1 px-2 font-medium text-gray-700 mobile-text-xs"
+                  >
+                    {header.column.id === 'date' ? 'Date' :
+                     header.column.id === 'time' ? 'Time' :
+                     header.column.id === 'profiles.full_name' ? 'Patient' :
+                     header.column.id === 'status' ? 'Status' : 
+                     flexRender(header.column.columnDef.header, header.getContext())}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow 
+                  key={row.id} 
+                  className="hover:bg-gray-100 border-b cursor-pointer transition-colors"
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell
+                      key={cell.id}
+                      className="py-1 px-2 mobile-text-xs"
+                      data-label={cell.column.id === 'date' ? 'Date' : 
+                                 cell.column.id === 'time' ? 'Time' : 
+                                 cell.column.id === 'profiles.full_name' ? 'Patient' : 
+                                 cell.column.id === 'status' ? 'Status' : ''}
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={columns.length} className="text-center text-sm text-gray-500 py-2">
+                  No appointments found.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  };
+
   return (
-    <div className="space-y-4 mobile-container">
+    <div className="space-y-4 appointments-container">
       <Card>
         <CardHeader className="p-2 sm:p-4">
           <div className="flex items-center gap-2 sm:gap-4">
@@ -425,15 +577,17 @@ export default function AppointmentsTable({
                 />
               </div>
             )}
-            <div className="w-full mobile-scrollable" style={{ WebkitOverflowScrolling: 'touch' }}>
-              <Table className="w-full border-collapse mobile-table">
+            
+            {/* Regular table view (not for narrow screens) */}
+            <div className={`table-container ${!isNarrowMobile && !isMediumMobile ? 'block' : 'hidden'}`}>
+              <Table className="w-full border-collapse">
                 <TableHeader>
                   {table.getHeaderGroups().map((headerGroup) => (
                     <TableRow key={headerGroup.id} className="bg-gray-50">
                       {headerGroup.headers.map((header) => (
                         <TableHead
                           key={header.id}
-                          className="mobile-text-xs text-xs font-medium text-gray-700 p-1 sm:p-2 mobile-table-cell"
+                          className="text-xs font-medium text-gray-700 p-1 sm:p-2"
                           style={{ width: header.column.getSize() === 150 ? 'auto' : header.column.getSize() }}
                         >
                           {flexRender(header.column.columnDef.header, header.getContext())}
@@ -452,7 +606,12 @@ export default function AppointmentsTable({
                         {row.getVisibleCells().map((cell) => (
                           <TableCell
                             key={cell.id}
-                            className="mobile-text-xs text-xs sm:text-sm text-gray-900 p-1 sm:p-2 whitespace-nowrap mobile-table-cell"
+                            className="text-xs sm:text-sm text-gray-900 p-1 sm:p-2 whitespace-nowrap"
+                            data-label={cell.column.id === 'date' ? 'Date' : 
+                                       cell.column.id === 'time' ? 'Time' : 
+                                       cell.column.id === 'services.name' ? 'Service' : 
+                                       cell.column.id === 'profiles.full_name' ? 'Patient' : 
+                                       cell.column.id === 'status' ? 'Status' : ''}
                           >
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </TableCell>
@@ -468,6 +627,28 @@ export default function AppointmentsTable({
                   )}
                 </TableBody>
               </Table>
+            </div>
+
+            {/* Compact table for medium mobile screens (359px-480px) */}
+            <div className={`compact-table-container ${isMediumMobile ? 'block' : 'hidden'}`}>
+              {table.getRowModel().rows.length ? (
+                renderCompactTable()
+              ) : (
+                <div className="text-center text-sm text-gray-500 py-4">
+                  No appointments found.
+                </div>
+              )}
+            </div>
+            
+            {/* Card layout for narrow mobile screens (≤358px) */}
+            <div className={`mobile-cards-container ${isNarrowMobile ? 'block' : 'hidden'} px-2`}>
+              {table.getRowModel().rows.length ? (
+                renderMobileCards()
+              ) : (
+                <div className="text-center text-sm text-gray-500 py-4">
+                  No appointments found.
+                </div>
+              )}
             </div>
           </div>
         </div>

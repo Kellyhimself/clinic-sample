@@ -10,13 +10,14 @@ import { toast } from 'sonner';
 // Import shared components
 import SalesMetricCard from '@/components/shared/sales/SalesMetricCard';
 import SalesTable from '@/components/shared/sales/SalesTable';
-import SalesListCard from '@/components/shared/sales/SalesListCard';
 import SalesFilterBar, { TimeframeType, getDateRangeFromTimeframe } from '@/components/shared/sales/SalesFilterBar';
-import { StatusBadge } from '@/components/shared/sales/SalesTable';
 
 // Import proper fetch function for services
 import { fetchAppointments } from '@/lib/authActions';
 import NewServiceForm from './NewServiceForm';
+
+// Import dedicated CSS file
+import './servicesManager.css';
 
 // Define TypeScript interfaces for our data structures
 interface ServiceItem {
@@ -65,6 +66,9 @@ export default function ServicesManager() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeType>('all');
   const [showNewServiceForm, setShowNewServiceForm] = useState(false);
+  const [isNarrowMobile, setIsNarrowMobile] = useState(false);
+  const [isSmallMediumMobile, setIsSmallMediumMobile] = useState(false);
+  const [isMediumMobile, setIsMediumMobile] = useState(false);
   const [analytics, setAnalytics] = useState<ServiceAnalytics>({
     totalRevenue: 0,
     totalServices: 0,
@@ -73,6 +77,23 @@ export default function ServicesManager() {
     mostCommonService: '',
     averageServiceValue: 0
   });
+
+  // Check screen size on component mount and resize
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      setIsNarrowMobile(width <= 358);
+      setIsSmallMediumMobile(width > 358 && width <= 409);
+      setIsMediumMobile(width > 409 && width <= 480);
+    };
+    
+    // Set initial state
+    handleResize();
+    
+    // Add resize listener
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Fetch services data when component mounts or filters change
   useEffect(() => {
@@ -219,16 +240,27 @@ export default function ServicesManager() {
     {
       header: 'Date',
       key: 'date',
-      cell: (service: ServiceSale) => format(new Date(service.created_at), 'MMM dd, yyyy HH:mm')
+      cell: (service: ServiceSale) => {
+        const date = new Date(service.created_at);
+        return (
+          <span className="truncate-text">
+            {format(date, isNarrowMobile || isSmallMediumMobile ? 'MM/dd' : isMediumMobile ? 'MMM dd' : 'MMM dd, yyyy HH:mm')}
+          </span>
+        );
+      }
     },
     {
       header: 'Patient',
       key: 'patient',
       cell: (service: ServiceSale) => (
-        <div>
-          <div className="font-medium">{service.patient.full_name}</div>
-          {service.patient.phone_number && (
-            <div className="text-sm text-gray-500">{service.patient.phone_number}</div>
+        <div className={`truncate-text ${isMediumMobile ? 'sm-patient-truncate' : ''}`} style={{ maxWidth: isNarrowMobile ? '70px' : isSmallMediumMobile ? '90px' : isMediumMobile ? '120px' : 'auto' }}>
+          <div className={`font-medium ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : ''} truncate-text`}>
+            {service.patient.full_name}
+          </div>
+          {service.patient.phone_number && !isNarrowMobile && !isSmallMediumMobile && (
+            <div className={`${isMediumMobile ? 'text-xs' : 'text-sm'} text-gray-500 truncate-text`}>
+              {service.patient.phone_number}
+            </div>
           )}
         </div>
       )
@@ -237,11 +269,11 @@ export default function ServicesManager() {
       header: 'Services',
       key: 'services',
       cell: (service: ServiceSale) => (
-        <div className="space-y-1">
+        <div className="space-y-1 truncate-text" style={{ maxWidth: isNarrowMobile ? '70px' : isSmallMediumMobile ? '90px' : isMediumMobile ? '150px' : '150px' }}>
           {service.items.map((item) => (
-            <div key={item.id} className="text-sm">
+            <div key={item.id} className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-sm'} truncate-text`}>
               {item.service_name}
-              {item.discount > 0 && (
+              {item.discount > 0 && !isNarrowMobile && (
                 <span className="text-green-600 ml-1">
                   ({item.discount}% off)
                 </span>
@@ -256,14 +288,18 @@ export default function ServicesManager() {
       key: 'doctor',
       cell: (service: ServiceSale) => (
         service.doctor ? (
-          <div className="text-sm">
-            <div>{service.doctor.full_name || service.doctor.name}</div>
-            {service.doctor.specialty && (
-              <div className="text-gray-500">{service.doctor.specialty}</div>
+          <div className={`truncate-text ${isMediumMobile ? 'sm-doctor-truncate' : ''}`} style={{ maxWidth: isNarrowMobile ? '70px' : isSmallMediumMobile ? '90px' : isMediumMobile ? '120px' : '120px' }}>
+            <div className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-sm'} truncate-text`}>
+              {service.doctor.full_name || service.doctor.name}
+            </div>
+            {service.doctor.specialty && !isNarrowMobile && !isSmallMediumMobile && (
+              <div className={`${isMediumMobile ? 'text-xs' : 'text-sm'} text-gray-500 truncate-text`}>
+                {service.doctor.specialty}
+              </div>
             )}
           </div>
         ) : (
-          <span className="text-gray-400">-</span>
+          <span className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-sm'} text-gray-400`}>-</span>
         )
       )
     },
@@ -271,29 +307,43 @@ export default function ServicesManager() {
       header: 'Total',
       key: 'total',
       cell: (service: ServiceSale) => (
-        <div className="font-medium">
-          KSh {calculateTotal(service).toFixed(2)}
+        <div className={`font-medium ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : ''} truncate-text`}>
+          {isNarrowMobile ? '' : 'KSh '}{calculateTotal(service).toFixed(isNarrowMobile ? 0 : 2)}
         </div>
       )
     },
     {
       header: 'Payment',
       key: 'payment',
-      cell: (service: ServiceSale) => service.payment_method
+      cell: (service: ServiceSale) => (
+        <div className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : ''} truncate-text`}>
+          {isNarrowMobile || isSmallMediumMobile ? 
+            service.payment_method.substring(0, 1).toUpperCase() : 
+            service.payment_method}
+        </div>
+      )
     },
     {
       header: 'Status',
       key: 'status',
-      cell: (service: ServiceSale) => (
-        <StatusBadge 
-          status={service.payment_status} 
-          variants={{
-            paid: 'default',
-            pending: 'secondary',
-            refunded: 'destructive'
-          }} 
-        />
-      )
+      cell: (service: ServiceSale) => {
+        // Create a custom status badge since we can't use className prop
+        const statusClass = `${
+          service.payment_status === 'paid' 
+            ? 'bg-green-100 text-green-800 border-green-200' 
+            : service.payment_status === 'pending'
+            ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
+            : 'bg-red-100 text-red-800 border-red-200'
+        } inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border ${
+          isNarrowMobile ? 'services-badge-xs' : isSmallMediumMobile ? 'services-badge-xsm' : isMediumMobile ? 'services-badge-sm' : ''
+        }`;
+        
+        return (
+          <div className={statusClass}>
+            {service.payment_status.charAt(0).toUpperCase() + service.payment_status.slice(1)}
+          </div>
+        );
+      }
     },
   ];
 
@@ -301,14 +351,21 @@ export default function ServicesManager() {
   const filteredServices = services;
 
   return (
-    <div className="space-y-3 p-2 md:space-y-6 md:p-4 lg:p-6 mobile-container manager-container !mx-0 !max-w-none">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 md:gap-4">
-        <h2 className="text-xl md:text-2xl font-bold text-gray-800 leading-tight">Clinical Services Management</h2>
+    <div className="services-container">
+      <div className={`flex flex-col md:flex-row justify-between items-start md:items-center gap-2 md:gap-4 ${isNarrowMobile ? 'xs-margin' : isSmallMediumMobile ? 'xsm-margin' : isMediumMobile ? 'sm-margin' : ''}`}>
+        <h2 className={`${isNarrowMobile ? 'xs-heading' : isSmallMediumMobile ? 'xsm-heading' : isMediumMobile ? 'sm-heading' : 'text-xl md:text-2xl'} font-bold text-gray-800 leading-tight truncate-text`}>
+          {isNarrowMobile || isSmallMediumMobile ? 'Services' : isMediumMobile ? 'Services' : 'Clinical Services Management'}
+        </h2>
         <Button 
           onClick={() => setShowNewServiceForm(true)}
-          className="w-full md:w-auto bg-gradient-to-r from-indigo-500 to-indigo-600 text-white hover:from-indigo-600 hover:to-indigo-700 py-1 h-9"
+          className={`w-full md:w-auto bg-gradient-to-r from-indigo-500 to-indigo-600 text-white hover:from-indigo-600 hover:to-indigo-700 ${
+            isNarrowMobile ? 'h-7 xs-text py-0 px-2' : 
+            isSmallMediumMobile ? 'h-8 xsm-text py-0.5 px-3 xsm-button' : 
+            isMediumMobile ? 'sm-button' :
+            'py-1 h-9'
+          }`}
         >
-          New Service Record
+          {isNarrowMobile || isSmallMediumMobile ? 'New Service' : isMediumMobile ? 'New Service' : 'New Service Record'}
         </Button>
       </div>
 
@@ -318,81 +375,100 @@ export default function ServicesManager() {
       </a>
 
       {/* Analysis & Navigation Links - Now positioned at the top with improved visual hierarchy */}
-      <div className="bg-gray-50 p-2 rounded-lg border border-gray-100 shadow-sm">
-        <div className="text-xs text-gray-500 mb-1.5 font-medium">Quick Navigation</div>
-        <div className="manager-scroll-x">
+      <div className={`bg-gray-50 rounded-lg border border-gray-100 shadow-sm mb-3 ${isNarrowMobile ? 'p-1.5' : isSmallMediumMobile ? 'p-2' : isMediumMobile ? 'p-2.5' : 'p-2'}`}>
+        <div className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-xs'} text-gray-500 mb-1 font-medium ${isNarrowMobile || isSmallMediumMobile || isMediumMobile ? 'px-1' : ''}`}>
+          {isNarrowMobile || isSmallMediumMobile ? 'Navigation' : isMediumMobile ? 'Navigation' : 'Quick Navigation'}
+        </div>
+        <div className="services-scroll-x">
           <Button
             variant="outline"
             size="sm"
-            className="flex-shrink-0 mr-2 whitespace-nowrap min-w-0 flex items-center gap-1 text-[10px] md:text-sm bg-gradient-to-r from-indigo-50 to-indigo-100 border-indigo-200 text-indigo-700 hover:bg-indigo-200 h-6 md:h-8 px-2 md:px-3"
+            className={`flex-shrink-0 mr-2 whitespace-nowrap min-w-0 flex items-center gap-1 ${isNarrowMobile ? 'xs-text xs-nav-button' : isSmallMediumMobile ? 'xsm-text xsm-nav-button' : isMediumMobile ? 'sm-text sm-nav-button' : 'text-[10px] md:text-sm h-6 md:h-8 px-2 md:px-3'} bg-gradient-to-r from-indigo-50 to-indigo-100 border-indigo-200 text-indigo-700 hover:bg-indigo-200`}
             onClick={() => router.push('/services/reports')}
           >
-            <BarChart className="h-3 w-3 md:h-4 md:w-4" /> Service Reports <ChevronRight className="h-2 w-2 md:h-3 md:w-3 ml-1" />
+            <BarChart className={`${isNarrowMobile ? 'xs-nav-icon' : isSmallMediumMobile ? 'xsm-nav-icon' : isMediumMobile ? 'sm-nav-icon' : 'h-3 w-3 md:h-4 md:w-4'}`} /> 
+            {isNarrowMobile || isSmallMediumMobile ? 'Reports' : isMediumMobile ? 'Reports' : 'Service Reports'}
+            <ChevronRight className={`${isNarrowMobile ? 'h-2 w-2' : isSmallMediumMobile ? 'h-2.5 w-2.5' : isMediumMobile ? 'h-2.5 w-2.5' : 'h-2 w-2 md:h-3 md:w-3'} ml-1`} />
           </Button>
           
           <Button
             variant="outline"
             size="sm" 
-            className="flex-shrink-0 mr-2 whitespace-nowrap min-w-0 flex items-center gap-1 text-[10px] md:text-sm bg-gradient-to-r from-emerald-50 to-emerald-100 border-emerald-200 text-emerald-700 hover:bg-emerald-200 h-6 md:h-8 px-2 md:px-3"
+            className={`flex-shrink-0 mr-2 whitespace-nowrap min-w-0 flex items-center gap-1 ${isNarrowMobile ? 'xs-text xs-nav-button' : isSmallMediumMobile ? 'xsm-text xsm-nav-button' : isMediumMobile ? 'sm-text sm-nav-button' : 'text-[10px] md:text-sm h-6 md:h-8 px-2 md:px-3'} bg-gradient-to-r from-emerald-50 to-emerald-100 border-emerald-200 text-emerald-700 hover:bg-emerald-200`}
             onClick={() => router.push('/services/doctors')}
           >
-            <Users className="h-3 w-3 md:h-4 md:w-4" /> Doctors <ChevronRight className="h-2 w-2 md:h-3 md:w-3 ml-1" />
+            <Users className={`${isNarrowMobile ? 'xs-nav-icon' : isSmallMediumMobile ? 'xsm-nav-icon' : isMediumMobile ? 'sm-nav-icon' : 'h-3 w-3 md:h-4 md:w-4'}`} /> 
+            Doctors 
+            <ChevronRight className={`${isNarrowMobile ? 'h-2 w-2' : isSmallMediumMobile ? 'h-2.5 w-2.5' : isMediumMobile ? 'h-2.5 w-2.5' : 'h-2 w-2 md:h-3 md:w-3'} ml-1`} />
           </Button>
           
           <Button
             variant="outline"
             size="sm"
-            className="flex-shrink-0 mr-2 whitespace-nowrap min-w-0 flex items-center gap-1 text-[10px] md:text-sm bg-gradient-to-r from-amber-50 to-amber-100 border-amber-200 text-amber-700 hover:bg-amber-200 h-6 md:h-8 px-2 md:px-3"
+            className={`flex-shrink-0 mr-2 whitespace-nowrap min-w-0 flex items-center gap-1 ${isNarrowMobile ? 'xs-text xs-nav-button' : isSmallMediumMobile ? 'xsm-text xsm-nav-button' : isMediumMobile ? 'sm-text sm-nav-button' : 'text-[10px] md:text-sm h-6 md:h-8 px-2 md:px-3'} bg-gradient-to-r from-amber-50 to-amber-100 border-amber-200 text-amber-700 hover:bg-amber-200`}
             onClick={() => router.push('/services/top-services')}
           >
-            <Activity className="h-3 w-3 md:h-4 md:w-4" /> Top Services <ChevronRight className="h-2 w-2 md:h-3 md:w-3 ml-1" />
+            <Activity className={`${isNarrowMobile ? 'xs-nav-icon' : isSmallMediumMobile ? 'xsm-nav-icon' : isMediumMobile ? 'sm-nav-icon' : 'h-3 w-3 md:h-4 md:w-4'}`} /> 
+            {isNarrowMobile || isSmallMediumMobile ? 'Top' : isMediumMobile ? 'Top' : 'Top Services'}
+            <ChevronRight className={`${isNarrowMobile ? 'h-2 w-2' : isSmallMediumMobile ? 'h-2.5 w-2.5' : isMediumMobile ? 'h-2.5 w-2.5' : 'h-2 w-2 md:h-3 md:w-3'} ml-1`} />
           </Button>
         </div>
       </div>
 
-      <div id="services-content" className="bg-white rounded-lg shadow-lg p-2 sm:p-3 md:p-4 lg:p-6 overflow-hidden manager-card">
+      <div id="services-content" className="services-card">
         {/* SalesFilterBar now positioned before the metrics cards */}
-        <h3 className="text-sm font-medium text-gray-700 mb-2 md:mb-3 hidden md:block">Filter Services Data</h3>
-        <SalesFilterBar
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          timeframe={selectedTimeframe}
-          onTimeframeChange={setSelectedTimeframe}
-          aria-label="Services filter controls"
-        />
+        <h3 className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-sm'} font-medium text-gray-700 mb-2 md:mb-3 ${isNarrowMobile || isSmallMediumMobile || isMediumMobile ? 'px-2 pt-2' : ''} hidden md:block`}>Filter Services Data</h3>
+        
+        <div className={`${isNarrowMobile ? 'xs-filter-container xs-padding' : isSmallMediumMobile ? 'xsm-filter-container xsm-padding' : isMediumMobile ? 'sm-filter-container sm-padding' : 'p-2 sm:p-3 md:p-4'}`}>
+          <SalesFilterBar
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            timeframe={selectedTimeframe}
+            onTimeframeChange={setSelectedTimeframe}
+            aria-label="Services filter controls"
+            customClasses={{
+              searchInput: isMediumMobile ? 'sm-search-box' : '',
+              timeframeSelect: isMediumMobile ? 'sm-timeframe-select' : '',
+              button: isMediumMobile ? 'sm-filter-button' : '',
+              filterItem: isMediumMobile ? 'sm-filter-item' : ''
+            }}
+          />
+        </div>
 
-        {error && <p className="text-red-500 text-xs md:text-sm mt-2" role="alert">{error}</p>}
+        {error && <p className={`text-red-500 ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-xs md:text-sm'} mt-2 px-3`} role="alert">{error}</p>}
 
         {/* Quick Analytics Cards now positioned after the filter bar with visual separator */}
-        <div className="mt-4 pt-4 border-t border-gray-100">
-          <h3 className="text-sm font-medium text-gray-700 mb-2 md:mb-3">Services Summary</h3>
-          <div className="manager-metrics">
+        <div className={`mt-4 pt-2 border-t border-gray-100 ${isNarrowMobile ? 'xs-padding' : isSmallMediumMobile ? 'xsm-padding' : isMediumMobile ? 'sm-padding' : 'px-3 py-2'}`}>
+          <h3 className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-sm'} font-medium text-gray-700 mb-2 md:mb-3`}>
+            {isNarrowMobile || isSmallMediumMobile ? 'Summary' : isMediumMobile ? 'Summary' : 'Services Summary'}
+          </h3>
+          <div className="services-metrics">
             <SalesMetricCard
-              title="Total Revenue"
+              title={isNarrowMobile || isSmallMediumMobile || isMediumMobile ? "Revenue" : "Total Revenue"}
               value={new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(analytics.totalRevenue)}
-              icon={<DollarSign className="h-3.5 w-3.5 md:h-4 md:w-4 text-blue-600" />}
+              icon={<DollarSign className={`${isNarrowMobile ? 'h-3 w-3' : isSmallMediumMobile ? 'h-3.5 w-3.5' : isMediumMobile ? 'h-4 w-4' : 'h-3.5 w-3.5 md:h-4 md:w-4'} text-blue-600`} />}
               subValue={`${analytics.totalServices} total services`}
               colorClass="from-blue-50 to-blue-100 border-blue-200 text-blue-600"
             />
             
             <SalesMetricCard
-              title="Average Fee"
+              title={isNarrowMobile || isSmallMediumMobile || isMediumMobile ? "Avg Fee" : "Average Fee"}
               value={new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(analytics.averageServiceValue)}
-              icon={<Activity className="h-3.5 w-3.5 md:h-4 md:w-4 text-green-600" />}
+              icon={<Activity className={`${isNarrowMobile ? 'h-3 w-3' : isSmallMediumMobile ? 'h-3.5 w-3.5' : isMediumMobile ? 'h-4 w-4' : 'h-3.5 w-3.5 md:h-4 md:w-4'} text-green-600`} />}
               colorClass="from-green-50 to-green-100 border-green-200 text-green-600"
             />
             
             <SalesMetricCard
-              title="Most Common Service"
+              title={isNarrowMobile || isSmallMediumMobile || isMediumMobile ? "Popular" : "Most Common Service"}
               value={analytics.mostCommonService}
-              icon={<Activity className="h-3.5 w-3.5 md:h-4 md:w-4 text-purple-600" />}
+              icon={<Activity className={`${isNarrowMobile ? 'h-3 w-3' : isSmallMediumMobile ? 'h-3.5 w-3.5' : isMediumMobile ? 'h-4 w-4' : 'h-3.5 w-3.5 md:h-4 md:w-4'} text-purple-600`} />}
               colorClass="from-purple-50 to-purple-100 border-purple-200 text-purple-600"
             />
             
             <SalesMetricCard
-              title="Pending Payments"
+              title={isNarrowMobile || isSmallMediumMobile || isMediumMobile ? "Pending" : "Pending Payments"}
               value={`${analytics.pendingServices}`}
-              icon={<Clock className="h-3.5 w-3.5 md:h-4 md:w-4 text-amber-600" />}
+              icon={<Clock className={`${isNarrowMobile ? 'h-3 w-3' : isSmallMediumMobile ? 'h-3.5 w-3.5' : isMediumMobile ? 'h-4 w-4' : 'h-3.5 w-3.5 md:h-4 md:w-4'} text-amber-600`} />}
               subValue={analytics.pendingServices > 0 ? ((analytics.pendingServices / analytics.totalServices) * 100).toFixed(1) + '% of total' : '0%'}
               colorClass="from-amber-50 to-amber-100 border-amber-200 text-amber-600"
             />
@@ -400,46 +476,89 @@ export default function ServicesManager() {
         </div>
 
         {/* Services Data Section with heading for better structure */}
-        <div className="mt-4 pt-4 border-t border-gray-100">
-          <h3 className="text-sm font-medium text-gray-700 mb-2 md:mb-3">Service Records</h3>
+        <div className={`mt-4 pt-2 border-t border-gray-100 ${isNarrowMobile ? 'xs-padding' : isSmallMediumMobile ? 'xsm-padding' : isMediumMobile ? 'sm-padding' : 'px-3 py-2'}`}>
+          <h3 className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-sm'} font-medium text-gray-700 mb-2 md:mb-3`}>
+            {isNarrowMobile || isSmallMediumMobile ? 'Records' : isMediumMobile ? 'Records' : 'Service Records'}
+          </h3>
           
           {/* Mobile list view with collapsible option for small screens */}
           <div className="md:hidden space-y-2">
             {filteredServices.length === 0 ? (
-              <div className="text-center py-4 text-gray-500 text-sm" role="status">
+              <div className={`text-center py-4 text-gray-500 ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-sm'}`} role="status">
                 No services found
               </div>
             ) : (
               filteredServices.map((service) => (
-                <SalesListCard<ServiceSale>
+                <div 
                   key={service.id}
-                  item={service}
-                  title={(item: ServiceSale) => item.patient.full_name}
-                  subtitle={(item: ServiceSale) => format(new Date(item.created_at), 'MMM dd, yyyy')}
-                  status={{
-                    label: service.payment_status,
-                    variant: service.payment_status === 'paid' ? 'default' : 
-                            service.payment_status === 'pending' ? 'secondary' : 'destructive'
-                  }}
-                  lineItems={service.items.map(item => ({
-                    name: item.service_name,
-                    quantity: 1,
-                    price: item.unit_price
-                  }))}
-                  totalAmount={calculateTotal(service)}
-                />
+                  className={`service-card ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : ''}`}
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <div className={`font-medium ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-sm'} truncate-text`} 
+                        style={{maxWidth: isNarrowMobile ? '150px' : isSmallMediumMobile ? '180px' : isMediumMobile ? '220px' : '200px'}}>
+                        {service.patient.full_name}
+                      </div>
+                      <div className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-xs'} text-gray-500`}>
+                        {format(new Date(service.created_at), isNarrowMobile ? 'MM/dd' : isSmallMediumMobile ? 'MM/dd/yy' : isMediumMobile ? 'MMM dd, yyyy' : 'MMM dd, yyyy')}
+                      </div>
+                    </div>
+                    <div>
+                      <div className={`${
+                        service.payment_status === 'paid' 
+                          ? 'bg-green-100 text-green-800 border-green-200' 
+                          : service.payment_status === 'pending'
+                          ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                          : 'bg-red-100 text-red-800 border-red-200'
+                      } inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border ${
+                        isNarrowMobile ? 'services-badge-xs' : isSmallMediumMobile ? 'services-badge-xsm' : isMediumMobile ? 'services-badge-sm' : ''
+                      }`}>
+                        {service.payment_status.charAt(0).toUpperCase() + service.payment_status.slice(1)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="border-t border-gray-100 pt-2 mt-2">
+                    {service.items.map((item) => (
+                      <div key={item.id} className="flex justify-between items-center mb-1">
+                        <span className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-sm'} truncate-text`} 
+                          style={{maxWidth: isNarrowMobile ? '70%' : isSmallMediumMobile ? '75%' : isMediumMobile ? '80%' : '80%'}}>
+                          {item.service_name}
+                        </span>
+                        <span className="font-medium">
+                          {isNarrowMobile ? '' : isSmallMediumMobile ? '' : isMediumMobile ? 'KSh ' : 'KSh '}{item.unit_price}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
+                    <span className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-sm'}`}>
+                      {isNarrowMobile ? 'Dr: ' : isSmallMediumMobile ? 'Dr: ' : isMediumMobile ? 'Doctor: ' : 'Doctor: '}
+                      <span className="font-medium truncate-text" 
+                        style={{
+                          maxWidth: isNarrowMobile ? '60px' : isSmallMediumMobile ? '90px' : isMediumMobile ? '120px' : '100px', 
+                          display: 'inline-block', 
+                          verticalAlign: 'bottom'
+                        }}>
+                        {service.doctor?.full_name || 'N/A'}
+                      </span>
+                    </span>
+                    <span className={`font-bold ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-sm'}`}>
+                      {isNarrowMobile ? '' : isSmallMediumMobile ? 'KSh ' : isMediumMobile ? 'Total: KSh ' : 'Total: KSh '}{calculateTotal(service).toFixed(isNarrowMobile ? 0 : 2)}
+                    </span>
+                  </div>
+                </div>
               ))
             )}
           </div>
           
           {/* Desktop table view with better accessibility */}
-          <div className="mobile-scrollable mt-4" role="region" aria-label="Services data table">
+          <div className="services-table-container hidden md:block" role="region" aria-label="Services data table">
             <SalesTable
               data={filteredServices}
               columns={serviceColumns}
               isLoading={loading}
               emptyMessage="No services found"
-              className="mobile-table"
+              className="services-table services-table-compact"
             />
           </div>
         </div>
@@ -448,16 +567,18 @@ export default function ServicesManager() {
       {/* New Service Form Dialog */}
       {showNewServiceForm && (
         <div className="fixed inset-0 z-50 bg-white md:bg-black/50 md:p-4 flex items-center justify-center">
-          <div className="w-full h-full md:w-auto md:h-auto md:max-w-4xl md:max-h-[90vh] md:rounded-lg bg-white md:shadow-xl flex flex-col overflow-hidden">
+          <div className={`w-full h-full md:w-auto md:h-auto md:max-w-4xl md:max-h-[90vh] md:rounded-lg bg-white md:shadow-xl flex flex-col overflow-hidden ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : ''}`}>
             <div className="px-4 py-3 border-b flex justify-between items-center sticky top-0 bg-white z-10">
-              <h2 className="text-base md:text-lg font-bold">New Service Record</h2>
+              <h2 className={`${isNarrowMobile ? 'xs-heading' : isSmallMediumMobile ? 'xsm-heading' : isMediumMobile ? 'sm-heading' : 'text-base md:text-lg'} font-bold`}>
+                {isNarrowMobile || isSmallMediumMobile ? 'New Service' : isMediumMobile ? 'New Service' : 'New Service Record'}
+              </h2>
               <Button 
                 onClick={() => setShowNewServiceForm(false)}
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 rounded-full"
+                className={`${isNarrowMobile ? 'h-6 w-6' : isSmallMediumMobile ? 'h-7 w-7' : isMediumMobile ? 'h-8 w-8' : 'h-8 w-8'} p-0 rounded-full`}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg xmlns="http://www.w3.org/2000/svg" className={`${isNarrowMobile ? 'h-3 w-3' : isSmallMediumMobile ? 'h-3.5 w-3.5' : isMediumMobile ? 'h-4 w-4' : 'h-4 w-4'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M18 6 6 18" />
                   <path d="m6 6 12 12" />
                 </svg>

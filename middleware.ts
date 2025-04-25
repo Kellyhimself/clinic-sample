@@ -41,13 +41,21 @@ export async function middleware(request: NextRequest) {
   );
 
   try {
-    // Try to get the session
-    const { data: { session }, error } = await supabase.auth.getSession();
-
-    // If there was an error getting the session, log it
-    if (error) {
-      console.error('Error in middleware getting session:', error);
-      // Continue with the response
+    // First verify user with getUser() for security
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    if (userError) {
+      console.error('Error in middleware getting user:', userError);
+    }
+    
+    // Get session only if we have a verified user
+    let session = null;
+    if (user) {
+      const { data: { session: authSession }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) {
+        console.error('Error in middleware getting session:', sessionError);
+      }
+      session = authSession;
     }
 
     // Define public paths that don't require authentication
