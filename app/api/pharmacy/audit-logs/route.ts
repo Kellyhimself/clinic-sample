@@ -1,6 +1,6 @@
 // app/api/pharmacy/audit-logs/route.ts
 import { NextResponse } from 'next/server';
-import { getServerClient } from '@/lib/supabase/client';
+import { getServerClient } from '../../../../lib/supabase/client';
 
 export async function GET() {
   try {

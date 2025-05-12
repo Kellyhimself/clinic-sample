@@ -1,7 +1,7 @@
 // app/(auth)/settings/users/page.tsx
 import UsersTable from '@/components/UsersTable';
 import { fetchAllProfiles } from '@/lib/authActions';
-import { getServerClient } from '@/lib/supabase/client';
+import { getServerClient } from '../../../../lib/supabase/client';
 
 export default async function UsersPage() {
   const supabase = await getServerClient();
