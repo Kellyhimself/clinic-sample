@@ -1,4 +1,3 @@
-// components/AuthenticatedLayout.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -6,33 +5,29 @@ import Sidebar from '@/components/Sidebar';
 import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { Menu, X } from 'lucide-react';
-import { User } from '@supabase/supabase-js';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/app/lib/auth/AuthProvider';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/app/lib/auth/client';
 
 interface AuthenticatedLayoutProps {
   children: React.ReactNode;
-  handleLogout: () => Promise<void>;
-  userRole: string; 
-  user: User;
 }
 
-export default function AuthenticatedLayout({
-  children,
-  handleLogout,
-  userRole,
-  user,
-}: AuthenticatedLayoutProps) {
+export default function AuthenticatedLayout({ children }: AuthenticatedLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMobileView, setIsMobileView] = useState(false);
   const [screenSize, setScreenSize] = useState('');
   const [isScrolled, setIsScrolled] = useState(false);
-  
-  // Check if mobile view and determine screen size bracket
+  const { user, tenantContext, loading, error } = useAuth();
+  const router = useRouter();
+
+  // Handle responsive sidebar and screen size
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth;
       const mobileView = width < 768;
-      
+
       // Set screen size bracket
       if (width <= 358) {
         setScreenSize('xs');
@@ -43,111 +38,124 @@ export default function AuthenticatedLayout({
       } else {
         setScreenSize('lg');
       }
-      
+
       setIsMobileView(mobileView);
-      // On desktop, always show sidebar
       if (!mobileView) {
         setIsSidebarOpen(true);
       } else {
         setIsSidebarOpen(false);
       }
     };
-    
-    // Set initial state
+
     handleResize();
-    
-    // Add resize listener
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-  
-  // Track scroll position to change menu button style
+
+  // Track scroll position for menu button style
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 60);
     };
-    
+
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-  
-  // Debug the user role being passed
-  useEffect(() => {
-    console.log("AuthenticatedLayout received userRole:", userRole);
-  }, [userRole]);
 
-  // Function to close the sidebar - passed to Sidebar component
+  // Handle sign-out
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      router.push('/login');
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
+  };
+
+  // Function to close the sidebar
   const closeSidebar = () => {
     if (isMobileView) {
       setIsSidebarOpen(false);
     }
   };
 
+  // If loading or error, show appropriate state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (error || !user || !tenantContext) {
+    router.push('/login');
+    return null;
+  }
+
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Sidebar container - uses absolute positioning in mobile to avoid layout shift */}
-      <div 
+      {/* Sidebar container */}
+      <div
         className={cn(
-          "bg-gradient-to-b from-blue-100 to-teal-100 shadow-lg border-r border-blue-200",
-          "transition-all duration-300 ease-in-out h-screen",
-          isMobileView 
-            ? "fixed top-0 left-0 z-50 w-64" 
-            : "relative w-64",
-          isMobileView && !isSidebarOpen && "transform -translate-x-full",
-          // Adjust sidebar width for smallest screens
-          screenSize === 'xs' && "w-56"
+          'bg-gradient-to-b from-blue-100 to-teal-100 shadow-lg border-r border-blue-200',
+          'transition-all duration-300 ease-in-out h-screen',
+          isMobileView ? 'fixed top-0 left-0 z-50 w-64' : 'relative w-64',
+          isMobileView && !isSidebarOpen && 'transform -translate-x-full',
+          screenSize === 'xs' && 'w-56'
         )}
       >
-        <Sidebar userRole={userRole} closeSidebar={closeSidebar} />
-        
-        {/* Close button is only needed in mobile view */}
+        <Sidebar tenantContext={tenantContext} closeSidebar={closeSidebar} />
         {isMobileView && isSidebarOpen && (
           <Button
             variant="ghost"
             className={cn(
-              "absolute top-4 right-4 md:hidden text-blue-600 hover:text-blue-700 hover:bg-blue-100 rounded-full",
-              screenSize === 'xs' && "top-2 right-2",
-              screenSize === 'sm' && "top-3 right-3"
+              'absolute top-4 right-4 md:hidden text-blue-600 hover:text-blue-700 hover:bg-blue-100 rounded-full',
+              screenSize === 'xs' && 'top-2 right-2',
+              screenSize === 'sm' && 'top-3 right-3'
             )}
             onClick={() => setIsSidebarOpen(false)}
           >
-            <X className={cn("w-4 h-4", screenSize === 'xs' && "w-3 h-3")} />
+            <X className={cn('w-4 h-4', screenSize === 'xs' && 'w-3 h-3')} />
           </Button>
         )}
       </div>
 
-      {/* Main content - grows to fill available space */}
+      {/* Main content */}
       <div className="flex flex-col flex-1 transition-all duration-300 ease-in-out">
-        <Navbar handleLogout={handleLogout} user={user} screenSize={screenSize} />
-        <main className={cn(
-          "bg-gray-50 flex-1 overflow-y-auto",
-          screenSize === 'xs' ? "p-2" : 
-          screenSize === 'sm' ? "p-3" : 
-          screenSize === 'md' ? "p-4" : "p-4 sm:p-6"
-        )}>
-          {/* Only show menu toggle button in mobile view */}
+        <Navbar 
+          screenSize={screenSize} 
+          user={user} 
+          tenantContext={tenantContext} 
+          onLogout={handleLogout} 
+        />
+        <main
+          className={cn(
+            'bg-gray-50 flex-1 overflow-y-auto',
+            screenSize === 'xs' ? 'p-2' : screenSize === 'sm' ? 'p-3' : screenSize === 'md' ? 'p-4' : 'p-4 sm:p-6'
+          )}
+        >
           {isMobileView && !isSidebarOpen && (
             <Button
               variant="ghost"
               className={cn(
-                "bg-blue-100 text-blue-600 hover:bg-blue-200 hover:text-blue-700 rounded-full shadow-md",
-                screenSize === 'sm' && "ml-2", // Add specific margin for 359px-409px range
-                screenSize === 'xs' && "mb-2",
-                isScrolled 
-                  ? "fixed top-4 left-4 z-50 bg-white shadow-lg transition-all duration-300"
-                  : screenSize === 'sm' || screenSize === 'md' 
-                    ? "absolute top-[3.6rem] left-3 z-40"
-                    : "mb-4"
+                'bg-blue-100 text-blue-600 hover:bg-blue-200 hover:text-blue-700 rounded-full shadow-md',
+                screenSize === 'sm' && 'ml-2',
+                screenSize === 'xs' && 'mb-2',
+                isScrolled
+                  ? 'fixed top-4 left-4 z-50 bg-white shadow-lg transition-all duration-300'
+                  : screenSize === 'sm' || screenSize === 'md'
+                  ? 'absolute top-[3.6rem] left-3 z-40'
+                  : 'mb-4'
               )}
               onClick={() => setIsSidebarOpen(true)}
             >
-              <Menu className={cn("w-6 h-6", screenSize === 'xs' && "w-5 h-5")} />
+              <Menu className={cn('w-6 h-6', screenSize === 'xs' && 'w-5 h-5')} />
             </Button>
           )}
-          <div 
+          <div
             className={cn(
-              // Add padding to the top when menu button is positioned absolutely
-              (screenSize === 'sm' || screenSize === 'md') && isMobileView && !isSidebarOpen ? "pt-10" : ""
+              (screenSize === 'sm' || screenSize === 'md') && isMobileView && !isSidebarOpen ? 'pt-10' : ''
             )}
           >
             {children}
@@ -155,7 +163,7 @@ export default function AuthenticatedLayout({
         </main>
       </div>
 
-      {/* Mobile overlay - only visible when sidebar is open on mobile */}
+      {/* Mobile overlay */}
       {isMobileView && isSidebarOpen && (
         <div
           className="fixed inset-0 bg-black/30 z-40"

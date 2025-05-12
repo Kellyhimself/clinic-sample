@@ -3,9 +3,14 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { login } from '@/lib/authActions';
+import { signIn } from '../app/lib/auth/client';
+import Link from 'next/link';
 
-export default function LoginForm() {
+interface LoginFormProps {
+  redirectTo?: string;
+}
+
+export default function LoginForm({ redirectTo }: LoginFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,28 +25,12 @@ export default function LoginForm() {
     const password = formData.get('password') as string;
 
     try {
-      const result = await login(email, password);
-      
-      if (result.error) {
-        console.error('Login error:', result.error);
-        setError(result.error instanceof Error ? result.error.message : 'Login failed');
-        setLoading(false);
-        return;
-      }
-
-      if (!result.session) {
-        console.error('No session after successful login');
-        setError('Authentication failed. Please try again.');
-        setLoading(false);
-        return;
-      }
-
-      // Use router.push instead of window.location for better navigation
-      router.push(result.redirect || '/dashboard');
-      router.refresh(); // Refresh to update the session state
+      const user = await signIn(email, password);
+      router.push(redirectTo || '/dashboard');
+      router.refresh();
     } catch (err) {
-      console.error('Unexpected login error:', err);
-      setError('An unexpected error occurred. Please try again.');
+      console.error('Login error:', err);
+      setError(err instanceof Error ? err.message : 'Login failed');
       setLoading(false);
     }
   };
@@ -100,12 +89,12 @@ export default function LoginForm() {
         </div>
 
         <div className="text-sm text-center">
-          <a
+          <Link
             href="/signup"
             className="font-medium text-indigo-600 hover:text-indigo-500"
           >
             Don&apos;t have an account? Sign up
-          </a>
+          </Link>
         </div>
       </form>
     </div>

@@ -1,9 +1,9 @@
-import MedicationForm from '@/components/pharmacy/MedicationForm';
+import InventoryForm from '@/components/pharmacy/InventoryForm';
 
 export default function NewMedicationPage() {
   return (
     <div className="container mx-auto py-6">
-      <MedicationForm />
+      <InventoryForm />
     </div>
   );
 } 

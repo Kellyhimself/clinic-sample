@@ -1,5 +1,5 @@
 // app/patients/page.tsx
-import { getSupabaseClient } from '@/lib/supabase-server';
+
 import { fetchUserRole } from '@/lib/authActions';
 import Link from 'next/link';
 
@@ -9,7 +9,6 @@ export default async function PatientsPage() {
     return <div className="p-4 text-red-500">Access denied</div>;
   }
 
-  const supabase = await getSupabaseClient();
   const { data: patients, error } = await supabase
     .from('patients')
     .select('id, full_name, phone_number, date_of_birth, gender')

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { fetchInventory, deleteBatch } from '@/lib/authActions';
+import { fetchInventory, deleteBatch } from '@/lib/inventory';
 import { toast } from 'sonner';
 import { Search, MoreVertical, Plus, Trash2, Eye } from 'lucide-react';
 import {
@@ -16,6 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 // Import dedicated CSS file
 import './inventoryManager.css';
@@ -74,15 +75,28 @@ export default function InventoryManager() {
 
   useEffect(() => {
     const fetchData = async () => {
+      console.log('=== InventoryManager fetchData START ===');
       try {
+        console.log('Calling fetchInventory...');
         const data = await fetchInventory();
+        console.log('fetchInventory result:', { 
+          hasData: !!data,
+          dataLength: data?.length || 0,
+          sampleMedication: data?.[0] ? {
+            id: data[0].id,
+            name: data[0].name,
+            batches: data[0].batches,
+            totalStock: data[0].batches.reduce((sum, batch) => sum + batch.quantity, 0)
+          } : null
+        });
         setMedications(data);
         setError(null);
       } catch (err) {
+        console.error('Error in fetchData:', err);
         setError('Failed to fetch inventory');
-        console.error('Error fetching inventory:', err);
       } finally {
         setLoading(false);
+        console.log('=== InventoryManager fetchData END ===');
       }
     };
 
@@ -278,10 +292,10 @@ export default function InventoryManager() {
                 variant="ghost"
                 size="sm"
                 onClick={() => handleDeleteBatch(medication.batches.find(b => new Date(b.expiry_date) < new Date())?.id || '')}
-              className={`text-red-600 hover:text-red-700 ${isNarrowMobile ? 'xs-text inventory-button-xs' : isSmallMediumMobile ? 'xsm-text inventory-button-xsm' : 'sm-text inventory-button-sm'}`}
+                className={`text-red-600 hover:text-red-700 ${isNarrowMobile ? 'xs-text inventory-button-xs' : isSmallMediumMobile ? 'xsm-text inventory-button-xsm' : 'sm-text inventory-button-sm'}`}
               >
-              <Trash2 className={`mr-1 ${isNarrowMobile ? 'h-3 w-3' : isSmallMediumMobile ? 'h-3.5 w-3.5' : 'h-4 w-4'}`} />
-              {isNarrowMobile ? 'Del' : isSmallMediumMobile ? 'Delete' : 'Delete'}
+                <Trash2 className={`mr-1 ${isNarrowMobile ? 'h-3 w-3' : isSmallMediumMobile ? 'h-3.5 w-3.5' : 'h-4 w-4'}`} />
+                {isNarrowMobile ? 'Del' : isSmallMediumMobile ? 'Delete' : 'Delete'}
               </Button>
           )}
         </div>
@@ -291,7 +305,13 @@ export default function InventoryManager() {
 
   return (
     <div className="inventory-container">
-      <div className="inventory-card">
+      <Card className="shadow-md">
+        <CardHeader className="pb-2 sm:pb-4">
+          <CardTitle className="text-xl sm:text-2xl">Inventory Management</CardTitle>
+          <CardDescription className="text-sm sm:text-base">
+            Manage your medication inventory, track stock levels, and monitor expiry dates
+          </CardDescription>
+        </CardHeader>
         <div className={`${isNarrowMobile ? 'xs-padding' : isSmallMediumMobile ? 'xsm-padding xsm-filter-container' : isMediumMobile ? 'sm-padding' : 'p-2 md:p-4'} border-b flex flex-col sm:flex-row gap-2 md:gap-4`}>
           <div className="relative flex-1">
             <Search className={`absolute left-2 top-2.5 ${isNarrowMobile ? 'h-3 w-3' : isSmallMediumMobile ? 'h-3.5 w-3.5' : 'h-4 w-4'} text-gray-400`} />
@@ -418,11 +438,11 @@ export default function InventoryManager() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleDeleteBatch(medication.batches.find(b => new Date(b.expiry_date) < new Date())?.id || '')}
-                            className="text-red-600 hover:text-red-700 sm-text mt-1 h-7 px-2"
-                          >
-                            <Trash2 className="h-3 w-3 mr-1" />
-                            Delete
-                          </Button>
+                              className="text-red-600 hover:text-red-700 sm-text mt-1 h-7 px-2"
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" />
+                              Delete
+                            </Button>
                         )}
                       </TableCell>
                       <TableCell className="mobile-table-cell p-1">
@@ -466,7 +486,7 @@ export default function InventoryManager() {
             </Table>
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
-} 
+}

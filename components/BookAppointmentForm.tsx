@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -14,6 +14,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { handleBooking } from "@/lib/authActions";
 import { useRouter } from "next/navigation";
+import { LimitAwareButton } from "@/components/shared/LimitAwareButton";
+import { useUsageLimits } from "@/app/lib/hooks/useUsageLimits";
+import { useSubscription } from '@/app/lib/hooks/useSubscription';
+import { getFeatureDetails } from '@/app/lib/utils/featureCheck';
+import { UsageLimitAlert } from "@/components/shared/UsageLimitAlert";
+import { UpgradePrompt } from '@/components/shared/UpgradePrompt';
 
 interface BookAppointmentFormProps {
   services: Array<{
@@ -26,9 +32,10 @@ interface BookAppointmentFormProps {
     id: string;
     full_name: string;
   }>;
+  tenantId?: string;
 }
 
-export default function BookAppointmentForm({ services, doctors }: BookAppointmentFormProps) {
+export default function BookAppointmentForm({ services, doctors, tenantId }: BookAppointmentFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registrationError, setRegistrationError] = useState(false);
@@ -37,6 +44,62 @@ export default function BookAppointmentForm({ services, doctors }: BookAppointme
     success: boolean;
     message: string;
   } | null>(null);
+  const { checkUsage } = useUsageLimits();
+  const [usageLimit, setUsageLimit] = useState<{ allowed: boolean; current: number; limit: number } | null>(null);
+  const { subscription } = useSubscription();
+  const [isFeatureEnabled, setIsFeatureEnabled] = useState(true);
+  const [isAdvancedEnabled, setIsAdvancedEnabled] = useState(false);
+  const [isEnterpriseEnabled, setIsEnterpriseEnabled] = useState(false);
+
+  useEffect(() => {
+    const checkLimit = async () => {
+      try {
+        const limit = await checkUsage('appointments');
+        const feature = getFeatureDetails('unlimited_appointments');
+        const isProOrEnterprise = feature?.requiredPlan === 'pro' || feature?.requiredPlan === 'enterprise';
+        
+        if (isProOrEnterprise) {
+          setUsageLimit({
+            allowed: true,
+            current: limit.current,
+            limit: -1
+          });
+          return;
+        }
+
+        setUsageLimit({
+          allowed: limit.remaining > 0,
+          current: limit.current,
+          limit: limit.limit
+        });
+      } catch (error) {
+        console.error('Error checking usage limit:', error);
+      }
+    };
+
+    checkLimit();
+  }, [checkUsage]);
+
+  useEffect(() => {
+    const feature = getFeatureDetails('appointment_booking', subscription?.plan || 'free');
+    setIsFeatureEnabled(feature?.enabled === true);
+
+    // Check advanced booking feature
+    const advancedFeature = getFeatureDetails('advanced_booking', subscription?.plan || 'free');
+    setIsAdvancedEnabled(advancedFeature?.enabled === true);
+
+    // Check enterprise booking feature
+    const enterpriseFeature = getFeatureDetails('enterprise_booking', subscription?.plan || 'free');
+    setIsEnterpriseEnabled(enterpriseFeature?.enabled === true);
+    
+    // Log feature details for debugging
+    console.log('Feature details:', {
+      feature,
+      enabled: feature?.enabled,
+      requiredPlan: feature?.requiredPlan,
+      currentPlan: subscription?.plan
+    });
+  }, [subscription]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -131,6 +194,18 @@ export default function BookAppointmentForm({ services, doctors }: BookAppointme
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50 p-2">
       <div className="w-full max-w-[1400px] mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
+        {usageLimit && !usageLimit.allowed && (
+          <UsageLimitAlert
+            limit={{
+              type: 'appointments',
+              current: usageLimit.current,
+              limit: usageLimit.limit,
+              isWithinLimit: usageLimit.allowed
+            }}
+            className="m-4"
+          />
+        )}
+
         {bookingStatus && (
           <div className={`m-4 p-2 rounded-md ${
             bookingStatus.success 
@@ -153,7 +228,6 @@ export default function BookAppointmentForm({ services, doctors }: BookAppointme
         )}
 
         <div className="p-4">
-          {/* Step Indicator */}
           <div className="flex justify-center mb-3">
             <div className="flex items-center space-x-1">
               {[1, 2].map((stepNumber) => (
@@ -181,111 +255,66 @@ export default function BookAppointmentForm({ services, doctors }: BookAppointme
             </div>
           </div>
 
-          {/* Main Content Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-            {/* Left Column - Form Steps */}
             <div className="lg:col-span-3 space-y-4">
-              {/* Step Content */}
               <div className="space-y-2">
-                {step === 1 && (
-                  <div className="space-y-1">
-                    <div className="flex flex-col gap-0.5">
-                      <Label className="text-xs">Service</Label>
-                      <Select 
-                        name="serviceId" 
-                        value={formData.serviceId}
-                        onValueChange={(value) => handleChange('serviceId', value)}
-                      >
-                        <SelectTrigger id="serviceId" className="w-full h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
-                          <SelectValue placeholder="Select a service" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {services.map((service) => (
-                            <SelectItem key={service.id} value={service.id}>
-                              {service.name} (${service.price}, {service.duration} mins)
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {formData.serviceId === "" && (
-                      <div className="flex flex-col gap-0.5 mt-1">
-                        <Label className="text-xs">Custom Service Description</Label>
-                        <Textarea
-                          id="customService"
-                          name="customService"
-                          value={formData.customService}
-                          onChange={(e) => handleChange('customService', e.target.value)}
-                          placeholder="Describe your service if not listed above..."
-                          className="min-h-[60px] bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
-                        />
-                      </div>
-                    )}
-
-                    <div className="flex flex-col gap-0.5 mt-1">
-                      <Label className="text-xs">Doctor</Label>
-                      <Select
-                        name="doctorId"
-                        value={formData.doctorId}
-                        onValueChange={(value) => handleChange('doctorId', value)}
-                      >
-                        <SelectTrigger id="doctorId" className="w-full h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
-                          <SelectValue placeholder="Select a doctor" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {doctors.map((doctor) => (
-                            <SelectItem key={doctor.id} value={doctor.id}>
-                              {doctor.full_name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                <div className="space-y-1">
+                  <div className="flex flex-col gap-0.5">
+                    <Label className="text-xs">Service</Label>
+                    <Select 
+                      name="serviceId" 
+                      value={formData.serviceId}
+                      onValueChange={(value) => handleChange('serviceId', value)}
+                    >
+                      <SelectTrigger id="serviceId" className="w-full h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
+                        <SelectValue placeholder="Select a service" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {services.map((service) => (
+                          <SelectItem key={service.id} value={service.id}>
+                            {service.name} (${service.price}, {service.duration} mins)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                )}
 
-                {step === 2 && (
-                  <div className="space-y-1">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
-                      <div className="flex flex-col gap-0.5">
-                        <Label className="text-xs">Date</Label>
-                        <Input
-                          id="date"
-                          type="date"
-                          value={formData.date}
-                          onChange={(e) => handleChange('date', e.target.value)}
-                          className="h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
-                          min={new Date().toISOString().split('T')[0]} // Set minimum date to today
-                        />
-                      </div>
-                      <div className="flex flex-col gap-0.5">
-                        <Label className="text-xs">Time</Label>
-                        <Input
-                          id="time"
-                          type="time"
-                          value={formData.time}
-                          onChange={(e) => handleChange('time', e.target.value)}
-                          className="h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
-                        />
-                      </div>
-                    </div>
-
+                  {formData.serviceId === "" && (
                     <div className="flex flex-col gap-0.5 mt-1">
-                      <Label className="text-xs">Notes (Optional)</Label>
+                      <Label className="text-xs">Custom Service Description</Label>
                       <Textarea
-                        id="notes"
-                        value={formData.notes}
-                        onChange={(e) => handleChange('notes', e.target.value)}
-                        placeholder="Any special instructions"
+                        id="customService"
+                        name="customService"
+                        value={formData.customService}
+                        onChange={(e) => handleChange('customService', e.target.value)}
+                        placeholder="Describe your service if not listed above..."
                         className="min-h-[60px] bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
                       />
                     </div>
+                  )}
+
+                  <div className="flex flex-col gap-0.5 mt-1">
+                    <Label className="text-xs">Doctor</Label>
+                    <Select
+                      name="doctorId"
+                      value={formData.doctorId}
+                      onValueChange={(value) => handleChange('doctorId', value)}
+                    >
+                      <SelectTrigger id="doctorId" className="w-full h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
+                        <SelectValue placeholder="Select a doctor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {doctors.map((doctor) => (
+                          <SelectItem key={doctor.id} value={doctor.id}>
+                            {doctor.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                )}
+                </div>
               </div>
 
-              {/* Navigation Buttons */}
               <div className="flex justify-between items-center">
                 <Button
                   variant="outline"
@@ -299,26 +328,32 @@ export default function BookAppointmentForm({ services, doctors }: BookAppointme
                 {step < 2 ? (
                   <Button
                     onClick={() => setStep(step + 1)}
-                    disabled={!formData.doctorId || (!formData.serviceId && !formData.customService)}
+                    disabled={!formData.doctorId || (!formData.serviceId && !formData.customService) || (usageLimit && !usageLimit.allowed)}
                     size="sm"
                     className="h-8 bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700"
                   >
                     Next
                   </Button>
                 ) : (
-                  <Button 
-                    onClick={onSubmit}
-                    disabled={isSubmitting || !formData.date || !formData.time}
-                    size="sm"
-                    className="h-8 bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700"
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={isSubmitting || (usageLimit && !usageLimit.allowed)}
+                    asChild
                   >
-                    {isSubmitting ? "Booking..." : "Book Appointment"}
+                    <LimitAwareButton
+                      limitType="appointments"
+                      variant="default"
+                      size="default"
+                      disabled={isSubmitting || (usageLimit && !usageLimit.allowed)}
+                    >
+                      {isSubmitting ? "Booking..." : "Book Appointment"}
+                    </LimitAwareButton>
                   </Button>
                 )}
               </div>
             </div>
 
-            {/* Right Column - Appointment Summary */}
             <div className="lg:col-span-2 space-y-4">
               <div className="space-y-2">
                 <h3 className="font-medium text-xs">Appointment Summary</h3>

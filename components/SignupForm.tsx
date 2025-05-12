@@ -2,150 +2,278 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { signup } from '@/lib/authActions';
-import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/components/ui/use-toast';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-export default function SignupForm() {
+interface SignupFormProps {
+  token: string;
+  role: string;
+  email: string;
+}
+
+export function SignupForm({ token, role, email }: SignupFormProps) {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    full_name: '',
+    password: '',
+    confirm_password: '',
+    phone_number: '',
+    license_number: '',
+    specialty: '',
+    specialization: '',
+    department: '',
+    permissions: [] as string[]
+  });
 
-  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
+    setIsLoading(true);
 
-    const formData = new FormData(e.currentTarget);
+    if (formData.password !== formData.confirm_password) {
+      toast({
+        title: 'Error',
+        description: 'Passwords do not match',
+        variant: 'destructive'
+      });
+      setIsLoading(false);
+      return;
+    }
 
     try {
-      const result = await signup(formData);
-      
-      if (result.error) {
-        console.error('Signup error:', result.error);
-        setError(result.error instanceof Error ? result.error.message : 'Registration failed');
-        setLoading(false);
-        return;
+      const form = new FormData();
+      form.append('email', email);
+      form.append('password', formData.password);
+      form.append('fullName', formData.full_name);
+      form.append('phoneNumber', formData.phone_number);
+      form.append('token', token);
+
+      // Add role-specific fields
+      if (role === 'doctor') {
+        form.append('licenseNumber', formData.license_number);
+        form.append('specialty', formData.specialty);
+      } else if (role === 'pharmacist') {
+        form.append('licenseNumber', formData.license_number);
+        form.append('specialization', formData.specialization);
+      } else if (role === 'admin') {
+        form.append('department', formData.department);
+        form.append('permissions', JSON.stringify(formData.permissions));
       }
 
-      // Redirect to profile setup or login
-      router.push(result.redirect || '/login');
-      router.refresh(); // Refresh to update the session state
-    } catch (err) {
-      console.error('Unexpected signup error:', err);
-      setError('An unexpected error occurred. Please try again.');
-      setLoading(false);
+      const response = await fetch('/api/staff/accept-invitation', {
+        method: 'POST',
+        body: form,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create account');
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Account created successfully. Please log in.',
+      });
+
+      router.push(data.redirect || '/login');
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to create account',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  return (
-    <div className="w-full space-y-6">
-      <div>
-        <h2 className="text-center text-2xl font-bold text-gray-900">
-          Create your account
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Join our clinic system
-        </p>
+  if (!token) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <div className="w-full max-w-md space-y-6">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-gray-900">Invalid Invitation</h2>
+            <p className="mt-2 text-sm text-gray-600">
+              This invitation link is invalid or has expired.
+            </p>
+          </div>
+          <button
+            onClick={() => router.push('/')}
+            className="w-full rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          >
+            Return to Home
+          </button>
+        </div>
       </div>
-      
-      <form className="mt-6 space-y-4" onSubmit={onSubmit}>
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="full_name" className="block text-sm font-medium text-gray-700">
-              Full Name
-            </label>
-            <input
+    );
+  }
+
+  return (
+    <Card className="w-full max-w-md mx-auto">
+      <CardHeader>
+        <CardTitle>Create Your Account</CardTitle>
+        <CardDescription>
+          Complete your account setup for {email}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="full_name">Full Name</Label>
+            <Input
               id="full_name"
               name="full_name"
               type="text"
               required
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
-              placeholder="Your full name"
+              value={formData.full_name}
+              onChange={handleChange}
             />
           </div>
-          
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-              Email address
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              required
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
-              placeholder="Email address"
-            />
-          </div>
-          
-          <div>
-            <label htmlFor="phone_number" className="block text-sm font-medium text-gray-700">
-              Phone Number
-            </label>
-            <input
+
+          <div className="space-y-2">
+            <Label htmlFor="phone_number">Phone Number</Label>
+            <Input
               id="phone_number"
               name="phone_number"
               type="tel"
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
-              placeholder="+254XXXXXXXXX"
+              required
+              value={formData.phone_number}
+              onChange={handleChange}
             />
           </div>
-          
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-              Password
-            </label>
-            <input
+
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
               id="password"
               name="password"
               type="password"
-              autoComplete="new-password"
               required
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
-              placeholder="Create a password"
+              value={formData.password}
+              onChange={handleChange}
             />
           </div>
-          
-          <div>
-            <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700">
-              Confirm Password
-            </label>
-            <input
+
+          <div className="space-y-2">
+            <Label htmlFor="confirm_password">Confirm Password</Label>
+            <Input
               id="confirm_password"
               name="confirm_password"
               type="password"
-              autoComplete="new-password"
               required
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
-              placeholder="Confirm your password"
+              value={formData.confirm_password}
+              onChange={handleChange}
             />
           </div>
-        </div>
 
-        {error && (
-          <div className="rounded-md bg-red-50 p-2 text-sm text-red-500">{error}</div>
-        )}
+          {(role === 'pharmacist' || role === 'doctor') && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="license_number">License Number</Label>
+                <Input
+                  id="license_number"
+                  name="license_number"
+                  type="text"
+                  required
+                  value={formData.license_number}
+                  onChange={handleChange}
+                />
+              </div>
 
-        <div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="group relative flex w-full justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
-          >
-            {loading ? 'Creating account...' : 'Sign up'}
-          </button>
-        </div>
+              {role === 'doctor' && (
+                <div className="space-y-2">
+                  <Label htmlFor="specialty">Specialty</Label>
+                  <Input
+                    id="specialty"
+                    name="specialty"
+                    type="text"
+                    required
+                    value={formData.specialty}
+                    onChange={handleChange}
+                  />
+                </div>
+              )}
 
-        <div className="flex items-center justify-center text-sm">
-          <Link 
-            href="/login"
-            className="font-medium text-indigo-600 hover:text-indigo-500"
-          >
-            Already have an account? Log in
-          </Link>
-        </div>
-      </form>
-    </div>
+              {role === 'pharmacist' && (
+                <div className="space-y-2">
+                  <Label htmlFor="specialization">Specialization</Label>
+                  <Input
+                    id="specialization"
+                    name="specialization"
+                    type="text"
+                    required
+                    value={formData.specialization}
+                    onChange={handleChange}
+                  />
+                </div>
+              )}
+            </>
+          )}
+
+          {role === 'admin' && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="department">Department</Label>
+                <Select
+                  value={formData.department}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, department: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Administration">Administration</SelectItem>
+                    <SelectItem value="Medical">Medical</SelectItem>
+                    <SelectItem value="Pharmacy">Pharmacy</SelectItem>
+                    <SelectItem value="Finance">Finance</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Permissions</Label>
+                <div className="space-y-2">
+                  {['all', 'read', 'write', 'delete'].map((permission) => (
+                    <div key={permission} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={`permission-${permission}`}
+                        checked={formData.permissions.includes(permission)}
+                        onChange={(e) => {
+                          setFormData(prev => ({
+                            ...prev,
+                            permissions: e.target.checked
+                              ? [...prev.permissions, permission]
+                              : prev.permissions.filter(p => p !== permission)
+                          }));
+                        }}
+                      />
+                      <Label htmlFor={`permission-${permission}`} className="capitalize">
+                        {permission}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? 'Creating Account...' : 'Create Account'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 } 

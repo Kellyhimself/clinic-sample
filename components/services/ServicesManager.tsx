@@ -4,8 +4,12 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
-import { BarChart, Activity, Users, DollarSign, Clock, ChevronRight } from 'lucide-react';
+import { BarChart, Activity, Users, DollarSign, Clock, ChevronRight, Lock } from 'lucide-react';
 import { toast } from 'sonner';
+import { getFeatureDetails } from '@/app/lib/utils/featureCheck';
+import { FeatureGuard } from '@/components/FeatureGuard';
+import { UsageLimitAlert } from '@/components/shared/UsageLimitAlert';
+import { useUsageLimits } from '@/lib/hooks/useUsageLimits';
 
 // Import shared components
 import SalesMetricCard from '@/components/shared/sales/SalesMetricCard';
@@ -45,7 +49,7 @@ interface ServiceSale {
   doctor?: {
     name?: string;
     specialty?: string;
-    full_name?: string; // Add this to support appointment data format
+    full_name?: string;
   };
 }
 
@@ -58,7 +62,11 @@ interface ServiceAnalytics {
   averageServiceValue: number;
 }
 
-export default function ServicesManager() {
+interface ServicesManagerProps {
+  tenantId: string;
+}
+
+export default function ServicesManager({ tenantId }: ServicesManagerProps) {
   const router = useRouter();
   const [services, setServices] = useState<ServiceSale[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,6 +85,9 @@ export default function ServicesManager() {
     mostCommonService: '',
     averageServiceValue: 0
   });
+  const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
+
+  const { getLimit, shouldShowAlert } = useUsageLimits(tenantId);
 
   // Check screen size on component mount and resize
   useEffect(() => {
@@ -350,6 +361,47 @@ export default function ServicesManager() {
   // Filter services by search term
   const filteredServices = services;
 
+  const renderUpgradeBanner = () => {
+    return (
+      <div className="bg-gradient-to-r from-indigo-50 to-indigo-100 border border-indigo-200 rounded-lg p-4 mb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Lock className="h-5 w-5 text-indigo-600" />
+            <div>
+              <h3 className="text-sm font-semibold text-indigo-900">Upgrade to Pro or Enterprise</h3>
+              <p className="text-sm text-indigo-700">Get access to advanced analytics, detailed reports, and more</p>
+            </div>
+          </div>
+          <Button 
+            onClick={() => router.push('/settings/billing')}
+            className="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white hover:from-indigo-600 hover:to-indigo-700"
+          >
+            Upgrade Now
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderFeaturePreview = (content: React.ReactNode, featureId: string) => {
+    const feature = getFeatureDetails(featureId);
+    const isLocked = feature?.requiredPlan !== 'free';
+    
+    return (
+      <div className={`relative ${isLocked ? 'group' : ''}`}>
+        {content}
+        {isLocked && (
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-[2px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="text-center p-4">
+              <Lock className="h-8 w-8 text-indigo-600 mx-auto mb-2" />
+              <p className="text-sm font-medium text-indigo-900">Available on {feature?.requiredPlan} plan</p>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="services-container">
       <div className={`flex flex-col md:flex-row justify-between items-start md:items-center gap-2 md:gap-4 ${isNarrowMobile ? 'xs-margin' : isSmallMediumMobile ? 'xsm-margin' : isMediumMobile ? 'sm-margin' : ''}`}>
@@ -374,48 +426,69 @@ export default function ServicesManager() {
         Skip to content
       </a>
 
-      {/* Analysis & Navigation Links - Now positioned at the top with improved visual hierarchy */}
+      {/* Analysis & Navigation Links */}
       <div className={`bg-gray-50 rounded-lg border border-gray-100 shadow-sm mb-3 ${isNarrowMobile ? 'p-1.5' : isSmallMediumMobile ? 'p-2' : isMediumMobile ? 'p-2.5' : 'p-2'}`}>
         <div className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-xs'} text-gray-500 mb-1 font-medium ${isNarrowMobile || isSmallMediumMobile || isMediumMobile ? 'px-1' : ''}`}>
           {isNarrowMobile || isSmallMediumMobile ? 'Navigation' : isMediumMobile ? 'Navigation' : 'Quick Navigation'}
         </div>
         <div className="services-scroll-x">
-          <Button
-            variant="outline"
-            size="sm"
-            className={`flex-shrink-0 mr-2 whitespace-nowrap min-w-0 flex items-center gap-1 ${isNarrowMobile ? 'xs-text xs-nav-button' : isSmallMediumMobile ? 'xsm-text xsm-nav-button' : isMediumMobile ? 'sm-text sm-nav-button' : 'text-[10px] md:text-sm h-6 md:h-8 px-2 md:px-3'} bg-gradient-to-r from-indigo-50 to-indigo-100 border-indigo-200 text-indigo-700 hover:bg-indigo-200`}
-            onClick={() => router.push('/services/reports')}
-          >
-            <BarChart className={`${isNarrowMobile ? 'xs-nav-icon' : isSmallMediumMobile ? 'xsm-nav-icon' : isMediumMobile ? 'sm-nav-icon' : 'h-3 w-3 md:h-4 md:w-4'}`} /> 
-            {isNarrowMobile || isSmallMediumMobile ? 'Reports' : isMediumMobile ? 'Reports' : 'Service Reports'}
-            <ChevronRight className={`${isNarrowMobile ? 'h-2 w-2' : isSmallMediumMobile ? 'h-2.5 w-2.5' : isMediumMobile ? 'h-2.5 w-2.5' : 'h-2 w-2 md:h-3 md:w-3'} ml-1`} />
-          </Button>
+          {renderFeaturePreview(
+            <Button
+              variant="outline"
+              size="sm"
+              className={`flex-shrink-0 mr-2 whitespace-nowrap min-w-0 flex items-center gap-1 ${isNarrowMobile ? 'xs-text xs-nav-button' : isSmallMediumMobile ? 'xsm-text xsm-nav-button' : isMediumMobile ? 'sm-text sm-nav-button' : 'text-[10px] md:text-sm h-6 md:h-8 px-2 md:px-3'} bg-gradient-to-r from-indigo-50 to-indigo-100 border-indigo-200 text-indigo-700 hover:bg-indigo-200`}
+              onClick={() => router.push('/services/reports')}
+            >
+              <BarChart className={`${isNarrowMobile ? 'xs-nav-icon' : isSmallMediumMobile ? 'xsm-nav-icon' : isMediumMobile ? 'sm-nav-icon' : 'h-3 w-3 md:h-4 md:w-4'}`} /> 
+              {isNarrowMobile || isSmallMediumMobile ? 'Reports' : isMediumMobile ? 'Reports' : 'Service Reports'}
+              <ChevronRight className={`${isNarrowMobile ? 'h-2 w-2' : isSmallMediumMobile ? 'h-2.5 w-2.5' : isMediumMobile ? 'h-2.5 w-2.5' : 'h-2 w-2 md:h-3 md:w-3'} ml-1`} />
+            </Button>,
+            'advanced_analytics'
+          )}
           
-          <Button
-            variant="outline"
-            size="sm" 
-            className={`flex-shrink-0 mr-2 whitespace-nowrap min-w-0 flex items-center gap-1 ${isNarrowMobile ? 'xs-text xs-nav-button' : isSmallMediumMobile ? 'xsm-text xsm-nav-button' : isMediumMobile ? 'sm-text sm-nav-button' : 'text-[10px] md:text-sm h-6 md:h-8 px-2 md:px-3'} bg-gradient-to-r from-emerald-50 to-emerald-100 border-emerald-200 text-emerald-700 hover:bg-emerald-200`}
-            onClick={() => router.push('/services/doctors')}
-          >
-            <Users className={`${isNarrowMobile ? 'xs-nav-icon' : isSmallMediumMobile ? 'xsm-nav-icon' : isMediumMobile ? 'sm-nav-icon' : 'h-3 w-3 md:h-4 md:w-4'}`} /> 
-            Doctors 
-            <ChevronRight className={`${isNarrowMobile ? 'h-2 w-2' : isSmallMediumMobile ? 'h-2.5 w-2.5' : isMediumMobile ? 'h-2.5 w-2.5' : 'h-2 w-2 md:h-3 md:w-3'} ml-1`} />
-          </Button>
+          {renderFeaturePreview(
+            <Button
+              variant="outline"
+              size="sm" 
+              className={`flex-shrink-0 mr-2 whitespace-nowrap min-w-0 flex items-center gap-1 ${isNarrowMobile ? 'xs-text xs-nav-button' : isSmallMediumMobile ? 'xsm-text xsm-nav-button' : isMediumMobile ? 'sm-text sm-nav-button' : 'text-[10px] md:text-sm h-6 md:h-8 px-2 md:px-3'} bg-gradient-to-r from-emerald-50 to-emerald-100 border-emerald-200 text-emerald-700 hover:bg-emerald-200`}
+              onClick={() => router.push('/services/doctors')}
+            >
+              <Users className={`${isNarrowMobile ? 'xs-nav-icon' : isSmallMediumMobile ? 'xsm-nav-icon' : isMediumMobile ? 'sm-nav-icon' : 'h-3 w-3 md:h-4 md:w-4'}`} /> 
+              Doctors 
+              <ChevronRight className={`${isNarrowMobile ? 'h-2 w-2' : isSmallMediumMobile ? 'h-2.5 w-2.5' : isMediumMobile ? 'h-2.5 w-2.5' : 'h-2 w-2 md:h-3 md:w-3'} ml-1`} />
+            </Button>,
+            'advanced_services'
+          )}
           
-          <Button
-            variant="outline"
-            size="sm"
-            className={`flex-shrink-0 mr-2 whitespace-nowrap min-w-0 flex items-center gap-1 ${isNarrowMobile ? 'xs-text xs-nav-button' : isSmallMediumMobile ? 'xsm-text xsm-nav-button' : isMediumMobile ? 'sm-text sm-nav-button' : 'text-[10px] md:text-sm h-6 md:h-8 px-2 md:px-3'} bg-gradient-to-r from-amber-50 to-amber-100 border-amber-200 text-amber-700 hover:bg-amber-200`}
-            onClick={() => router.push('/services/top-services')}
-          >
-            <Activity className={`${isNarrowMobile ? 'xs-nav-icon' : isSmallMediumMobile ? 'xsm-nav-icon' : isMediumMobile ? 'sm-nav-icon' : 'h-3 w-3 md:h-4 md:w-4'}`} /> 
-            {isNarrowMobile || isSmallMediumMobile ? 'Top' : isMediumMobile ? 'Top' : 'Top Services'}
-            <ChevronRight className={`${isNarrowMobile ? 'h-2 w-2' : isSmallMediumMobile ? 'h-2.5 w-2.5' : isMediumMobile ? 'h-2.5 w-2.5' : 'h-2 w-2 md:h-3 md:w-3'} ml-1`} />
-          </Button>
+          {renderFeaturePreview(
+            <Button
+              variant="outline"
+              size="sm"
+              className={`flex-shrink-0 mr-2 whitespace-nowrap min-w-0 flex items-center gap-1 ${isNarrowMobile ? 'xs-text xs-nav-button' : isSmallMediumMobile ? 'xsm-text xsm-nav-button' : isMediumMobile ? 'sm-text sm-nav-button' : 'text-[10px] md:text-sm h-6 md:h-8 px-2 md:px-3'} bg-gradient-to-r from-amber-50 to-amber-100 border-amber-200 text-amber-700 hover:bg-amber-200`}
+              onClick={() => router.push('/services/top-services')}
+            >
+              <Activity className={`${isNarrowMobile ? 'xs-nav-icon' : isSmallMediumMobile ? 'xsm-nav-icon' : isMediumMobile ? 'sm-nav-icon' : 'h-3 w-3 md:h-4 md:w-4'}`} /> 
+              {isNarrowMobile || isSmallMediumMobile ? 'Top' : isMediumMobile ? 'Top' : 'Top Services'}
+              <ChevronRight className={`${isNarrowMobile ? 'h-2 w-2' : isSmallMediumMobile ? 'h-2.5 w-2.5' : isMediumMobile ? 'h-2.5 w-2.5' : 'h-2 w-2 md:h-3 md:w-3'} ml-1`} />
+            </Button>,
+            'advanced_analytics'
+          )}
         </div>
       </div>
 
       <div id="services-content" className="services-card">
+        {/* Add usage limit alert */}
+        {shouldShowAlert('services') && !dismissedAlerts.has('services') && (
+          <UsageLimitAlert
+            featureId="services"
+            tenantId={tenantId}
+            currentUsage={getLimit('services')?.current || 0}
+            limit={getLimit('services')?.limit || 0}
+            type={getLimit('services')?.type || 'warning'}
+            onDismiss={() => setDismissedAlerts(prev => new Set([...prev, 'services']))}
+          />
+        )}
+
         {/* SalesFilterBar now positioned before the metrics cards */}
         <h3 className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-sm'} font-medium text-gray-700 mb-2 md:mb-3 ${isNarrowMobile || isSmallMediumMobile || isMediumMobile ? 'px-2 pt-2' : ''} hidden md:block`}>Filter Services Data</h3>
         
@@ -437,7 +510,7 @@ export default function ServicesManager() {
 
         {error && <p className={`text-red-500 ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-xs md:text-sm'} mt-2 px-3`} role="alert">{error}</p>}
 
-        {/* Quick Analytics Cards now positioned after the filter bar with visual separator */}
+        {/* Quick Analytics Cards with feature guards */}
         <div className={`mt-4 pt-2 border-t border-gray-100 ${isNarrowMobile ? 'xs-padding' : isSmallMediumMobile ? 'xsm-padding' : isMediumMobile ? 'sm-padding' : 'px-3 py-2'}`}>
           <h3 className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-sm'} font-medium text-gray-700 mb-2 md:mb-3`}>
             {isNarrowMobile || isSmallMediumMobile ? 'Summary' : isMediumMobile ? 'Summary' : 'Services Summary'}
@@ -451,27 +524,36 @@ export default function ServicesManager() {
               colorClass="from-blue-50 to-blue-100 border-blue-200 text-blue-600"
             />
             
-            <SalesMetricCard
-              title={isNarrowMobile || isSmallMediumMobile || isMediumMobile ? "Avg Fee" : "Average Fee"}
-              value={new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(analytics.averageServiceValue)}
-              icon={<Activity className={`${isNarrowMobile ? 'h-3 w-3' : isSmallMediumMobile ? 'h-3.5 w-3.5' : isMediumMobile ? 'h-4 w-4' : 'h-3.5 w-3.5 md:h-4 md:w-4'} text-green-600`} />}
-              colorClass="from-green-50 to-green-100 border-green-200 text-green-600"
-            />
+            {renderFeaturePreview(
+              <SalesMetricCard
+                title={isNarrowMobile || isSmallMediumMobile || isMediumMobile ? "Avg Fee" : "Average Fee"}
+                value={new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(analytics.averageServiceValue)}
+                icon={<Activity className={`${isNarrowMobile ? 'h-3 w-3' : isSmallMediumMobile ? 'h-3.5 w-3.5' : isMediumMobile ? 'h-4 w-4' : 'h-3.5 w-3.5 md:h-4 md:w-4'} text-green-600`} />}
+                colorClass="from-green-50 to-green-100 border-green-200 text-green-600"
+              />,
+              'advanced_analytics'
+            )}
             
-            <SalesMetricCard
-              title={isNarrowMobile || isSmallMediumMobile || isMediumMobile ? "Popular" : "Most Common Service"}
-              value={analytics.mostCommonService}
-              icon={<Activity className={`${isNarrowMobile ? 'h-3 w-3' : isSmallMediumMobile ? 'h-3.5 w-3.5' : isMediumMobile ? 'h-4 w-4' : 'h-3.5 w-3.5 md:h-4 md:w-4'} text-purple-600`} />}
-              colorClass="from-purple-50 to-purple-100 border-purple-200 text-purple-600"
-            />
+            {renderFeaturePreview(
+              <SalesMetricCard
+                title={isNarrowMobile || isSmallMediumMobile || isMediumMobile ? "Popular" : "Most Common Service"}
+                value={analytics.mostCommonService}
+                icon={<Activity className={`${isNarrowMobile ? 'h-3 w-3' : isSmallMediumMobile ? 'h-3.5 w-3.5' : isMediumMobile ? 'h-4 w-4' : 'h-3.5 w-3.5 md:h-4 md:w-4'} text-purple-600`} />}
+                colorClass="from-purple-50 to-purple-100 border-purple-200 text-purple-600"
+              />,
+              'advanced_analytics'
+            )}
             
-            <SalesMetricCard
-              title={isNarrowMobile || isSmallMediumMobile || isMediumMobile ? "Pending" : "Pending Payments"}
-              value={`${analytics.pendingServices}`}
-              icon={<Clock className={`${isNarrowMobile ? 'h-3 w-3' : isSmallMediumMobile ? 'h-3.5 w-3.5' : isMediumMobile ? 'h-4 w-4' : 'h-3.5 w-3.5 md:h-4 md:w-4'} text-amber-600`} />}
-              subValue={analytics.pendingServices > 0 ? ((analytics.pendingServices / analytics.totalServices) * 100).toFixed(1) + '% of total' : '0%'}
-              colorClass="from-amber-50 to-amber-100 border-amber-200 text-amber-600"
-            />
+            {renderFeaturePreview(
+              <SalesMetricCard
+                title={isNarrowMobile || isSmallMediumMobile || isMediumMobile ? "Pending" : "Pending Payments"}
+                value={`${analytics.pendingServices}`}
+                icon={<Clock className={`${isNarrowMobile ? 'h-3 w-3' : isSmallMediumMobile ? 'h-3.5 w-3.5' : isMediumMobile ? 'h-4 w-4' : 'h-3.5 w-3.5 md:h-4 md:w-4'} text-amber-600`} />}
+                subValue={analytics.pendingServices > 0 ? ((analytics.pendingServices / analytics.totalServices) * 100).toFixed(1) + '% of total' : '0%'}
+                colorClass="from-amber-50 to-amber-100 border-amber-200 text-amber-600"
+              />,
+              'enterprise_analytics'
+            )}
           </div>
         </div>
 

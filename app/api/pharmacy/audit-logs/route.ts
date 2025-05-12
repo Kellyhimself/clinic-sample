@@ -1,10 +1,10 @@
 // app/api/pharmacy/audit-logs/route.ts
 import { NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/lib/supabase-server';
+import { getServerClient } from '@/lib/supabase/client';
 
 export async function GET() {
   try {
-    const supabase = await getSupabaseClient();
+    const supabase = await getServerClient();
     
     const { data, error } = await supabase
       .from('audit_logs')

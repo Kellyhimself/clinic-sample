@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { BarChart, Activity, DollarSign, Clock, ChevronRight, Package } from 'lucide-react';
+import { LimitAwareButton } from '@/components/shared/LimitAwareButton';
+import NewSaleFormWrapper from '@/app/(auth)/pharmacy/pharmacy-sales-management/new-sale/NewSaleFormWrapper';
 
 // Import shared components
 import SalesMetricCard from '@/components/shared/sales/SalesMetricCard';
@@ -12,10 +14,6 @@ import SalesTable from '@/components/shared/sales/SalesTable';
 import SalesListCard from '@/components/shared/sales/SalesListCard';
 import SalesFilterBar, { TimeframeType, getDateRangeFromTimeframe } from '@/components/shared/sales/SalesFilterBar';
 import { StatusBadge } from '@/components/shared/sales/SalesTable';
-
-// Import proper fetch function for pharmacy data
-import { fetchSales } from '@/lib/authActions';
-import NewSaleForm from './NewSaleForm';
 
 // Import responsive CSS
 import './pharmacySalesManager.css';
@@ -52,69 +50,75 @@ interface PharmacySale {
   transaction_id?: string | null;
 }
 
-interface SalesAnalytics {
-  totalRevenue: number;
-  totalSales: number;
-  paidSales: number;
-  pendingSales: number;
-  mostSoldMedication: string;
-  averageSaleValue: number;
+interface PharmacySalesManagerProps {
+  initialSales: PharmacySale[];
 }
 
-export default function PharmacySalesManager() {
+// Helper function to calculate total
+function calculateTotal(sale: PharmacySale): number {
+  return sale.items.reduce((total, item) => total + item.total_price, 0);
+}
+
+const salesColumns = [
+  {
+    key: 'date',
+    header: 'Date',
+    cell: (sale: PharmacySale) => format(new Date(sale.created_at), 'MMM dd, yyyy')
+  },
+  {
+    key: 'customer',
+    header: 'Customer',
+    cell: (sale: PharmacySale) => sale.patient?.full_name || 'Walk-in Customer'
+  },
+  {
+    key: 'items',
+    header: 'Items',
+    cell: (sale: PharmacySale) => sale.items?.map(item => 
+      `${item.medication.name} (${item.quantity})`
+    ).join(', ') || 'No items'
+  },
+  {
+    key: 'total',
+    header: 'Total',
+    cell: (sale: PharmacySale) => new Intl.NumberFormat('en-KE', { 
+      style: 'currency', 
+      currency: 'KES' 
+    }).format(sale.total_amount || calculateTotal(sale))
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    cell: (sale: PharmacySale) => (
+      <StatusBadge 
+        status={sale.payment_status}
+        variants={{
+          paid: 'default',
+          pending: 'secondary',
+          refunded: 'destructive'
+        }}
+      />
+    )
+  }
+];
+
+export default function PharmacySalesManager({ initialSales }: PharmacySalesManagerProps) {
   const router = useRouter();
-  const [sales, setSales] = useState<PharmacySale[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [sales, setSales] = useState<PharmacySale[]>(initialSales);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeType>('all');
   const [showNewSaleForm, setShowNewSaleForm] = useState(false);
   const [isNarrowMobile, setIsNarrowMobile] = useState(false);
   const [isSmallMediumMobile, setIsSmallMediumMobile] = useState(false);
   const [isMediumMobile, setIsMediumMobile] = useState(false);
-  const [analytics, setAnalytics] = useState<SalesAnalytics>({
-    totalRevenue: 0,
-    totalSales: 0,
-    paidSales: 0,
-    pendingSales: 0,
-    mostSoldMedication: '',
-    averageSaleValue: 0
-  });
 
-  // Check screen size on component mount and resize
-  useEffect(() => {
-    const handleResize = () => {
-      const width = window.innerWidth;
-      setIsNarrowMobile(width <= 358);
-      setIsSmallMediumMobile(width > 358 && width <= 409);
-      setIsMediumMobile(width > 409 && width <= 480);
-    };
+  // Memoize filtered sales data
+  const filteredSales = useMemo(() => {
+    if (!sales.length) return [];
     
-    // Set initial state
-    handleResize();
-    
-    // Add resize listener
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Fetch sales data when component mounts or filters change
-  useEffect(() => {
-    fetchPharmacySalesData();
-  }, [selectedTimeframe, searchTerm]);
-
-  async function fetchPharmacySalesData() {
-    try {
-      setLoading(true);
-      
-      // Fetch pharmacy sales data
-      const salesData = await fetchSales();
-      
-      console.log('Sales data:', salesData);
-      
-      // Apply date filtering based on timeframe
-      const { startDate, endDate } = getDateRangeFromTimeframe(selectedTimeframe);
-      let filteredData = salesData;
+    const { startDate, endDate } = getDateRangeFromTimeframe(selectedTimeframe);
+    let filteredData = [...sales];
       
       if (startDate && endDate) {
         filteredData = filteredData.filter(sale => {
@@ -123,10 +127,9 @@ export default function PharmacySalesManager() {
         });
       }
       
-      // Apply search term filtering
       if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
         filteredData = filteredData.filter(sale => {
-          const searchLower = searchTerm.toLowerCase();
           return (
             (sale.patient?.full_name?.toLowerCase().includes(searchLower)) ||
             sale.items.some(item => item.medication.name.toLowerCase().includes(searchLower)) ||
@@ -136,151 +139,188 @@ export default function PharmacySalesManager() {
         });
       }
       
-      setSales(filteredData as PharmacySale[]);
-      calculateAnalytics(filteredData as PharmacySale[]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred while fetching sales');
-      console.error('Error fetching pharmacy sales:', err);
-    } finally {
-      setLoading(false);
-    }
-  }
+    return filteredData;
+  }, [sales, searchTerm, selectedTimeframe]);
 
-  /**
-   * Calculates analytics from sales data
-   */
-  function calculateAnalytics(salesData: PharmacySale[]) {
-    if (!salesData.length) {
-      setAnalytics({
-        totalRevenue: 0,
-        totalSales: 0,
-        paidSales: 0,
-        pendingSales: 0,
-        mostSoldMedication: 'None',
-        averageSaleValue: 0
-      });
-      return;
-    }
+  // Memoize the resize handler with proper debouncing
+  const debouncedResize = useCallback(() => {
+    let timeoutId: NodeJS.Timeout | undefined;
+    
+    const handler = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      
+      timeoutId = setTimeout(() => {
+        const width = window.innerWidth;
+        setIsNarrowMobile(width <= 358);
+        setIsSmallMediumMobile(width > 358 && width <= 409);
+        setIsMediumMobile(width > 409 && width <= 480);
+      }, 100);
+    };
 
-    // Calculate totals
-    const totalRevenue = salesData.reduce((sum, sale) => 
-      sum + (sale.total_amount || calculateTotal(sale)), 0);
-    
-    const paidSales = salesData.filter(sale => 
-      sale.payment_status === 'paid').length;
-    
-    const pendingSales = salesData.filter(sale => 
-      sale.payment_status === 'pending').length;
-    
-    // Find most sold medication
-    const medicationCounts: Record<string, number> = {};
-    salesData.forEach(sale => {
-      sale.items.forEach(item => {
-        if (!medicationCounts[item.medication.name]) {
-          medicationCounts[item.medication.name] = 0;
-        }
-        medicationCounts[item.medication.name] += item.quantity;
+    return handler;
+  }, []);
+
+  // Memoize the navigation buttons
+  const navigationButtons = useMemo(() => (
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        className={`${
+          isNarrowMobile ? 'xs-text pharmacy-button-xs' : 
+          isSmallMediumMobile ? 'xsm-text pharmacy-button-xsm' : 
+          isMediumMobile ? 'sm-text pharmacy-button-sm' : 'text-[10px] md:text-sm h-6 md:h-8 px-2 md:px-3'
+        } flex-shrink-0 whitespace-nowrap min-w-0 flex items-center gap-1 bg-gradient-to-r from-emerald-50 to-emerald-100 border-emerald-200 text-emerald-700 hover:bg-emerald-200`}
+        onClick={() => router.push('/reports?tab=pharmacy')}
+      >
+        <BarChart className={`${isNarrowMobile ? 'pharmacy-icon-xs' : isSmallMediumMobile ? 'pharmacy-icon-xsm' : isMediumMobile ? 'pharmacy-icon-sm' : 'h-3 w-3 md:h-4 md:w-4'}`} /> 
+        <span className={isNarrowMobile ? 'xs-truncate xs-content-wrap w-full max-w-[60px]' : isSmallMediumMobile ? 'xsm-truncate' : ''}>
+          {isNarrowMobile ? 'Reports' : 'Sales Reports'}
+        </span>
+        {!isNarrowMobile && <ChevronRight className={`${isNarrowMobile ? 'pharmacy-icon-xs' : isSmallMediumMobile ? 'pharmacy-icon-xsm' : isMediumMobile ? 'pharmacy-icon-sm' : 'h-2 w-2 md:h-3 md:w-3'} ml-1`} />}
+      </Button>
+      
+      <Button
+        variant="outline"
+        size="sm" 
+        className={`${
+          isNarrowMobile ? 'xs-text pharmacy-button-xs' : 
+          isSmallMediumMobile ? 'xsm-text pharmacy-button-xsm' : 
+          isMediumMobile ? 'sm-text pharmacy-button-sm' : 'text-[10px] md:text-sm h-6 md:h-8 px-2 md:px-3'
+        } flex-shrink-0 whitespace-nowrap min-w-0 flex items-center gap-1 bg-gradient-to-r from-indigo-50 to-indigo-100 border-indigo-200 text-indigo-700 hover:bg-indigo-200`}
+        onClick={() => router.push('/pharmacy/inventory')}
+      >
+        <Package className={`${isNarrowMobile ? 'pharmacy-icon-xs' : isSmallMediumMobile ? 'pharmacy-icon-xsm' : isMediumMobile ? 'pharmacy-icon-sm' : 'h-3 w-3 md:h-4 md:w-4'}`} /> 
+        <span className={isNarrowMobile ? 'xs-truncate xs-content-wrap w-full max-w-[60px]' : isSmallMediumMobile ? 'xsm-truncate' : ''}>
+          {isNarrowMobile ? 'Inventory' : 'Inventory'}
+        </span>
+        {!isNarrowMobile && <ChevronRight className={`${isNarrowMobile ? 'pharmacy-icon-xs' : isSmallMediumMobile ? 'pharmacy-icon-xsm' : isMediumMobile ? 'pharmacy-icon-sm' : 'h-2 w-2 md:h-3 md:w-3'} ml-1`} />}
+      </Button>
+      
+      <Button
+        variant="outline"
+        size="sm"
+        className={`${
+          isNarrowMobile ? 'xs-text pharmacy-button-xs' : 
+          isSmallMediumMobile ? 'xsm-text pharmacy-button-xsm' : 
+          isMediumMobile ? 'sm-text pharmacy-button-sm' : 'text-[10px] md:text-sm h-6 md:h-8 px-2 md:px-3'
+        } flex-shrink-0 whitespace-nowrap min-w-0 flex items-center gap-1 bg-gradient-to-r from-amber-50 to-amber-100 border-amber-200 text-amber-700 hover:bg-amber-200`}
+        onClick={() => router.push('/pharmacy/top-medications')}
+      >
+        <Activity className={`${isNarrowMobile ? 'pharmacy-icon-xs' : isSmallMediumMobile ? 'pharmacy-icon-xsm' : isMediumMobile ? 'pharmacy-icon-sm' : 'h-3 w-3 md:h-4 md:w-4'}`} /> 
+        <span className={isNarrowMobile ? 'xs-truncate xs-content-wrap w-full max-w-[60px]' : isSmallMediumMobile ? 'xsm-truncate' : ''}>
+          {isNarrowMobile ? 'Top Meds' : 'Top Medications'}
+        </span>
+        {!isNarrowMobile && <ChevronRight className={`${isNarrowMobile ? 'pharmacy-icon-xs' : isSmallMediumMobile ? 'pharmacy-icon-xsm' : isMediumMobile ? 'pharmacy-icon-sm' : 'h-2 w-2 md:h-3 md:w-3'} ml-1`} />}
+      </Button>
+    </>
+  ), [isNarrowMobile, isSmallMediumMobile, isMediumMobile, router]);
+
+  // Memoize total revenue calculation
+  const totalRevenue = useMemo(() => 
+    filteredSales.reduce((sum, sale) => sum + (sale.total_amount || calculateTotal(sale)), 0),
+    [filteredSales]
+  );
+
+  // Memoize sales counts
+  const salesCounts = useMemo(() => ({
+    total: filteredSales.length,
+    pending: filteredSales.filter(sale => sale.payment_status === 'pending').length
+  }), [filteredSales]);
+
+  // Memoize medication counts
+  const medicationCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    filteredSales.forEach(sale => {
+      sale.items?.forEach(item => {
+        const medicationName = item.medication.name;
+        counts[medicationName] = (counts[medicationName] || 0) + item.quantity;
       });
     });
+    return counts;
+  }, [filteredSales]);
 
-    let mostSoldMedication = 'None';
+  // Memoize most sold medication
+  const mostSoldMedication = useMemo(() => {
+    if (!filteredSales.length) return 'None';
+    
     let maxCount = 0;
+    let mostSold = 'None';
     
     Object.entries(medicationCounts).forEach(([medication, count]) => {
       if (count > maxCount) {
-        mostSoldMedication = medication;
+        mostSold = medication;
         maxCount = count;
       }
     });
     
-    setAnalytics({
-      totalRevenue,
-      totalSales: salesData.length,
-      paidSales,
-      pendingSales,
-      mostSoldMedication,
-      averageSaleValue: salesData.length > 0 ? totalRevenue / salesData.length : 0
-    });
-  }
+    return mostSold;
+  }, [medicationCounts, filteredSales.length]);
 
-  /**
-   * Calculates the total amount for a sale
-   */
-  function calculateTotal(sale: PharmacySale): number {
-    return sale.items.reduce((total, item) => total + item.total_price, 0);
-  }
+  // Memoize average sale value
+  const averageSaleValue = useMemo(() => 
+    salesCounts.total > 0 ? totalRevenue / salesCounts.total : 0,
+    [totalRevenue, salesCounts.total]
+  );
 
-  // Define columns for the pharmacy sales table
-  const salesColumns = [
-    {
-      header: 'Date',
-      key: 'date',
-      cell: (sale: PharmacySale) => format(new Date(sale.created_at), 'MMM dd, yyyy HH:mm')
-    },
-    {
-      header: 'Patient',
-      key: 'patient',
-      cell: (sale: PharmacySale) => (
-        <div>
-          <div className="font-medium truncate-text">{sale.patient?.full_name || 'Walk-in Customer'}</div>
-          {sale.patient?.phone_number && (
-            <div className="text-sm text-gray-500">{sale.patient.phone_number}</div>
-          )}
-        </div>
-      )
-    },
-    {
-      header: 'Medications',
-      key: 'medications',
-      cell: (sale: PharmacySale) => (
-        <div className="space-y-1">
-          {sale.items.map((item, index) => (
-            <div key={index} className="text-sm truncate-text">
-              {item.medication.name} {item.medication.strength} ({item.quantity} units)
-            </div>
-          ))}
-        </div>
-      )
-    },
-    {
-      header: 'Total',
-      key: 'total',
-      cell: (sale: PharmacySale) => (
-        <div className="font-medium">
-          KSh {(sale.total_amount || calculateTotal(sale)).toFixed(2)}
-        </div>
-      )
-    },
-    {
-      header: 'Payment',
-      key: 'payment',
-      cell: (sale: PharmacySale) => sale.payment_method
-    },
-    {
-      header: 'Status',
-      key: 'status',
-      cell: (sale: PharmacySale) => (
-        <StatusBadge 
-          status={sale.payment_status} 
-          variants={{
-            paid: 'default',
-            pending: 'secondary',
-            refunded: 'destructive'
-          }} 
-        />
-      )
-    },
-  ];
+  // Memoize all metrics together
+  const metrics = useMemo(() => ({
+    totalRevenue,
+    totalSales: salesCounts.total,
+    pendingSales: salesCounts.pending,
+    mostSoldMedication,
+    averageSaleValue
+  }), [totalRevenue, salesCounts, mostSoldMedication, averageSaleValue]);
 
-  // After the form is submitted, add an effect to close and refresh
+  // Update sales when initialSales changes
   useEffect(() => {
-    // After a sale is created, NewSaleForm will navigate to /pharmacy/sales,
-    // which will trigger a re-render of this component
-    // We can detect when the form is closed and refresh data
-    if (!showNewSaleForm) {
-      fetchPharmacySalesData();
+    if (initialSales && initialSales.length > 0) {
+      setSales(initialSales);
+      setIsLoading(false);
+    } else {
+      setSales([]);
+      setIsLoading(false);
     }
-  }, [showNewSaleForm]);
+  }, [initialSales]);
+
+  // Check screen size on component mount and resize
+  useEffect(() => {
+    const handler = debouncedResize();
+    handler(); // Initial call
+    window.addEventListener('resize', handler);
+    return () => {
+      window.removeEventListener('resize', handler);
+    };
+  }, [debouncedResize]);
+
+  if (isLoading) {
+    return (
+      <div className="pharmacy-manager-container animate-pulse">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 md:gap-4">
+          <div className="h-8 bg-gray-200 rounded w-48"></div>
+          <div className="h-9 bg-gray-200 rounded w-24"></div>
+        </div>
+        <div className="bg-gray-50 rounded-lg p-4 mt-3">
+          <div className="h-4 bg-gray-200 rounded w-32 mb-4"></div>
+          <div className="flex gap-2 overflow-x-auto">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-8 bg-gray-200 rounded w-32 flex-shrink-0"></div>
+            ))}
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow-lg p-4 mt-3">
+          <div className="h-4 bg-gray-200 rounded w-32 mb-4"></div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-24 bg-gray-100 rounded"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pharmacy-manager-container">
@@ -288,8 +328,9 @@ export default function PharmacySalesManager() {
         <h2 className={`${isNarrowMobile ? 'xs-heading' : isSmallMediumMobile ? 'xsm-heading' : isMediumMobile ? 'sm-heading' : 'text-xl md:text-2xl'} font-bold text-gray-800 leading-tight`}>
           Pharmacy Sales Management
         </h2>
-        <Button 
-          onClick={() => setShowNewSaleForm(true)}
+        <LimitAwareButton 
+          onClick={() => router.push('/pharmacy/pharmacy-sales-management/new-sale')}
+          limitType="sales"
           className={`w-full md:w-auto bg-gradient-to-r from-indigo-500 to-indigo-600 text-white hover:from-indigo-600 hover:to-indigo-700 ${
             isNarrowMobile ? 'pharmacy-button-xs xs-new-sale-button' : 
             isSmallMediumMobile ? 'pharmacy-button-xsm xsm-button' : 
@@ -297,7 +338,7 @@ export default function PharmacySalesManager() {
           }`}
         >
           New Sale
-        </Button>
+        </LimitAwareButton>
       </div>
 
       {/* Skip to content button for accessibility */}
@@ -317,56 +358,7 @@ export default function PharmacySalesManager() {
           isSmallMediumMobile ? 'pharmacy-scroll-x xsm-scroll-container' : 
           'pharmacy-scroll-x'
         }`}>
-          <Button
-            variant="outline"
-            size="sm"
-            className={`${
-              isNarrowMobile ? 'xs-text pharmacy-button-xs' : 
-              isSmallMediumMobile ? 'xsm-text pharmacy-button-xsm' : 
-              isMediumMobile ? 'sm-text pharmacy-button-sm' : 'text-[10px] md:text-sm h-6 md:h-8 px-2 md:px-3'
-            } flex-shrink-0 whitespace-nowrap min-w-0 flex items-center gap-1 bg-gradient-to-r from-emerald-50 to-emerald-100 border-emerald-200 text-emerald-700 hover:bg-emerald-200`}
-            onClick={() => router.push('/pharmacy/reports')}
-          >
-            <BarChart className={`${isNarrowMobile ? 'pharmacy-icon-xs' : isSmallMediumMobile ? 'pharmacy-icon-xsm' : isMediumMobile ? 'pharmacy-icon-sm' : 'h-3 w-3 md:h-4 md:w-4'}`} /> 
-            <span className={isNarrowMobile ? 'xs-truncate xs-content-wrap w-full max-w-[60px]' : isSmallMediumMobile ? 'xsm-truncate' : ''}>
-              {isNarrowMobile ? 'Reports' : 'Sales Reports'}
-            </span>
-            {!isNarrowMobile && <ChevronRight className={`${isNarrowMobile ? 'pharmacy-icon-xs' : isSmallMediumMobile ? 'pharmacy-icon-xsm' : isMediumMobile ? 'pharmacy-icon-sm' : 'h-2 w-2 md:h-3 md:w-3'} ml-1`} />}
-          </Button>
-          
-          <Button
-            variant="outline"
-            size="sm" 
-            className={`${
-              isNarrowMobile ? 'xs-text pharmacy-button-xs' : 
-              isSmallMediumMobile ? 'xsm-text pharmacy-button-xsm' : 
-              isMediumMobile ? 'sm-text pharmacy-button-sm' : 'text-[10px] md:text-sm h-6 md:h-8 px-2 md:px-3'
-            } flex-shrink-0 whitespace-nowrap min-w-0 flex items-center gap-1 bg-gradient-to-r from-indigo-50 to-indigo-100 border-indigo-200 text-indigo-700 hover:bg-indigo-200`}
-            onClick={() => router.push('/pharmacy/inventory')}
-          >
-            <Package className={`${isNarrowMobile ? 'pharmacy-icon-xs' : isSmallMediumMobile ? 'pharmacy-icon-xsm' : isMediumMobile ? 'pharmacy-icon-sm' : 'h-3 w-3 md:h-4 md:w-4'}`} /> 
-            <span className={isNarrowMobile ? 'xs-truncate xs-content-wrap w-full max-w-[60px]' : isSmallMediumMobile ? 'xsm-truncate' : ''}>
-              {isNarrowMobile ? 'Inventory' : 'Inventory'}
-            </span>
-            {!isNarrowMobile && <ChevronRight className={`${isNarrowMobile ? 'pharmacy-icon-xs' : isSmallMediumMobile ? 'pharmacy-icon-xsm' : isMediumMobile ? 'pharmacy-icon-sm' : 'h-2 w-2 md:h-3 md:w-3'} ml-1`} />}
-          </Button>
-          
-          <Button
-            variant="outline"
-            size="sm"
-            className={`${
-              isNarrowMobile ? 'xs-text pharmacy-button-xs' : 
-              isSmallMediumMobile ? 'xsm-text pharmacy-button-xsm' : 
-              isMediumMobile ? 'sm-text pharmacy-button-sm' : 'text-[10px] md:text-sm h-6 md:h-8 px-2 md:px-3'
-            } flex-shrink-0 whitespace-nowrap min-w-0 flex items-center gap-1 bg-gradient-to-r from-amber-50 to-amber-100 border-amber-200 text-amber-700 hover:bg-amber-200`}
-            onClick={() => router.push('/pharmacy/top-medications')}
-          >
-            <Activity className={`${isNarrowMobile ? 'pharmacy-icon-xs' : isSmallMediumMobile ? 'pharmacy-icon-xsm' : isMediumMobile ? 'pharmacy-icon-sm' : 'h-3 w-3 md:h-4 md:w-4'}`} /> 
-            <span className={isNarrowMobile ? 'xs-truncate xs-content-wrap w-full max-w-[60px]' : isSmallMediumMobile ? 'xsm-truncate' : ''}>
-              {isNarrowMobile ? 'Top Meds' : 'Top Medications'}
-            </span>
-            {!isNarrowMobile && <ChevronRight className={`${isNarrowMobile ? 'pharmacy-icon-xs' : isSmallMediumMobile ? 'pharmacy-icon-xsm' : isMediumMobile ? 'pharmacy-icon-sm' : 'h-2 w-2 md:h-3 md:w-3'} ml-1`} />}
-          </Button>
+          {navigationButtons}
         </div>
       </div>
 
@@ -383,21 +375,19 @@ export default function PharmacySalesManager() {
           isSmallMediumMobile ? 'xsm-filter-container xsm-padding' : 
           isMediumMobile ? 'sm-filter-container sm-padding' : ''
         }`}>
-        <SalesFilterBar
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          timeframe={selectedTimeframe}
-          onTimeframeChange={setSelectedTimeframe}
-          aria-label="Sales filter controls"
+          <SalesFilterBar
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            timeframe={selectedTimeframe}
+            onTimeframeChange={setSelectedTimeframe}
+            aria-label="Sales filter controls"
             customClasses={{
               searchInput: isNarrowMobile ? 'xs-filter-item' : isSmallMediumMobile ? 'xsm-filter-item' : isMediumMobile ? 'sm-search-box' : '',
               timeframeSelect: isNarrowMobile ? 'xs-filter-item' : isSmallMediumMobile ? 'xsm-filter-item' : isMediumMobile ? 'sm-timeframe-select' : '',
               filterItem: isNarrowMobile ? 'xs-filter-item' : isSmallMediumMobile ? 'xsm-filter-item' : isMediumMobile ? 'sm-filter-item' : ''
             }}
-        />
+          />
         </div>
-
-        {error && <p className={`text-red-500 ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-xs md:text-sm'} mt-2`} role="alert">{error}</p>}
 
         {/* Quick Analytics Cards */}
         <div className={`mt-4 pt-4 border-t border-gray-100 ${
@@ -411,31 +401,31 @@ export default function PharmacySalesManager() {
           <div className="pharmacy-metrics">
             <SalesMetricCard
               title={isNarrowMobile || isSmallMediumMobile || isMediumMobile ? "Revenue" : "Total Revenue"}
-              value={new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(analytics.totalRevenue)}
+              value={new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(metrics.totalRevenue)}
               icon={<DollarSign className={`${isNarrowMobile ? 'pharmacy-icon-xs' : isSmallMediumMobile ? 'pharmacy-icon-xsm' : isMediumMobile ? 'pharmacy-icon-sm' : 'h-3.5 w-3.5 md:h-4 md:w-4'} text-emerald-600`} />}
-              subValue={`${analytics.totalSales} total sales`}
+              subValue={`${metrics.totalSales} total sales`}
               colorClass="from-emerald-50 to-emerald-100 border-emerald-200 text-emerald-600"
             />
             
             <SalesMetricCard
               title={isNarrowMobile || isSmallMediumMobile || isMediumMobile ? "Avg Sale" : "Average Sale"}
-              value={new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(analytics.averageSaleValue)}
+              value={new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(metrics.averageSaleValue)}
               icon={<Activity className={`${isNarrowMobile ? 'pharmacy-icon-xs' : isSmallMediumMobile ? 'pharmacy-icon-xsm' : isMediumMobile ? 'pharmacy-icon-sm' : 'h-3.5 w-3.5 md:h-4 md:w-4'} text-blue-600`} />}
               colorClass="from-blue-50 to-blue-100 border-blue-200 text-blue-600"
             />
             
             <SalesMetricCard
               title={isNarrowMobile || isSmallMediumMobile || isMediumMobile ? "Popular" : "Most Sold Medication"}
-              value={analytics.mostSoldMedication}
+              value={metrics.mostSoldMedication}
               icon={<Package className={`${isNarrowMobile ? 'pharmacy-icon-xs' : isSmallMediumMobile ? 'pharmacy-icon-xsm' : isMediumMobile ? 'pharmacy-icon-sm' : 'h-3.5 w-3.5 md:h-4 md:w-4'} text-purple-600`} />}
               colorClass="from-purple-50 to-purple-100 border-purple-200 text-purple-600"
             />
             
             <SalesMetricCard
               title={isNarrowMobile || isSmallMediumMobile || isMediumMobile ? "Pending" : "Pending Payments"}
-              value={`${analytics.pendingSales}`}
+              value={`${metrics.pendingSales}`}
               icon={<Clock className={`${isNarrowMobile ? 'pharmacy-icon-xs' : isSmallMediumMobile ? 'pharmacy-icon-xsm' : isMediumMobile ? 'pharmacy-icon-sm' : 'h-3.5 w-3.5 md:h-4 md:w-4'} text-amber-600`} />}
-              subValue={analytics.pendingSales > 0 ? ((analytics.pendingSales / analytics.totalSales) * 100).toFixed(1) + '% of total' : '0%'}
+              subValue={metrics.pendingSales > 0 ? ((metrics.pendingSales / metrics.totalSales) * 100).toFixed(1) + '% of total' : '0%'}
               colorClass="from-amber-50 to-amber-100 border-amber-200 text-amber-600"
             />
           </div>
@@ -453,12 +443,12 @@ export default function PharmacySalesManager() {
           
           {/* Mobile list view - optimized for narrow and medium screens */}
           <div className="md:hidden space-y-2">
-            {sales.length === 0 ? (
+            {filteredSales.length === 0 ? (
               <div className={`text-center py-4 text-gray-500 ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-sm'}`} role="status">
                 No sales found
               </div>
             ) : (
-              sales.map((sale) => (
+              filteredSales.map((sale) => (
                 <SalesListCard<PharmacySale>
                   key={sale.id}
                   item={sale}
@@ -469,11 +459,11 @@ export default function PharmacySalesManager() {
                     variant: sale.payment_status === 'paid' ? 'default' : 
                             sale.payment_status === 'pending' ? 'secondary' : 'destructive'
                   }}
-                  lineItems={sale.items.map(item => ({
+                  lineItems={sale.items?.map(item => ({
                     name: `${item.medication.name} ${item.medication.strength}`,
                     quantity: item.quantity,
                     price: item.unit_price
-                  }))}
+                  })) || []}
                   totalAmount={sale.total_amount || calculateTotal(sale)}
                   className={`pharmacy-sale-card ${isNarrowMobile ? 'xs-padding xs-card' : isSmallMediumMobile ? 'xsm-padding' : isMediumMobile ? 'sm-padding' : ''}`}
                   titleClassName={`pharmacy-sale-title ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : ''}`}
@@ -487,9 +477,9 @@ export default function PharmacySalesManager() {
           {/* Desktop table view with responsive adjustments */}
           <div className="mobile-scrollable mt-4 hidden md:block" role="region" aria-label="Sales data table">
             <SalesTable
-              data={sales}
+              data={filteredSales}
               columns={salesColumns}
-              isLoading={loading}
+              isLoading={false}
               emptyMessage="No sales found"
               className="pharmacy-table-mobile"
             />
@@ -530,11 +520,11 @@ export default function PharmacySalesManager() {
               isSmallMediumMobile ? 'xsm-text' : 
               isMediumMobile ? 'sm-text' : ''
             }`}>
-              <NewSaleForm />
+              <NewSaleFormWrapper />
             </div>
           </div>
         </div>
       )}
     </div>
   );
-} 
+}

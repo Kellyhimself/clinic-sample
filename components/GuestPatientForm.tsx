@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { createGuestPatient, verifyPatientExists } from '@/lib/authActions';
+import { createGuestPatient, verifyPatientExists } from '@/lib/patients';
 import type { Patient } from '@/types/supabase';
 
 interface GuestPatientFormProps {
@@ -41,8 +41,26 @@ export default function GuestPatientForm({ onSuccess, onProgress }: GuestPatient
     
     if (!formData.phone_number.trim()) {
       newErrors.phone_number = 'Phone number is required';
-    } else if (!/^\+?[0-9]+$/.test(formData.phone_number.replace(/\s/g, ''))) {
-      newErrors.phone_number = 'Please enter a valid phone number';
+    } else {
+      // Remove any spaces from the phone number
+      const cleanPhone = formData.phone_number.replace(/\s/g, '');
+      
+      // Check if it starts with +254 or 0
+      if (!cleanPhone.startsWith('+254') && !cleanPhone.startsWith('0')) {
+        newErrors.phone_number = 'Phone number must start with +254 or 0';
+      }
+      
+      // Check if it's a valid length after removing +254 or 0
+      const numberLength = cleanPhone.startsWith('+254') ? cleanPhone.length - 4 : cleanPhone.length - 1;
+      if (numberLength !== 9) {
+        newErrors.phone_number = 'Phone number must be 9 digits after the prefix';
+      }
+      
+      // Check if it contains only numbers after the prefix
+      const numberPart = cleanPhone.startsWith('+254') ? cleanPhone.substring(4) : cleanPhone.substring(1);
+      if (!/^\d+$/.test(numberPart)) {
+        newErrors.phone_number = 'Phone number must contain only digits after the prefix';
+      }
     }
     
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
@@ -70,104 +88,49 @@ export default function GuestPatientForm({ onSuccess, onProgress }: GuestPatient
     }
   };
 
-  const verifyPatient = async (patientId: string, maxAttempts = 5): Promise<Patient | null> => {
-    if (onProgress) onProgress('Verifying patient record...');
-    let attempts = 0;
-    
-    while (attempts < maxAttempts) {
-      attempts++;
-      try {
-        const result = await verifyPatientExists(patientId);
-        if (result.success && result.patient) {
-          return result.patient;
-        }
-        
-        // If not found but we have more attempts, wait before retrying
-        if (attempts < maxAttempts) {
-          if (onProgress) onProgress(`Waiting for database synchronization (attempt ${attempts})...`);
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second between attempts
-        }
-      } catch (error) {
-        console.error(`Verification attempt ${attempts} failed:`, error);
-        if (attempts === maxAttempts) throw error;
-      }
-    }
-    
-    return null;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log('Form submission attempted with data:', formData);
-    
     // Validate form before submission
     if (!validateForm()) {
-      console.log('Form validation failed:', errors);
       toast.error('Please fill out all required fields correctly');
       return;
     }
     
     setIsSubmitting(true);
     if (onProgress) onProgress('Creating patient...');
-    
-    try {
-      console.log('Submitting guest patient data:', formData);
-      
-      // Format phone number if needed
-      let phoneNumber = formData.phone_number.trim();
-      if (phoneNumber.startsWith('0')) {
-        phoneNumber = '+254' + phoneNumber.substring(1);
-      } else if (!phoneNumber.startsWith('+')) {
-        phoneNumber = '+' + phoneNumber;
-      }
-      
-      const payload = {
-        full_name: formData.full_name.trim(),
-        phone_number: phoneNumber,
-        email: formData.email.trim() || undefined,
-        date_of_birth: formData.date_of_birth || undefined,
-        gender: formData.gender || undefined,
-        address: formData.address.trim() || undefined
-      };
-      
-      console.log('Formatted guest patient payload:', payload);
-      
-      const response = await createGuestPatient(payload);
-      console.log('Guest patient creation response:', response);
 
-      if (!response.success || !response.patient) {
-        throw new Error(response.message || 'Failed to create patient');
+    try {
+      // Create the patient
+      const response = await createGuestPatient(formData);
+      
+      if (!response || !response.patient) {
+        throw new Error('Failed to create patient');
       }
+
+      if (onProgress) onProgress('Verifying patient...');
       
-      // After successful creation, verify the patient exists in the database
-      const verifiedPatient = await verifyPatient(response.patient.id);
+      // Extract the actual UUID from the guest patient ID
+      const actualId = response.patient.id.replace('guest_', '');
+      console.log('Verifying patient with ID:', actualId);
       
-      if (!verifiedPatient) {
+      // Verify the patient exists using our existing function with the actual UUID
+      const verifyResult = await verifyPatientExists(actualId);
+      
+      if (!verifyResult.success || !verifyResult.patient) {
+        console.error('Error verifying patient:', verifyResult.message);
         throw new Error('Patient was created but could not be verified in the database');
       }
 
       toast.success('Patient created and verified successfully');
       
-      // Reset form
-      setFormData({
-        full_name: '',
-        phone_number: '',
-        email: '',
-        date_of_birth: '',
-        gender: '',
-        address: ''
-      });
-      
+      // Call onSuccess with the original response patient (which has the guest_ prefix)
       if (onSuccess) {
-        onSuccess(verifiedPatient);
+        onSuccess(response.patient);
       }
     } catch (error) {
       console.error('Error creating guest patient:', error);
-      
-      // More detailed error message
-      const errorMessage = error instanceof Error ? error.message : 'Failed to create patient';
-      toast.error(`Registration failed: ${errorMessage}`);
+      toast.error(error instanceof Error ? error.message : 'Failed to create patient');
     } finally {
       setIsSubmitting(false);
       if (onProgress) onProgress('');
@@ -200,7 +163,7 @@ export default function GuestPatientForm({ onSuccess, onProgress }: GuestPatient
         <Input
           id="phone_number"
           name="phone_number"
-          placeholder="+254XXXXXXXXX"
+          placeholder="+254XXXXXXXXX or 07XXXXXXXX"
           value={formData.phone_number}
           onChange={handleChange}
           className={`w-full h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200 ${
@@ -211,7 +174,7 @@ export default function GuestPatientForm({ onSuccess, onProgress }: GuestPatient
         {errors.phone_number ? (
           <p className="text-xs text-red-500">{errors.phone_number}</p>
         ) : (
-          <p className="text-[10px] text-gray-500">Format: +254XXXXXXXXX or 07XXXXXXXX</p>
+          <p className="text-[10px] text-gray-500">Format: +254XXXXXXXXX (e.g., +254712345678) or 07XXXXXXXX (e.g., 0712345678)</p>
         )}
       </div>
 

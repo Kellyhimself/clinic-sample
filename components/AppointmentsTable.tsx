@@ -26,11 +26,14 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { MoreVertical, Check, X } from 'lucide-react';
-import { createClientSupabaseClient } from '@/lib/supabase-client';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import type { Appointment } from '@/types/supabase';
+import { UsageLimitAlert } from '@/components/shared/UsageLimitAlert';
+import { useUsageLimits } from '@/app/lib/hooks/useUsageLimits';
+import { LimitAwareButton } from "@/components/shared/LimitAwareButton";
 
 // Import the CSS file for mobile responsiveness
 import './appointmentsTable.css';
@@ -40,6 +43,7 @@ interface AppointmentsTableProps {
   userRole: string;
   confirmAppointment: (formData: FormData) => Promise<void>;
   cancelAppointment: (formData: FormData) => Promise<void>;
+  tenantId: string;
 }
 
 function PatientBadge({ patientId }: { patientId?: string }) {
@@ -59,6 +63,7 @@ export default function AppointmentsTable({
   userRole,
   confirmAppointment,
   cancelAppointment,
+  tenantId,
 }: AppointmentsTableProps) {
   const isAdminOrStaff = userRole === 'admin' || userRole === 'staff';
   const [appointmentsState, setAppointmentsState] = useState<Appointment[]>(initialAppointments);
@@ -66,11 +71,14 @@ export default function AppointmentsTable({
   const [filterType, setFilterType] = useState<'time' | 'patient' | 'service'>('time');
   const [filterValue, setFilterValue] = useState('');
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
   const router = useRouter();
-  const supabase = createClientSupabaseClient();
+  const supabase = createClientComponentClient();
   const [isMobile, setIsMobile] = useState(false);
   const [isNarrowMobile, setIsNarrowMobile] = useState(false);
   const [isMediumMobile, setIsMediumMobile] = useState(false);
+
+  const { getLimit, shouldShowAlert } = useUsageLimits(tenantId);
 
   // Check if mobile view with adjusted breakpoints
   useEffect(() => {
@@ -317,9 +325,17 @@ export default function AppointmentsTable({
                       <button
                         type="submit"
                         className="flex w-full items-center cursor-pointer"
+                        asChild
                       >
-                        <Check className="mr-2 h-4 w-4 text-green-600" />
-                        <span>Confirm</span>
+                        <LimitAwareButton
+                          limitType="appointments"
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start"
+                        >
+                          <Check className="mr-2 h-4 w-4 text-green-600" />
+                          <span>Confirm</span>
+                        </LimitAwareButton>
                       </button>
                     </DropdownMenuItem>
                   </form>
@@ -329,9 +345,17 @@ export default function AppointmentsTable({
                       <button
                         type="submit"
                         className="flex w-full items-center cursor-pointer"
+                        asChild
                       >
-                        <X className="mr-2 h-4 w-4 text-red-600" />
-                        <span>Cancel</span>
+                        <LimitAwareButton
+                          limitType="appointments"
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start"
+                        >
+                          <X className="mr-2 h-4 w-4 text-red-600" />
+                          <span>Cancel</span>
+                        </LimitAwareButton>
                       </button>
                     </DropdownMenuItem>
                   </form>
@@ -538,6 +562,18 @@ export default function AppointmentsTable({
           </div>
         </CardHeader>
         <div className="p-2 sm:p-4 md:p-6">
+          {/* Add usage limit alert */}
+          {shouldShowAlert('appointments') && !dismissedAlerts.has('appointments') && (
+            <UsageLimitAlert
+              featureId="appointments"
+              tenantId={tenantId}
+              currentUsage={getLimit('appointments')?.current || 0}
+              limit={getLimit('appointments')?.limit || 0}
+              type={getLimit('appointments')?.type || 'warning'}
+              onDismiss={() => setDismissedAlerts(prev => new Set([...prev, 'appointments']))}
+            />
+          )}
+
           <div className="w-full mx-auto bg-white rounded-lg overflow-hidden">
             {isAdminOrStaff && (
               <div className="p-2 sm:p-4 border-b flex flex-col sm:flex-row gap-2 sm:gap-4">

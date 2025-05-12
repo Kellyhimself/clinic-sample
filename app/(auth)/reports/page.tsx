@@ -1,15 +1,14 @@
-import { Metadata } from 'next';
-import { requireAuth } from '@/lib/serverAuthActions';
+'use client';
+
+import { useSubscription } from '@/app/lib/hooks/useSubscription';
+import { getFeatureDetails } from '@/app/lib/utils/featureCheck';
 import ReportsClient from '@/components/reports-client';
 
-export const metadata: Metadata = {
-  title: 'Reports Dashboard | Clinic Management System',
-  description: 'View and analyze clinic performance metrics and statistics',
-};
+export default function ReportsPage() {
+  const { subscription } = useSubscription();
 
-export default async function ReportsPage() {
-  // Ensure user is authenticated
-  const { user } = await requireAuth();
-  
-  return <ReportsClient />;
+  // Check if user has access to the specific report type
+  const showReport = getFeatureDetails('reports', subscription?.plan || 'free')?.enabled === true;
+
+  return <ReportsClient showReport={showReport} />;
 } 

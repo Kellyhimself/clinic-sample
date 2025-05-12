@@ -5,83 +5,120 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
 } from '@/components/ui/dialog';
-import GuestPatientForm from './GuestPatientForm';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { createGuestPatient } from '@/lib/patients';
+import { toast } from 'sonner';
 import type { Patient } from '@/types/supabase';
 
 interface GuestPatientDialogProps {
-  onPatientCreated?: (patient: Patient) => void;
+  onPatientCreated: (patient: Patient) => Promise<void>;
   triggerButtonText?: string;
-  className?: string;
+  triggerButton?: React.ReactNode;
 }
 
 export default function GuestPatientDialog({ 
-  onPatientCreated,
-  triggerButtonText = "Add Guest Patient",
-  className
+  onPatientCreated, 
+  triggerButtonText = "Add Guest",
+  triggerButton
 }: GuestPatientDialogProps) {
   const [open, setOpen] = useState(false);
-  const [progressStatus, setProgressStatus] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSuccess = (patient: Patient) => {
-    console.log('Guest patient created successfully:', patient);
-    if (onPatientCreated) {
-      onPatientCreated(patient);
-    }
-    // Close the dialog after successful creation
-    setOpen(false);
+  const handleOpen = () => {
+    setOpen(true);
   };
 
-  const handleProgress = (status: string) => {
-    setProgressStatus(status);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      const result = await createGuestPatient({
+        full_name: fullName,
+        phone_number: phoneNumber
+      });
+
+      if (result.success && result.patient) {
+        await onPatientCreated(result.patient as unknown as Patient);
+        setOpen(false);
+        setFullName('');
+        setPhoneNumber('');
+        toast.success('Guest patient created successfully');
+      } else {
+        throw new Error(result.message || 'Failed to create guest patient');
+      }
+    } catch (error) {
+      console.error('Error creating guest patient:', error);
+      toast.error('Failed to create guest patient');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => {
-      // Only allow closing if we're not in the middle of an operation
-      if (!progressStatus || !isOpen) {
-        setOpen(isOpen);
-        if (!isOpen) {
-          setProgressStatus('');
-        }
-      }
-    }}>
-      <DialogTrigger asChild>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className={`h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200 hover:from-blue-100 hover:to-blue-200 text-xs ${className || ''}`}
+    <>
+      {triggerButton ? (
+        <div onClick={handleOpen}>
+          {triggerButton}
+        </div>
+      ) : (
+        <Button
+          variant="outline"
+          onClick={handleOpen}
         >
           {triggerButtonText}
         </Button>
-      </DialogTrigger>
-      <DialogContent className="w-[95vw] max-w-lg rounded-lg overflow-hidden p-0 bg-white shadow-xl sm:w-full">
-        <DialogHeader className="p-2 border-b bg-gradient-to-r from-blue-50 to-blue-100">
-          <DialogTitle className="text-sm font-semibold text-blue-700">Add Guest Patient</DialogTitle>
-          <DialogDescription className="text-xs text-gray-600">
-            Create a guest patient without requiring user registration.
-            Only full name and phone number are required.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="p-3 max-h-[80vh] overflow-y-auto">
-          <GuestPatientForm onSuccess={handleSuccess} onProgress={handleProgress} />
-        </div>
-        {progressStatus && (
-          <DialogFooter className="p-2 border-t bg-blue-50">
-            <div className="w-full flex items-center">
-              <div className="mr-2 h-4 w-4">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-              </div>
-              <p className="text-xs text-blue-700">{progressStatus}</p>
+      )}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Guest Patient</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="fullName">Full Name</Label>
+              <Input
+                id="fullName"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="Enter full name"
+                required
+              />
             </div>
-          </DialogFooter>
-        )}
-      </DialogContent>
-    </Dialog>
+            <div className="space-y-2">
+              <Label htmlFor="phoneNumber">Phone Number (Optional)</Label>
+              <Input
+                id="phoneNumber"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="Enter phone number"
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Creating...' : 'Create Guest'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 } 

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, ArrowLeft, Package, X } from 'lucide-react';
-import { fetchStockAlerts } from '@/lib/authActions';
+import { fetchStockAlerts } from '@/lib/inventory';
 import { Medication } from '@/types/supabase';
 
 interface StockAlert {

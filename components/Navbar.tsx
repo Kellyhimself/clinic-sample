@@ -1,12 +1,11 @@
 // components/Navbar.tsx
 'use client';
 
-import { Bell, UserCircle, LogOut, Menu, Plus } from 'lucide-react';
+import { Bell, UserCircle, LogOut, Menu, Plus, Home, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { User } from '@supabase/supabase-js';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { fetchUserRole, fetchStockAlerts } from '@/lib/authActions';
+import { fetchStockAlerts } from '@/lib/inventory';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
@@ -17,47 +16,76 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { User } from '@/types';
+import { useRouter, usePathname } from 'next/navigation';
 
 interface NavbarProps {
-  handleLogout: () => Promise<void>;
+  screenSize: string;
   user: User;
-  screenSize?: string;
+  tenantContext: {
+    name: string;
+    role: string;
+  } | null;
+  onLogout: () => Promise<void>;
 }
 
-export default function Navbar({ handleLogout, user, screenSize = 'lg' }: NavbarProps) {
-  const displayName = user.user_metadata?.full_name || user.email || 'User';
+export default function Navbar({ screenSize, user, tenantContext, onLogout }: NavbarProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const isAdminOrStaff = tenantContext?.role === 'admin' || tenantContext?.role === 'staff';
+  const isPharmacist = tenantContext?.role === 'pharmacist' || tenantContext?.role === 'admin';
   const [lowStockCount, setLowStockCount] = useState(0);
   const [expiringCount, setExpiringCount] = useState(0);
-  const [userRole, setUserRole] = useState<string>('');
+
+  // Debug props
+  useEffect(() => {
+    console.log("Navbar received props:", { user, tenantContext, screenSize });
+  }, [user, tenantContext, screenSize]);
 
   const handleSignOut = async () => {
-    await handleLogout();
-    window.location.href = '/';
+    await onLogout();
+  };
+
+  const handleBack = () => {
+    // Check if we're in a form page
+    if (pathname.includes('/cashier') || pathname.includes('/pharmacy/new-sale') || pathname.includes('/appointments/book')) {
+      // Refresh the page to reset the form
+      window.location.reload();
+    } else {
+      // Regular back navigation
+      router.back();
+    }
   };
 
   useEffect(() => {
     const checkStockAlerts = async () => {
       try {
-        const role = await fetchUserRole();
-        setUserRole(role);
-        
-        if (role === 'admin' || role === 'pharmacist') {
-          const { lowStock, expiring } = await fetchStockAlerts();
-          setLowStockCount(lowStock.length);
-          setExpiringCount(expiring.length);
+        if (isPharmacist) {
+          const result = await fetchStockAlerts();
+          if (result) {
+            const { lowStock = [], expiring = [] } = result;
+            setLowStockCount(lowStock.length);
+            setExpiringCount(expiring.length);
+          } else {
+            setLowStockCount(0);
+            setExpiringCount(0);
+          }
         }
       } catch (error) {
         console.error('Error checking stock alerts:', error);
+        setLowStockCount(0);
+        setExpiringCount(0);
       }
     };
 
     checkStockAlerts();
-    const interval = setInterval(checkStockAlerts, 5 * 60 * 1000); // Check every 5 minutes
+    const interval = setInterval(checkStockAlerts, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isPharmacist]);
 
-  const showStockAlerts = userRole === 'admin' || userRole === 'pharmacist';
+  const showStockAlerts = isAdminOrStaff;
   const totalAlerts = lowStockCount + expiringCount;
+  const displayName = tenantContext?.name || 'User';
 
   // Determine navbar height and padding based on screen size
   const navbarHeight = screenSize === 'xs' ? 'h-12' : 'h-14';
@@ -69,6 +97,7 @@ export default function Navbar({ handleLogout, user, screenSize = 'lg' }: Navbar
       navbarHeight,
       navbarPadding
     )}>
+      {/* Left Section */}
       <div className={cn(
         "flex items-center gap-1",
         screenSize === 'xs' || screenSize === 'sm' ? 'my-1' : 'my-2'
@@ -81,6 +110,27 @@ export default function Navbar({ handleLogout, user, screenSize = 'lg' }: Navbar
         </div>
       </div>
 
+      {/* Center Section - Navigation Buttons */}
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          onClick={handleBack}
+          className="text-blue-600 hover:text-blue-700 hover:bg-blue-100 h-9 px-3 rounded-full flex items-center gap-1"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span className="text-sm font-medium">Back</span>
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={() => router.push('/dashboard')}
+          className="text-blue-600 hover:text-blue-700 hover:bg-blue-100 h-9 px-3 rounded-full flex items-center gap-1"
+        >
+          <Home className="h-4 w-4" />
+          <span className="text-sm font-medium">Home</span>
+        </Button>
+      </div>
+
+      {/* Right Section */}
       <div className={cn(
         "flex items-center gap-1",
         screenSize === 'xs' || screenSize === 'sm' ? 'my-1' : 'my-2'
@@ -95,15 +145,18 @@ export default function Navbar({ handleLogout, user, screenSize = 'lg' }: Navbar
                     <Button variant="ghost" size="icon" className="text-blue-600 hover:text-blue-700 hover:bg-blue-100 h-9 w-9 rounded-full">
                       <Bell className="h-4 w-4" />
                       {totalAlerts > 0 && (
-                        <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-[8px] font-bold">
-                          {totalAlerts}
-                        </Badge>
+                        <span className="relative flex h-5 w-5 absolute -top-1 -right-1">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-5 w-5 bg-amber-500 items-center justify-center text-white text-xs font-bold">
+                            {totalAlerts}
+                          </span>
+                        </span>
                       )}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent className="bg-white border border-blue-100 shadow-md">
-                    <p className="text-sm font-medium text-blue-700">
-                      {lowStockCount} low stock, {expiringCount} expiring
+                    <p className="text-xs text-blue-700">
+                      {lowStockCount} low stock and {expiringCount} expiring items
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -111,7 +164,7 @@ export default function Navbar({ handleLogout, user, screenSize = 'lg' }: Navbar
             </Link>
           )}
           
-          {userRole === 'admin' && (
+          {isAdminOrStaff && (
             <Link href="/signup">
               <Button variant="ghost" className="text-blue-600 hover:text-blue-700 hover:bg-blue-100 flex items-center gap-1 text-sm font-medium h-9 rounded-full">
                 <Plus className="h-3 w-3" />
@@ -140,7 +193,6 @@ export default function Navbar({ handleLogout, user, screenSize = 'lg' }: Navbar
               className={cn(
                 "bg-white text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full shadow-md",
                 screenSize === 'xs' ? "h-8 w-8" : "h-9 w-9",
-                // Add specific styling for problematic screen sizes to ensure visibility
                 screenSize === 'sm' && "mr-1.5"
               )}
             >
@@ -165,7 +217,12 @@ export default function Navbar({ handleLogout, user, screenSize = 'lg' }: Navbar
                     screenSize === 'xs' ? "text-xs" : "text-sm"
                   )}>Stock Alerts</span>
                   {totalAlerts > 0 && (
-                    <Badge variant="destructive" className="ml-auto text-[8px] font-bold">{totalAlerts}</Badge>
+                    <span className="relative flex h-5 w-5 ml-auto">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-5 w-5 bg-amber-500 items-center justify-center text-white text-xs font-bold">
+                        {totalAlerts}
+                      </span>
+                    </span>
                   )}
                 </Link>
               </DropdownMenuItem>
@@ -178,7 +235,7 @@ export default function Navbar({ handleLogout, user, screenSize = 'lg' }: Navbar
               )}>Profile</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-blue-100" />
-            {userRole === 'admin' && (
+            {isAdminOrStaff && (
               <DropdownMenuItem asChild>
                 <Link href="/signup" className="flex items-center gap-2 py-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50">
                   <Plus className="h-3 w-3" />

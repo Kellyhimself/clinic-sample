@@ -1,50 +1,31 @@
-'use server';
+import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
+import { Database } from '@/types/supabase';
 
-import { getSupabaseClient } from './supabase-server';
-import { redirect } from 'next/navigation';
-
-/**
- * Server action to get the current user and redirect if not authenticated
- * This should be used at the top of protected pages
- */
-export async function requireAuth() {
-  const supabase = await getSupabaseClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
-  
-  if (error || !user) {
-    redirect('/login');
-  }
-  
-  return { user };
-}
-
-/**
- * Server action to get the current user and redirect if authenticated
- * This should be used at the top of public pages that should not be 
- * accessible to authenticated users
- */
-export async function requireNoAuth() {
-  const supabase = await getSupabaseClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
-  
-  if (user && !error) {
-    redirect('/dashboard');
-  }
-  
-  return { user: null };
-}
-
-/**
- * Server action to get user data without redirecting
- */
-export async function getUser() {
-  const supabase = await getSupabaseClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
+export async function getServerSession() {
+  const supabase = createServerComponentClient<Database>({ cookies });
+  const { data: { session }, error } = await supabase.auth.getSession();
   
   if (error) {
-    console.error('Error getting user:', error);
-    return { user: null };
+    console.error('Error getting session:', error);
+    return null;
   }
   
-  return { user };
+  return session;
+}
+
+export async function getServerUser() {
+  const session = await getServerSession();
+  return session?.user || null;
+}
+
+export async function requireAuth() {
+  const session = await getServerSession();
+  
+  if (!session) {
+    throw new Error('Authentication required');
+  }
+  
+  return session;
 } 
+ 

@@ -1,8 +1,11 @@
 // app/(auth)/appointments/page.tsx
 import {
+  createAppointment,
+  updateAppointment,
+  deleteAppointment,
   fetchAppointments,
 } from "@/lib/authActions";
-import { getSupabaseClient } from '@/lib/supabase-server';
+import { createClient } from '@/app/lib/supabase/client';
 import AppointmentsTable from "@/components/AppointmentsTable";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -11,7 +14,7 @@ import { Database } from "@/types/supabase";
 import { Appointment } from "@/types/supabase";
 
 export default async function AppointmentsPage() {
-  const supabase: SupabaseClient<Database> = await getSupabaseClient();
+  const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !user) {
@@ -55,7 +58,7 @@ export default async function AppointmentsPage() {
     async function confirmAppointment(formData: FormData) {
       "use server";
       try {
-        const supabase = await getSupabaseClient();
+        const supabase = await createClient();
         const id = formData.get("id") as string;
         
         if (!id) {
@@ -81,7 +84,7 @@ export default async function AppointmentsPage() {
     async function cancelAppointment(formData: FormData) {
       "use server";
       try {
-        const supabase = await getSupabaseClient();
+        const supabase = await createClient();
         const id = formData.get("id") as string;
         
         if (!id) {

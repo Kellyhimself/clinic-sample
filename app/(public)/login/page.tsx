@@ -2,12 +2,12 @@ import LoginForm from '@/components/LoginForm';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import { requireNoAuth } from '@/lib/serverAuthActions';
 
-export default async function LoginPage() {
-  // Ensure user is not already authenticated
-  await requireNoAuth();
-  
+export default function LoginPage({
+  searchParams,
+}: {
+  searchParams: { redirectedFrom?: string; message?: string };
+}) {
   return (
     <div className="min-h-[80vh] flex items-center justify-center bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50">
       <div className="w-full max-w-md">
@@ -27,7 +27,12 @@ export default async function LoginPage() {
           </div>
           
           <div className="p-6">
-            <LoginForm />
+            {searchParams.message && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-700">
+                {searchParams.message}
+              </div>
+            )}
+            <LoginForm redirectTo={searchParams.redirectedFrom} />
           </div>
         </div>
       </div>

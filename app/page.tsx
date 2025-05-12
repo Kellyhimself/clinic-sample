@@ -8,15 +8,22 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { CalendarDays, Pill, Phone, ShieldCheck, LogIn } from 'lucide-react';
-import { getSupabaseClient } from '@/lib/supabase-server';
+import { createClient } from '@/app/lib/supabase/server';
 
 export default async function HomePage() {
-  const supabase = await getSupabaseClient();
-
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (user) {
-    redirect('/dashboard');
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role, tenant_id')
+      .eq('id', user.id)
+      .single();
+
+    if (profile?.tenant_id) {
+      redirect('/dashboard');
+    }
   }
 
   return (

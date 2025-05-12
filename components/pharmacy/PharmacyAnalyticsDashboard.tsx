@@ -8,6 +8,8 @@ import { BarChart, Activity, Package2, DollarSign, TrendingUp, AlertTriangle } f
 
 import SalesFilterBar, { TimeframeType } from '@/components/shared/sales/SalesFilterBar';
 import SalesMetricCard from '@/components/shared/sales/SalesMetricCard';
+import { UpgradePrompt } from '@/components/shared/UpgradePrompt';
+import { Sale } from '@/types/pharmacy';
 
 // Import responsive CSS
 import './pharmacyAnalytics.css';
@@ -23,7 +25,7 @@ interface TopSellingMedication {
 }
 
 interface ProfitAndReorderData {
-  id: string;
+  medication_id: string;
   name: string;
   total_sales: number;
   total_cost: number;
@@ -31,7 +33,12 @@ interface ProfitAndReorderData {
   reorder_suggested: boolean;
 }
 
-export default function PharmacyAnalyticsDashboard() {
+interface PharmacyAnalyticsDashboardProps {
+  isFeatureEnabled: boolean;
+  sales: Sale[];
+}
+
+export default function PharmacyAnalyticsDashboard({ isFeatureEnabled, sales }: PharmacyAnalyticsDashboardProps) {
   const [timeframe, setTimeframe] = useState<TimeframeType>('month');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
@@ -69,8 +76,11 @@ export default function PharmacyAnalyticsDashboard() {
   const itemsNeedingReorder = profitData.filter(item => item.reorder_suggested).length;
   
   useEffect(() => {
+    if (!isFeatureEnabled) {
+      return;
+    }
     fetchAnalyticsData();
-  }, [timeframe, searchTerm]);
+  }, [timeframe, searchTerm, isFeatureEnabled]);
   
   async function fetchAnalyticsData() {
     setLoading(true);
@@ -88,7 +98,14 @@ export default function PharmacyAnalyticsDashboard() {
       
       // Filter by search term if needed
       let filteredTopMeds = topMeds;
-      let filteredProfitData = profitAndReorders;
+      let filteredProfitData = profitAndReorders.map(item => ({
+        medication_id: item.medication_id,
+        name: item.name,
+        total_sales: item.total_sales,
+        total_cost: item.total_cost,
+        profit_margin: item.profit_margin,
+        reorder_suggested: item.reorder_suggested
+      }));
       
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
@@ -96,7 +113,7 @@ export default function PharmacyAnalyticsDashboard() {
           med.medication_name.toLowerCase().includes(searchLower)
         );
         
-        filteredProfitData = profitAndReorders.filter((item: ProfitAndReorderData) => 
+        filteredProfitData = filteredProfitData.filter((item: ProfitAndReorderData) => 
           item.name.toLowerCase().includes(searchLower)
         );
       }
@@ -109,6 +126,99 @@ export default function PharmacyAnalyticsDashboard() {
     } finally {
       setLoading(false);
     }
+  }
+  
+  if (!isFeatureEnabled) {
+    return (
+      <div className="pharmacy-analytics-container">
+        <h2 className={`${isNarrowMobile ? 'xs-heading' : isMediumMobile ? 'sm-heading' : 'text-xl md:text-2xl'} font-bold text-gray-800 leading-tight mb-4`}>
+          Pharmacy Analytics Dashboard
+        </h2>
+        
+      <UpgradePrompt
+          requiredPlan="pro"
+        features={[
+          "Real-time sales analytics",
+          "Revenue tracking",
+          "Top-selling medications",
+          "Stock movement analysis"
+        ]}
+          variant="card"
+          popoverPosition="top-right"
+        >
+          <div className="space-y-4">
+            {/* Preview of Key Metrics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                { title: "Total Revenue", value: "KES 0", icon: <DollarSign className="h-4 w-4 text-emerald-600" /> },
+                { title: "Total Profit", value: "KES 0", icon: <TrendingUp className="h-4 w-4 text-indigo-600" /> },
+                { title: "Average Margin", value: "0%", icon: <Activity className="h-4 w-4 text-blue-600" /> },
+                { title: "Items Needing Reorder", value: "0", icon: <AlertTriangle className="h-4 w-4 text-amber-600" /> }
+              ].map((metric, index) => (
+                <div key={index} className="bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    {metric.icon}
+                    <h3 className="text-sm font-medium text-gray-600">{metric.title}</h3>
+                  </div>
+                  <p className="text-lg font-semibold text-gray-700">{metric.value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Preview of Analytics Tabs */}
+            <div className="bg-white rounded-lg border border-gray-200">
+              <div className="border-b border-gray-200">
+                <div className="flex space-x-4 p-4">
+                  {["Overview", "Top Selling", "Profit Margins", "Reorder Alerts"].map((tab) => (
+                    <button
+                      key={tab}
+                      className="px-3 py-2 text-sm font-medium text-gray-500"
+                      disabled
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="p-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Preview Cards */}
+                  {[
+                    { title: "Top 5 Selling Medications", icon: <Package2 className="h-5 w-5 text-emerald-600" /> },
+                    { title: "Top 5 Profit Margin Medications", icon: <TrendingUp className="h-5 w-5 text-indigo-600" /> },
+                    { title: "Items Needing Reorder", icon: <AlertTriangle className="h-5 w-5 text-amber-600" /> },
+                    { title: "Revenue Breakdown", icon: <BarChart className="h-5 w-5 text-blue-600" /> }
+                  ].map((card, index) => (
+                    <div key={index} className="bg-gray-50 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        {card.icon}
+                        <h3 className="font-medium text-gray-700">{card.title}</h3>
+                      </div>
+                      <div className="h-32 bg-gray-100 rounded-md flex items-center justify-center">
+                        <p className="text-sm text-gray-500">Preview content</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </UpgradePrompt>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="p-4">
+        <h2 className="text-xl font-bold text-gray-800 mb-2">Pharmacy Analytics</h2>
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md" role="alert">
+          <p className="font-medium">Error:</p>
+          <p>{error}</p>
+        </div>
+      </div>
+    );
   }
   
   return (
@@ -136,14 +246,6 @@ export default function PharmacyAnalyticsDashboard() {
           />
         </CardContent>
       </Card>
-      
-      {/* Error message if any */}
-      {error && (
-        <div className={`bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md ${isNarrowMobile ? 'xs-margin' : isMediumMobile ? 'sm-margin' : 'mb-4'}`} role="alert">
-          <p className={`font-medium ${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}`}>Error:</p>
-          <p className={isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}>{error}</p>
-        </div>
-      )}
       
       {/* Key Metrics Cards */}
       <div className={`pharmacy-metrics-grid ${isNarrowMobile ? 'xs-margin' : isMediumMobile ? 'sm-margin' : 'mb-8'}`}>
@@ -280,7 +382,7 @@ export default function PharmacyAnalyticsDashboard() {
                       .slice(0, 5)
                       .map((item, index) => (
                         <div 
-                          key={item.id}
+                          key={item.medication_id}
                           className={`pharmacy-list-item p-2 rounded-md bg-gray-50 ${isNarrowMobile ? 'xs-padding' : ''}`}
                         >
                           <div className="flex items-center gap-2">
@@ -328,7 +430,7 @@ export default function PharmacyAnalyticsDashboard() {
                       .slice(0, 5)
                       .map((item) => (
                         <div 
-                          key={item.id}
+                          key={item.medication_id}
                           className={`pharmacy-list-item p-2 rounded-md bg-amber-50 ${isNarrowMobile ? 'xs-padding' : ''}`}
                         >
                           <span className={`font-medium ${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}`}>
@@ -493,7 +595,7 @@ export default function PharmacyAnalyticsDashboard() {
                     .sort((a, b) => b.profit_margin - a.profit_margin)
                     .map((item) => (
                       <div 
-                        key={item.id}
+                        key={item.medication_id}
                         className="grid grid-cols-12 gap-4 p-3 rounded-md bg-gray-50 border border-gray-100 text-sm"
                       >
                         <div className="col-span-5 font-medium">{item.name}</div>
@@ -535,7 +637,7 @@ export default function PharmacyAnalyticsDashboard() {
                     .filter(item => item.reorder_suggested)
                     .map((item) => (
                       <div 
-                        key={item.id}
+                        key={item.medication_id}
                         className="flex items-center justify-between p-3 rounded-md bg-amber-50 border border-amber-100"
                       >
                         <div>

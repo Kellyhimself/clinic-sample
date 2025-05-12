@@ -1,115 +1,178 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { BarChart, TrendingUp, Package, DollarSign } from 'lucide-react';
+import { useSubscription } from '@/app/lib/hooks/useSubscription';
+import { UpgradePrompt } from '@/components/shared/UpgradePrompt';
+import { getFeatureDetails } from '@/app/lib/utils/featureCheck';
 
-interface ReportData {
-  sales: { id: string; quantity: number; sale_date: string; medication: { name: string } }[];
-  revenue: { totalRevenue: number; receipts: { total_cost: number; created_at: string }[] };
-  topSelling: { medication_id: string; medication_name: string; total_quantity: number }[];
-  stockMovement: { medication_id: string; transaction_type: string; quantity: number; created_at: string }[];
+interface PharmacyReportsDashboardProps {
+  tenantId?: string;
 }
 
-export default function PharmacyReportsDashboard() {
-  const [reportData, setReportData] = useState<ReportData | null>(null);
-  const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export default function PharmacyReportsDashboard({ tenantId }: PharmacyReportsDashboardProps) {
+  const { subscription } = useSubscription();
+  const [isFeatureEnabled, setIsFeatureEnabled] = useState(true);
 
   useEffect(() => {
-    const fetchReports = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [salesRes, revenueRes, topSellingRes, stockRes] = await Promise.all([
-          fetch(`/api/pharmacy/reports/sales?period=${period}`).then((res) => res.json()),
-          fetch(`/api/pharmacy/reports/revenue?period=${period}`).then((res) => res.json()),
-          fetch('/api/pharmacy/reports/top-selling').then((res) => res.json()),
-          fetch('/api/pharmacy/reports/stock-movement').then((res) => res.json()),
-        ]);
+    const feature = getFeatureDetails('pharmacy_reports', subscription?.plan || 'free');
+    setIsFeatureEnabled(feature?.enabled === true);
+    
+    // Log feature details for debugging
+    console.log('Feature details:', {
+      feature,
+      enabled: feature?.enabled,
+      requiredPlan: feature?.requiredPlan,
+      currentPlan: subscription?.plan
+    });
+  }, [subscription]);
 
-        setReportData({
-          sales: salesRes,
-          revenue: revenueRes,
-          topSelling: topSellingRes,
-          stockMovement: stockRes,
-        });
-      } catch {
-        setError('Failed to load reports');
-      } finally {
-        setLoading(false);
-      }
-    };
+  if (!isFeatureEnabled) {
+    return (
+      <div className="pharmacy-analytics-container">
+        <h2 className="text-xl md:text-2xl font-bold text-gray-800 leading-tight mb-4">
+          Pharmacy Analytics Dashboard
+        </h2>
+        
+        <UpgradePrompt
+          requiredPlan="pro"
+          features={[
+            "Real-time sales analytics",
+            "Revenue tracking",
+            "Top-selling medications",
+            "Stock movement analysis"
+          ]}
+          variant="card"
+          popoverPosition="top-right"
+        >
+          <div className="space-y-6">
+            {/* Preview of Recent Sales */}
+            <div className="bg-white rounded-lg border border-gray-200">
+              <div className="p-4 border-b border-gray-200">
+                <h3 className="font-medium text-gray-700">Recent Sales</h3>
+              </div>
+              <div className="p-4">
+                <div className="h-[300px] flex items-center justify-center bg-gray-50 rounded-md">
+                  <div className="text-center">
+                    <BarChart className="h-16 w-16 text-gray-300 mx-auto" />
+                    <p className="text-muted-foreground mt-2">Sales trend chart preview</p>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-    fetchReports();
-  }, [period]);
+            {/* Preview of Analytics Grid */}
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* Revenue Preview */}
+              <div className="bg-white rounded-lg border border-gray-200">
+                <div className="p-4 border-b border-gray-200">
+                  <h3 className="font-medium text-gray-700">Revenue</h3>
+                </div>
+                <div className="p-4">
+                  <div className="h-[200px] flex items-center justify-center bg-gray-50 rounded-md">
+                    <div className="text-center">
+                      <DollarSign className="h-12 w-12 text-gray-300 mx-auto" />
+                      <p className="text-muted-foreground mt-2">Revenue chart preview</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-  if (loading) return <div className="p-4">Loading reports...</div>;
-  if (error) return <div className="p-4 text-red-500">{error}</div>;
-  if (!reportData) return null;
+              {/* Top Medications Preview */}
+              <div className="bg-white rounded-lg border border-gray-200">
+                <div className="p-4 border-b border-gray-200">
+                  <h3 className="font-medium text-gray-700">Top Selling Medications</h3>
+                </div>
+                <div className="p-4">
+                  <div className="h-[200px] flex items-center justify-center bg-gray-50 rounded-md">
+                    <div className="text-center">
+                      <TrendingUp className="h-12 w-12 text-gray-300 mx-auto" />
+                      <p className="text-muted-foreground mt-2">Top medications chart preview</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Stock Movement Preview */}
+              <div className="bg-white rounded-lg border border-gray-200">
+                <div className="p-4 border-b border-gray-200">
+                  <h3 className="font-medium text-gray-700">Stock Movement</h3>
+                </div>
+                <div className="p-4">
+                  <div className="h-[200px] flex items-center justify-center bg-gray-50 rounded-md">
+                    <div className="text-center">
+                      <Package className="h-12 w-12 text-gray-300 mx-auto" />
+                      <p className="text-muted-foreground mt-2">Stock movement chart preview</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </UpgradePrompt>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">Pharmacy Reports</h1>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Sales</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[300px] flex items-center justify-center bg-gray-50 rounded-md">
+            <div className="text-center">
+              <BarChart className="h-16 w-16 text-gray-300 mx-auto" />
+              <p className="text-muted-foreground mt-2">Sales trend chart will be displayed here</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="mb-4">
-        <label className="mr-2">Period:</label>
-        <select
-          value={period}
-          onChange={(e) => setPeriod(e.target.value as 'daily' | 'weekly' | 'monthly')}
-          className="border p-2 rounded"
-        >
-          <option value="daily">Daily</option>
-          <option value="weekly">Weekly</option>
-          <option value="monthly">Monthly</option>
-        </select>
-      </div>
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Revenue</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[200px] flex items-center justify-center bg-gray-50 rounded-md">
+              <div className="text-center">
+                <DollarSign className="h-12 w-12 text-gray-300 mx-auto" />
+                <p className="text-muted-foreground mt-2">Revenue chart will be displayed here</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-white p-4 shadow rounded">
-          <h2 className="text-lg font-semibold mb-2">Recent Sales</h2>
-          <ul>
-            {reportData.sales.slice(0, 5).map((sale) => (
-              <li key={sale.id}>
-                {sale.medication.name} - {sale.quantity} units on {new Date(sale.sale_date).toLocaleDateString()}
-              </li>
-            ))}
-          </ul>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Top Selling Medications</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[200px] flex items-center justify-center bg-gray-50 rounded-md">
+              <div className="text-center">
+                <TrendingUp className="h-12 w-12 text-gray-300 mx-auto" />
+                <p className="text-muted-foreground mt-2">Top medications chart will be displayed here</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="bg-white p-4 shadow rounded">
-          <h2 className="text-lg font-semibold mb-2">Revenue (KSh)</h2>
-          <p>Total: KSh {reportData.revenue.totalRevenue.toLocaleString()}</p>
-          <ul>
-            {reportData.revenue.receipts.slice(0, 5).map((receipt, idx) => (
-              <li key={idx}>
-                KSh {receipt.total_cost} on {new Date(receipt.created_at).toLocaleDateString()}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="bg-white p-4 shadow rounded">
-          <h2 className="text-lg font-semibold mb-2">Top Selling Medications</h2>
-          <ul>
-            {reportData.topSelling.map((item) => (
-              <li key={item.medication_id}>
-                {item.medication_name} - {item.total_quantity} units
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="bg-white p-4 shadow rounded">
-          <h2 className="text-lg font-semibold mb-2">Stock Movement</h2>
-          <ul>
-            {reportData.stockMovement.slice(0, 5).map((move, idx) => (
-              <li key={idx}>
-                {move.transaction_type} - {move.quantity} units on{' '}
-                {new Date(move.created_at).toLocaleDateString()}
-              </li>
-            ))}
-          </ul>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Stock Movement</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[200px] flex items-center justify-center bg-gray-50 rounded-md">
+              <div className="text-center">
+                <Package className="h-12 w-12 text-gray-300 mx-auto" />
+                <p className="text-muted-foreground mt-2">Stock movement chart will be displayed here</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

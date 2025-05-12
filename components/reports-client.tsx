@@ -7,315 +7,391 @@ import PharmacyReportsDashboard from '@/components/pharmacy/PharmacyReportsDashb
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { 
-  BarChart, 
   Activity, 
   ShoppingBag, 
-  HeartPulse, 
-  CalendarClock, 
-  TrendingUp, 
-  Package, 
   Users,
   DollarSign,
-  Download
+  Download,
+  BarChart,
+  TrendingUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import PharmacyReportsSection from '@/components/pharmacy/PharmacyReportsSection';
 import ServicesReportsSection from '@/components/services/ServicesReportsSection';
+import { UpgradePrompt } from '@/components/shared/UpgradePrompt';
 
-// Types for the report filters
-interface FilterOptions {
-  period: 'daily' | 'weekly' | 'monthly' | 'yearly';
-  startDate: string | null;
-  endDate: string | null;
-  category?: string;
+interface ReportsClientProps {
+  showReport: boolean;
 }
 
-// Tab values
-const TABS = {
-  OVERVIEW: 'overview',
-  PHARMACY: 'pharmacy',
-  SERVICES: 'services',
-  APPOINTMENTS: 'appointments',
-  INVENTORY: 'inventory',
-  PATIENTS: 'patients',
-  FINANCIAL: 'financial',
-} as const;
-
-type TabType = typeof TABS[keyof typeof TABS];
-
-export default function ReportsClient() {
+export default function ReportsClient({ showReport }: ReportsClientProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
-  
-  // Get the tab from the URL or default to overview
-  const tabFromUrl = searchParams.get('tab') as TabType | null;
-  const [activeTab, setActiveTab] = useState<TabType>(
-    tabFromUrl && Object.values(TABS).includes(tabFromUrl) 
-      ? tabFromUrl 
-      : TABS.OVERVIEW
-  );
-  
-  // We'll use this for future implementation of date filtering
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [_filters] = useState<FilterOptions>({
-    period: 'monthly',
-    startDate: null,
-    endDate: null,
-  });
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
 
-  // Update the URL when the tab changes
   useEffect(() => {
     const params = new URLSearchParams(searchParams.toString());
-    if (activeTab !== TABS.OVERVIEW) {
       params.set('tab', activeTab);
-    } else {
-      params.delete('tab');
-    }
-    const newUrl = `${window.location.pathname}?${params.toString()}`.replace(/\?$/, '');
-    router.push(newUrl, { scroll: false });
+    router.push(`?${params.toString()}`);
   }, [activeTab, router, searchParams]);
 
-  const handleExportReport = () => {
-    // This would be implemented to export reports as CSV/PDF
-    console.log('Exporting report:', activeTab);
+  const handleExport = () => {
+    console.log('Exporting report...');
   };
 
-  return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50 p-4 sm:p-6 flex-1 overflow-y-auto">
-      <div className="container mx-auto space-y-8">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900">Reports Dashboard</h1>
-            <p className="text-muted-foreground mt-1">
-              View and analyze clinic performance metrics and statistics
-            </p>
-          </div>
+  if (!showReport) {
+    return (
+      <div className="pharmacy-analytics-container">
+        <h2 className="text-xl md:text-2xl font-bold text-gray-800 leading-tight mb-4">
+          Reports Dashboard
+        </h2>
+        
+        <UpgradePrompt
+          requiredPlan="pro"
+          features={[
+            "Real-time analytics dashboard",
+            "Revenue tracking",
+            "Patient statistics",
+            "Appointment analytics"
+          ]}
+          variant="card"
+          popoverPosition="top-right"
+        >
+          <div className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                  <DollarSign className="h-4 w-4 text-emerald-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-emerald-700">$0.00</div>
+                  <p className="text-xs text-emerald-600">+0% from last month</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Pharmacy Sales</CardTitle>
+                  <ShoppingBag className="h-4 w-4 text-indigo-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-indigo-700">$0.00</div>
+                  <p className="text-xs text-indigo-600">+0% from last month</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Patient Visits</CardTitle>
+                  <Users className="h-4 w-4 text-blue-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-blue-700">0</div>
+                  <p className="text-xs text-blue-600">+0% from last month</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Appointment Rate</CardTitle>
+                  <Activity className="h-4 w-4 text-amber-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-amber-700">0%</div>
+                  <p className="text-xs text-amber-600">+0% from last month</p>
+                </CardContent>
+              </Card>
+            </div>
 
-          <Button 
-            variant="outline" 
-            className="flex items-center gap-2"
-            onClick={handleExportReport}
-          >
-            <Download className="h-4 w-4" />
-            <span>Export Report</span>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+              <div className="flex items-center justify-between">
+                <TabsList>
+                  <TabsTrigger value="overview">Overview</TabsTrigger>
+                  <TabsTrigger value="pharmacy">Pharmacy Sales</TabsTrigger>
+                  <TabsTrigger value="services">Clinical Services</TabsTrigger>
+                  <TabsTrigger value="appointments">Appointments</TabsTrigger>
+                </TabsList>
+                <Button onClick={handleExport} variant="outline" size="sm" disabled>
+                  <Download className="mr-2 h-4 w-4" />
+                  Export Report
+                </Button>
+              </div>
+
+              <div className="mt-4">
+                {activeTab === 'overview' && (
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Overview Dashboard</h3>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <BarChart className="h-5 w-5 text-emerald-600" />
+                            <span>Revenue Overview</span>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="h-[200px] flex items-center justify-center bg-gradient-to-r from-emerald-50 to-emerald-100 rounded-md border border-emerald-200">
+                            <div className="text-center">
+                              <BarChart className="h-12 w-12 text-emerald-600 mx-auto" />
+                              <p className="text-emerald-700 mt-2">Revenue chart preview</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <Users className="h-5 w-5 text-blue-600" />
+                            <span>Patient Statistics</span>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="h-[200px] flex items-center justify-center bg-gradient-to-r from-blue-50 to-blue-100 rounded-md border border-blue-200">
+                            <div className="text-center">
+                              <Users className="h-12 w-12 text-blue-600 mx-auto" />
+                              <p className="text-blue-700 mt-2">Patient statistics preview</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+                )}
+                {activeTab === 'pharmacy' && (
+                  <div className="space-y-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <BarChart className="h-5 w-5 text-emerald-600" />
+                          <span>Recent Sales</span>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="h-[300px] flex items-center justify-center bg-gradient-to-r from-emerald-50 to-emerald-100 rounded-md border border-emerald-200">
+                          <div className="text-center">
+                            <BarChart className="h-16 w-16 text-emerald-600 mx-auto" />
+                            <p className="text-emerald-700 mt-2">Sales trend chart preview</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <div className="grid gap-6 md:grid-cols-2">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <DollarSign className="h-5 w-5 text-indigo-600" />
+                            <span>Revenue</span>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="h-[200px] flex items-center justify-center bg-gradient-to-r from-indigo-50 to-indigo-100 rounded-md border border-indigo-200">
+                            <div className="text-center">
+                              <DollarSign className="h-12 w-12 text-indigo-600 mx-auto" />
+                              <p className="text-indigo-700 mt-2">Revenue chart preview</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <TrendingUp className="h-5 w-5 text-amber-600" />
+                            <span>Top Selling Medications</span>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="h-[200px] flex items-center justify-center bg-gradient-to-r from-amber-50 to-amber-100 rounded-md border border-amber-200">
+                            <div className="text-center">
+                              <TrendingUp className="h-12 w-12 text-amber-600 mx-auto" />
+                              <p className="text-amber-700 mt-2">Top medications chart preview</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+                )}
+                {activeTab === 'services' && (
+                  <div className="space-y-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Activity className="h-5 w-5 text-blue-600" />
+                          <span>Services Revenue Analysis</span>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="h-[300px] flex items-center justify-center bg-gradient-to-r from-blue-50 to-blue-100 rounded-md border border-blue-200">
+                          <div className="text-center">
+                            <Activity className="h-16 w-16 text-blue-600 mx-auto" />
+                            <p className="text-blue-700 mt-2">Services revenue trend preview</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <TrendingUp className="h-5 w-5 text-emerald-600" />
+                            <span>Most Popular Services</span>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <ul className="space-y-2">
+                            {['General Consultation', 'Laboratory Tests', 'Vaccinations', 'Dental Services', 'Physiotherapy'].map((service, i) => (
+                              <li key={i} className="flex justify-between items-center p-2 hover:bg-emerald-50 rounded-md border border-emerald-100">
+                                <span className="text-emerald-700">{service}</span>
+                                <span className="text-emerald-600 text-sm">Preview Data</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <DollarSign className="h-5 w-5 text-indigo-600" />
+                            <span>Revenue by Department</span>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <ul className="space-y-2">
+                            {['General Practice', 'Laboratory', 'Radiology', 'Dental', 'Pediatrics'].map((dept, i) => (
+                              <li key={i} className="flex justify-between items-center p-2 hover:bg-indigo-50 rounded-md border border-indigo-100">
+                                <span className="text-indigo-700">{dept}</span>
+                                <span className="text-indigo-600 text-sm">Preview Data</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+                )}
+                {activeTab === 'appointments' && (
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Appointment Reports</h3>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <Activity className="h-5 w-5 text-amber-600" />
+                            <span>Appointment Statistics</span>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="h-[200px] flex items-center justify-center bg-gradient-to-r from-amber-50 to-amber-100 rounded-md border border-amber-200">
+                            <div className="text-center">
+                              <Activity className="h-12 w-12 text-amber-600 mx-auto" />
+                              <p className="text-amber-700 mt-2">Appointment statistics preview</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <Users className="h-5 w-5 text-blue-600" />
+                            <span>Doctor Performance</span>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="h-[200px] flex items-center justify-center bg-gradient-to-r from-blue-50 to-blue-100 rounded-md border border-blue-200">
+                            <div className="text-center">
+                              <Users className="h-12 w-12 text-blue-600 mx-auto" />
+                              <p className="text-blue-700 mt-2">Doctor performance preview</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Tabs>
+          </div>
+        </UpgradePrompt>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">$45,231.89</div>
+            <p className="text-xs text-muted-foreground">+20.1% from last month</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pharmacy Sales</CardTitle>
+            <ShoppingBag className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">$23,456.00</div>
+            <p className="text-xs text-muted-foreground">+15.3% from last month</p>
+          </CardContent>
+        </Card>
+              <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Patient Visits</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+            <div className="text-2xl font-bold">2,350</div>
+            <p className="text-xs text-muted-foreground">+12.5% from last month</p>
+                </CardContent>
+              </Card>
+              <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Appointment Rate</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+            <div className="text-2xl font-bold">85%</div>
+            <p className="text-xs text-muted-foreground">+4.2% from last month</p>
+                </CardContent>
+              </Card>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <div className="flex items-center justify-between">
+          <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="pharmacy">Pharmacy Sales</TabsTrigger>
+            <TabsTrigger value="services">Clinical Services</TabsTrigger>
+            <TabsTrigger value="appointments">Appointments</TabsTrigger>
+          </TabsList>
+          <Button onClick={handleExport} variant="outline" size="sm">
+            <Download className="mr-2 h-4 w-4" />
+            Export Report
           </Button>
         </div>
 
-        <Tabs 
-          defaultValue={TABS.OVERVIEW} 
-          value={activeTab}
-          onValueChange={(v) => setActiveTab(v as TabType)}
-          className="w-full"
-        >
-          <div className="border-b">
-            <TabsList className="bg-transparent h-auto p-0 w-full flex flex-wrap">
-              <TabTrigger 
-                value={TABS.OVERVIEW} 
-                icon={<BarChart className="h-4 w-4" />}
-                active={activeTab === TABS.OVERVIEW}
-              >
-                Overview
-              </TabTrigger>
-              <TabTrigger 
-                value={TABS.PHARMACY} 
-                icon={<ShoppingBag className="h-4 w-4" />}
-                active={activeTab === TABS.PHARMACY}
-              >
-                Pharmacy Sales
-              </TabTrigger>
-              <TabTrigger 
-                value={TABS.SERVICES} 
-                icon={<HeartPulse className="h-4 w-4" />}
-                active={activeTab === TABS.SERVICES}
-              >
-                Clinical Services
-              </TabTrigger>
-              <TabTrigger 
-                value={TABS.APPOINTMENTS} 
-                icon={<CalendarClock className="h-4 w-4" />}
-                active={activeTab === TABS.APPOINTMENTS}
-              >
-                Appointments
-              </TabTrigger>
-              <TabTrigger 
-                value={TABS.INVENTORY} 
-                icon={<Package className="h-4 w-4" />}
-                active={activeTab === TABS.INVENTORY}
-              >
-                Inventory
-              </TabTrigger>
-              <TabTrigger 
-                value={TABS.PATIENTS} 
-                icon={<Users className="h-4 w-4" />}
-                active={activeTab === TABS.PATIENTS}
-              >
-                Patients
-              </TabTrigger>
-            </TabsList>
-          </div>
-
-          {/* Overview Tab - General metrics */}
-          {activeTab === TABS.OVERVIEW && (
-            <div className="mt-6 space-y-6">
-              {/* Summary Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <MetricCard 
-                  title="Total Revenue" 
-                  value="KSh 1,245,300" 
-                  trend="+12.5%"
-                  trendUp={true}
-                  icon={<DollarSign className="h-5 w-5 text-blue-600" />}
-                  description="Last 30 days"
-                />
-                <MetricCard 
-                  title="Pharmacy Sales" 
-                  value="KSh 485,620" 
-                  trend="+8.2%"
-                  trendUp={true}
-                  icon={<ShoppingBag className="h-5 w-5 text-emerald-600" />}
-                  description="Last 30 days"
-                />
-                <MetricCard 
-                  title="Patient Visits" 
-                  value="1,254" 
-                  trend="+5.3%"
-                  trendUp={true}
-                  icon={<Users className="h-5 w-5 text-violet-600" />}
-                  description="Last 30 days"
-                />
-                <MetricCard 
-                  title="Appointment Rate" 
-                  value="78%" 
-                  trend="-2.1%"
-                  trendUp={false}
-                  icon={<Activity className="h-5 w-5 text-amber-600" />}
-                  description="Completion rate"
-                />
-              </div>
-
-              {/* Dashboard Component */}
-              <PharmacyReportsDashboard />
+        <div className="mt-4">
+          {activeTab === 'overview' && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Overview Dashboard</h3>
             </div>
           )}
-
-          {/* Pharmacy Sales Tab */}
-          {activeTab === TABS.PHARMACY && (
-            <div className="mt-6 space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                <MetricCard 
-                  title="Total Medicine Sales" 
-                  value="KSh 485,620" 
-                  trend="+8.2%"
-                  trendUp={true}
-                  icon={<ShoppingBag className="h-5 w-5 text-emerald-600" />}
-                  description="Last 30 days"
-                />
-                <MetricCard 
-                  title="Average Sale Value" 
-                  value="KSh 1,250" 
-                  trend="+3.7%"
-                  trendUp={true}
-                  icon={<TrendingUp className="h-5 w-5 text-blue-600" />}
-                  description="Per transaction"
-                />
-                <MetricCard 
-                  title="Top Selling Item" 
-                  value="Paracetamol" 
-                  trend="324 units"
-                  trendUp={true}
-                  icon={<Package className="h-5 w-5 text-purple-600" />}
-                  description="Most popular medicine"
-                />
-              </div>
-              
-              {/* Custom Pharmacy Dashboard would be implemented here */}
-              <PharmacyReportsSection />
+          {activeTab === 'pharmacy' && <PharmacyReportsDashboard />}
+          {activeTab === 'services' && <ServicesReportsSection />}
+          {activeTab === 'appointments' && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Appointment Reports</h3>
             </div>
           )}
-
-          {/* Services Tab */}
-          {activeTab === TABS.SERVICES && (
-            <div className="mt-6 space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                <MetricCard 
-                  title="Total Services" 
-                  value="KSh 759,680" 
-                  trend="+15.3%"
-                  trendUp={true}
-                  icon={<HeartPulse className="h-5 w-5 text-red-600" />}
-                  description="Last 30 days"
-                />
-                <MetricCard 
-                  title="Most Requested" 
-                  value="Consultation" 
-                  trend="428 visits"
-                  trendUp={true}
-                  icon={<Users className="h-5 w-5 text-indigo-600" />}
-                  description="Top service category"
-                />
-                <MetricCard 
-                  title="Average Fee" 
-                  value="KSh 2,800" 
-                  trend="+5.2%"
-                  trendUp={true}
-                  icon={<DollarSign className="h-5 w-5 text-emerald-600" />}
-                  description="Per service"
-                />
-              </div>
-              
-              {/* Custom Services Dashboard would be implemented here */}
-              <ServicesReportsSection />
-            </div>
-          )}
-
-          {/* Other tabs would be implemented in a similar way */}
-          {activeTab === TABS.APPOINTMENTS && (
-            <div className="mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Appointments Reports</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">
-                    Appointments reporting functionality coming soon...
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {activeTab === TABS.INVENTORY && (
-            <div className="mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Inventory Reports</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">
-                    Inventory reporting functionality coming soon...
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {activeTab === TABS.PATIENTS && (
-            <div className="mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Patient Reports</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">
-                    Patient demographics and analytics coming soon...
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+        </div>
         </Tabs>
       </div>
-    </main>
   );
 }
 

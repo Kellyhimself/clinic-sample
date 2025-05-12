@@ -1,59 +1,165 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Activity } from 'lucide-react';
+import { Activity, Lock } from 'lucide-react';
+import { useSubscription } from '@/app/lib/hooks/useSubscription';
+import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation';
+import { getFeatureDetails } from '@/app/lib/utils/featureCheck';
+import { UpgradePrompt } from '@/components/shared/UpgradePrompt';
 
-// Services-specific reports component
-export default function ServicesReportsSection() {
+interface ServicesReportsSectionProps {
+  tenantId?: string;
+}
+
+export default function ServicesReportsSection({ tenantId }: ServicesReportsSectionProps) {
+  const router = useRouter();
+  const { subscription } = useSubscription();
+  const [isFeatureEnabled, setIsFeatureEnabled] = useState(true);
+  const [isAdvancedEnabled, setIsAdvancedEnabled] = useState(false);
+  const [isEnterpriseEnabled, setIsEnterpriseEnabled] = useState(false);
+
+  useEffect(() => {
+    const feature = getFeatureDetails('services_reports', subscription?.plan || 'free');
+    setIsFeatureEnabled(feature?.enabled === true);
+
+    // Check advanced analytics feature
+    const advancedFeature = getFeatureDetails('advanced_analytics', subscription?.plan || 'free');
+    setIsAdvancedEnabled(advancedFeature?.enabled === true);
+
+    // Check enterprise analytics feature
+    const enterpriseFeature = getFeatureDetails('enterprise_analytics', subscription?.plan || 'free');
+    setIsEnterpriseEnabled(enterpriseFeature?.enabled === true);
+    
+    // Log feature details for debugging
+    console.log('Feature details:', {
+      feature,
+      enabled: feature?.enabled,
+      requiredPlan: feature?.requiredPlan,
+      currentPlan: subscription?.plan
+    });
+  }, [subscription]);
+
+  const renderUpgradeBanner = () => {
+    if (isFeatureEnabled && isAdvancedEnabled && isEnterpriseEnabled) return null;
+    
+    return (
+      <div className="bg-gradient-to-r from-indigo-50 to-indigo-100 border border-indigo-200 rounded-lg p-4 mb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Lock className="h-5 w-5 text-indigo-600" />
+            <div>
+              <h3 className="text-sm font-semibold text-indigo-900">Upgrade to Pro or Enterprise</h3>
+              <p className="text-sm text-indigo-700">Get access to advanced analytics, detailed reports, and more</p>
+            </div>
+          </div>
+          <Button 
+            onClick={() => router.push('/settings/billing')}
+            className="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white hover:from-indigo-600 hover:to-indigo-700"
+          >
+            Upgrade Now
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderFeaturePreview = (content: React.ReactNode, featureId: string) => {
+    const feature = getFeatureDetails(featureId, subscription?.plan || 'free');
+    const isLocked = !feature?.enabled && feature?.requiredPlan !== 'enterprise';
+    
+    return (
+      <div className={`relative ${isLocked ? 'group' : ''}`}>
+        {content}
+        {isLocked && (
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-[2px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="text-center p-4">
+              <Lock className="h-8 w-8 text-indigo-600 mx-auto mb-2" />
+              <p className="text-sm font-medium text-indigo-900">Available on {feature?.requiredPlan} plan</p>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  if (!isFeatureEnabled) {
+    return (
+      <UpgradePrompt
+        title="Services Reports"
+        description="Get comprehensive insights into your clinical services performance with our advanced analytics dashboard."
+        features={[
+          "Service revenue tracking",
+          "Popular services analysis",
+          "Doctor performance metrics",
+          "Service utilization trends"
+        ]}
+        requiredPlan="pro"
+      />
+    );
+  }
+
   return (
     <div className="space-y-5">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Services Reports</h1>
+        {renderUpgradeBanner()}
+      </div>
+
+      {/* Basic Analytics - Available for Free */}
       <Card>
         <CardHeader>
           <CardTitle>Services Revenue Analysis</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="h-[300px] flex items-center justify-center bg-gray-50 rounded-md">
-            {/* Placeholder for services chart */}
             <div className="text-center">
               <Activity className="h-16 w-16 text-gray-300 mx-auto" />
-              <p className="text-muted-foreground mt-2">Services trend chart will be displayed here</p>
+              <p className="text-muted-foreground mt-2">Your services revenue trend will be displayed here</p>
             </div>
           </div>
         </CardContent>
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <Card>
-          <CardHeader>
-            <CardTitle>Most Popular Services</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              {['General Consultation', 'Laboratory Tests', 'Vaccinations', 'Dental Services', 'Physiotherapy'].map((service, i) => (
-                <li key={i} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-md">
-                  <span>{service}</span>
-                  <span className="text-muted-foreground text-sm">{428 - i * 55} visits</span>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
+        {renderFeaturePreview(
+          <Card>
+            <CardHeader>
+              <CardTitle>Most Popular Services</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2">
+                {['General Consultation', 'Laboratory Tests', 'Vaccinations', 'Dental Services', 'Physiotherapy'].map((service, i) => (
+                  <li key={i} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-md">
+                    <span>{service}</span>
+                    <span className="text-muted-foreground text-sm">Preview Data</span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>,
+          'advanced_analytics'
+        )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Revenue by Department</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              {['General Practice', 'Laboratory', 'Radiology', 'Dental', 'Pediatrics'].map((dept, i) => (
-                <li key={i} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-md">
-                  <span>{dept}</span>
-                  <span className="text-muted-foreground text-sm">KSh {(Math.floor(Math.random() * 80) + 100) * 1000}</span>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
+        {renderFeaturePreview(
+          <Card>
+            <CardHeader>
+              <CardTitle>Revenue by Department</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2">
+                {['General Practice', 'Laboratory', 'Radiology', 'Dental', 'Pediatrics'].map((dept, i) => (
+                  <li key={i} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-md">
+                    <span>{dept}</span>
+                    <span className="text-muted-foreground text-sm">Preview Data</span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>,
+          'enterprise_analytics'
+        )}
       </div>
     </div>
   );

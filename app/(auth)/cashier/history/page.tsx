@@ -27,8 +27,9 @@ import {
   ChevronUp,
   Info,
 } from 'lucide-react';
-import { fetchPaymentHistory } from '@/lib/authActions';
+import { fetchPaymentHistory } from '@/lib/cashier';
 import { cn } from '@/lib/utils';
+import React from 'react';
 
 // Payment type definitions
 type PaymentType = 'appointment' | 'sale' | 'combined';
@@ -316,9 +317,8 @@ export default function PaymentHistoryPage() {
                       </TableHeader>
                       <TableBody>
                         {filteredPayments.map((payment) => (
-                          <>
+                          <React.Fragment key={`payment-${payment.id}`}>
                             <TableRow 
-                              key={`${payment.type}-${payment.id}`}
                               className={payment.type === 'combined' ? 'bg-blue-50' : ''}
                             >
                               <TableCell className="p-2">
@@ -360,7 +360,7 @@ export default function PaymentHistoryPage() {
                                 </TableRow>
                               ))
                             }
-                          </>
+                          </React.Fragment>
                         ))}
                       </TableBody>
                     </Table>

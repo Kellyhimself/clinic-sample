@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { fetchInventory, fetchSuppliers, addBatch } from '@/lib/authActions';
+import { fetchInventory, fetchSuppliers, addBatch } from '@/lib/inventory';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
