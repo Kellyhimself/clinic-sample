@@ -1,5 +1,5 @@
 import { fetchUserRole } from '@/lib/authActions';
-import { fetchInventory } from '@/lib/authActions';
+import { fetchInventory } from '@/lib/inventory';
 import InventoryForm from '@/components/pharmacy/InventoryForm';
 
 export default async function EditMedicationPage({ params }: { params: { id: string } }) {

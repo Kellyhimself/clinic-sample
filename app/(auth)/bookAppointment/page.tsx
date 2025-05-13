@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getAppointmentData, fetchPatients, fetchUserRole } from "@/lib/authActions";
+import { getAppointmentData, fetchUserRole } from "@/lib/authActions";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import AppointmentBookingSection from "@/components/AppointmentBookingSection";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BookAppointmentForm from "@/components/BookAppointmentForm";
 import type { Patient } from "@/types/supabase";
+import { fetchPatients } from '@/lib/newSale';
 
 // Define proper types for services and doctors
 interface Service {

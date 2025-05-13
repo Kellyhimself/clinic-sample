@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerClient } from '../../../../lib/supabase/client';
+import { createClient } from '@/app/lib/supabase/server';
 /* import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '@/types/supabase';
  */
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing CheckoutRequestID' }, { status: 400 });
   }
 
-  const supabase = await getServerClient();
+  const supabase = await createClient();
 
   if (ResultCode === 0) {
     const metadata = CallbackMetadata?.Item?.reduce(
