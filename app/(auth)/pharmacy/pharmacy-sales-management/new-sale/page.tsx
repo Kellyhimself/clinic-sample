@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 // app/sales/newsale/page.tsx
 import { Suspense } from 'react';
 import { createClient } from '@/app/lib/supabase/server';
