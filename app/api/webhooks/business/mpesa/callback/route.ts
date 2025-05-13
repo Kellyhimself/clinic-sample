@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase-server";
+import { createClient } from '@/app/lib/supabase/server';
 
 // Define types for M-Pesa callback data
 interface MpesaCallbackItem {
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     const { ResultCode, ResultDesc, CheckoutRequestID, CallbackMetadata } = Body.stkCallback;
     
     // Get the transaction from our database
-    const supabase = createAdminClient();
+    const supabase = createClient();
     const { data: transactionData, error: fetchError } = await supabase
       .from('mpesa_transactions')
       .select('*')

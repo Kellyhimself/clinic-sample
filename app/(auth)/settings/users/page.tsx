@@ -1,10 +1,10 @@
 // app/(auth)/settings/users/page.tsx
 import UsersTable from '@/components/UsersTable';
 import { fetchAllProfiles } from '@/lib/authActions';
-import { getServerClient } from '../../../../lib/supabase/client';
+import { createClient } from '@/app/lib/supabase/client';
 
 export default async function UsersPage() {
-  const supabase = await getServerClient();
+  const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !user) {
