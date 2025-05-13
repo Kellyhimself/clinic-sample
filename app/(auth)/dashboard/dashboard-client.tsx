@@ -77,8 +77,7 @@ export default function DashboardClient() {
             <div className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-xs'} text-gray-500 mb-1.5 font-medium`}>Quick Navigation</div>
             <div className={`dashboard-scroll-x ${isSmallMediumMobile ? 'xsm-scrollbar' : ''}`}>
               <Link href="/pharmacy/pharmacy-sales-management/new-sale">
-                <LimitAwareButton
-                  limitType="sales"
+                <Button
                   variant="outline"
                   size="sm"
                   className={`flex-shrink-0 whitespace-nowrap flex items-center gap-1 bg-gradient-to-r from-emerald-50 to-emerald-100 border-emerald-200 text-emerald-700 hover:bg-emerald-200 
@@ -87,7 +86,7 @@ export default function DashboardClient() {
                   <Plus className={`${isNarrowMobile ? 'xs-nav-icon' : isSmallMediumMobile ? 'xsm-nav-icon' : isMediumMobile ? 'sm-nav-icon' : 'h-3 w-3 md:h-4 md:w-4'}`} /> 
                   <span className={isNarrowMobile ? 'xs-truncate' : isSmallMediumMobile ? 'xsm-truncate' : ''}>New Sale</span> 
                   <ChevronRight className={`${isNarrowMobile ? 'xs-nav-icon' : isSmallMediumMobile ? 'xsm-nav-icon' : isMediumMobile ? 'sm-nav-icon' : 'h-2 w-2 md:h-3 md:w-3'} ml-1`} />
-                </LimitAwareButton>
+                </Button>
               </Link>
               
               <Link href="/pharmacy/pharmacy-sales-management">
@@ -162,22 +161,19 @@ export default function DashboardClient() {
           {/* Quick Link Card 3 - Add Medication */}
           {isPharmacist && (
             <Link href="/pharmacy/inventory/add">
-            <LimitAwareButton
-              limitType="inventory"
-              className={`group h-full cursor-pointer hover:shadow-lg transition-all duration-300 bg-gradient-to-br from-purple-100 to-purple-50 hover:from-purple-200 hover:to-purple-100 border-purple-200 hover-scale ${isNarrowMobile ? 'xs-card' : ''}`}
-            >
-              <div className={`${isNarrowMobile ? 'xs-card-content' : isSmallMediumMobile ? 'xsm-card-content' : isMediumMobile ? 'sm-card-content' : 'p-4 md:p-6'} flex flex-col items-center justify-center text-center h-full space-y-3 md:space-y-4`}>
-                <div className={`rounded-full bg-gradient-to-r from-purple-500 to-purple-600 flex items-center justify-center text-white group-hover:scale-110 transition-transform duration-300
-                ${isNarrowMobile ? 'xs-action-icon' : isSmallMediumMobile ? 'xsm-action-icon' : isMediumMobile ? 'sm-action-icon' : 'w-12 h-12 md:w-16 md:h-16'}`}>
-                  <Plus className={`${isNarrowMobile ? 'xs-action-icon-inner' : isSmallMediumMobile ? 'xsm-action-icon-inner' : isMediumMobile ? 'sm-action-icon-inner' : 'h-6 w-6 md:h-8 md:w-8'}`} />
+              <Card className={`group h-full cursor-pointer hover:shadow-lg transition-all duration-300 bg-gradient-to-br from-purple-100 to-purple-50 hover:from-purple-200 hover:to-purple-100 border-purple-200 hover-scale ${isNarrowMobile ? 'xs-card' : ''}`}>
+                <div className={`${isNarrowMobile ? 'xs-card-content' : isSmallMediumMobile ? 'xsm-card-content' : isMediumMobile ? 'sm-card-content' : 'p-4 md:p-6'} flex flex-col items-center justify-center text-center h-full space-y-3 md:space-y-4`}>
+                  <div className={`rounded-full bg-gradient-to-r from-purple-500 to-purple-600 flex items-center justify-center text-white group-hover:scale-110 transition-transform duration-300
+                  ${isNarrowMobile ? 'xs-action-icon' : isSmallMediumMobile ? 'xsm-action-icon' : isMediumMobile ? 'sm-action-icon' : 'w-12 h-12 md:w-16 md:h-16'}`}>
+                    <Plus className={`${isNarrowMobile ? 'xs-action-icon-inner' : isSmallMediumMobile ? 'xsm-action-icon-inner' : isMediumMobile ? 'sm-action-icon-inner' : 'h-6 w-6 md:h-8 md:w-8'}`} />
+                  </div>
+                  <div className={isNarrowMobile ? 'xs-title-container' : ''}>
+                    <h3 className={`${isNarrowMobile ? 'xs-heading xs-truncate' : isSmallMediumMobile ? 'xsm-heading' : isMediumMobile ? 'sm-heading' : 'text-lg md:text-xl'} font-bold text-purple-700 mb-1 md:mb-2`}>Add Medication</h3>
+                    <p className={`${isNarrowMobile ? 'xs-text xs-truncate' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-xs md:text-sm'} text-purple-600`}>Add new medication to inventory</p>
+                  </div>
                 </div>
-                <div className={isNarrowMobile ? 'xs-title-container' : ''}>
-                  <h3 className={`${isNarrowMobile ? 'xs-heading xs-truncate' : isSmallMediumMobile ? 'xsm-heading' : isMediumMobile ? 'sm-heading' : 'text-lg md:text-xl'} font-bold text-purple-700 mb-1 md:mb-2`}>Add Medication</h3>
-                  <p className={`${isNarrowMobile ? 'xs-text xs-truncate' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-xs md:text-sm'} text-purple-600`}>Add new medication to inventory</p>
-                </div>
-              </div>
-            </LimitAwareButton>
-          </Link>
+              </Card>
+            </Link>
           )}
 
           {/* Quick Link Card 4 - Add Patient */}

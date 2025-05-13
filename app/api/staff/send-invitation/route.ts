@@ -1,8 +1,9 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createClient } from '@/app/lib/supabase/server';
+import { createAdminClient } from '@/app/lib/supabase/admin';
 import { NextResponse } from 'next/server';
 import { PLAN_LIMITS } from '@/app/lib/config/usageLimits';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { sendInvitationEmail } from '@/app/lib/email';
 
 // Helper function to count current users for a tenant
 async function countTenantUsers(supabase: SupabaseClient, tenantId: string): Promise<number> {
@@ -35,24 +36,33 @@ async function getTenantPlan(supabase: SupabaseClient, tenantId: string): Promis
 
 export async function POST(request: Request) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    // Initialize Supabase clients
+    const supabase = await createClient();
+    const adminClient = createAdminClient();
+
+    // Get the request data
     const reqData = await request.json();
     const { email, role, metadata, tenantId } = reqData;
 
-    // Check if the user has permission to send invitations
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    // Get the user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get the user's profile to check their role
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('role, tenant_id')
-      .eq('id', session.user.id)
+      .select('role, tenant_id, full_name')
+      .eq('id', user.id)
       .single();
 
-    if (!profile || profile.role !== 'admin') {
+    if (profileError || !profile) {
+      return NextResponse.json({ error: 'Failed to fetch user profile' }, { status: 500 });
+    }
+
+    if (profile.role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized. Only admins can send invitations.' }, { status: 401 });
     }
 
@@ -91,12 +101,20 @@ export async function POST(request: Request) {
     // Generate unique invitation ID
     const invitationId = crypto.randomUUID();
     
-    // Calculate expiration date (48 hours from now)
+    // Calculate expiration date (7 days from now)
     const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 48);
+    expiresAt.setDate(expiresAt.getDate() + 7);
 
-    // Insert the invitation record
-    const { error: invitationError } = await supabase
+    console.log('Creating invitation with:', {
+      id: invitationId,
+      email,
+      role,
+      tenant_id: targetTenantId,
+      expires_at: expiresAt.toISOString()
+    });
+
+    // Insert the invitation record using admin client
+    const { data: invitationData, error: invitationError } = await adminClient
       .from('staff_invitations')
       .insert({
         id: invitationId,
@@ -106,45 +124,39 @@ export async function POST(request: Request) {
         status: 'pending',
         expires_at: expiresAt.toISOString(),
         metadata
-      });
+      })
+      .select()
+      .single();
 
     if (invitationError) {
+      console.error('Failed to create invitation:', invitationError);
       return NextResponse.json({ error: `Failed to create invitation: ${invitationError.message}` }, { status: 500 });
     }
 
+    console.log('Invitation created successfully:', invitationData);
+
     // Get tenant details for the email
-    const { data: tenant } = await supabase
+    const { data: tenant, error: tenantError } = await supabase
       .from('tenants')
       .select('name')
       .eq('id', targetTenantId)
       .single();
 
-    if (!tenant) {
+    if (tenantError || !tenant) {
       return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
     }
 
-    // Send invitation email
-    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/email/send`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        to: email,
-        subject: `Join ${tenant.name} on Clinic Sample`,
-        template: 'staff-invitation',
-        data: {
-          tenantName: tenant.name,
-          role: role,
-          invitationId: invitationId,
-          expiresAt: expiresAt.toISOString(),
-        },
-      }),
-    });
+    // Generate invitation link
+    const invitationLink = `${process.env.NEXT_PUBLIC_APP_URL}/signup?token=${invitationId}&role=${role}&email=${encodeURIComponent(email)}`;
 
-    if (!response.ok) {
-      throw new Error('Failed to send invitation email');
-    }
+    // Send invitation email using the email service
+    await sendInvitationEmail({
+      to: email,
+      invitationLink,
+      tenantName: tenant.name,
+      role,
+      invitedBy: profile.full_name
+    });
 
     return NextResponse.json({ 
       success: true,

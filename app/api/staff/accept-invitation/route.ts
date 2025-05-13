@@ -67,25 +67,50 @@ async function createRoleSpecificRecord(
 
 export async function POST(request: NextRequest) {
   try {
-    const { token, password, full_name, metadata = {} } = await request.json();
+    const formData = await request.formData();
+    const token = formData.get('token') as string;
+    const password = formData.get('password') as string;
+    const fullName = formData.get('fullName') as string;
+    const phoneNumber = formData.get('phoneNumber') as string;
+    const email = formData.get('email') as string;
+    const metadata = {
+      licenseNumber: formData.get('licenseNumber') as string,
+      specialty: formData.get('specialty') as string,
+      specialization: formData.get('specialization') as string,
+      department: formData.get('department') as string,
+      permissions: formData.get('permissions') ? JSON.parse(formData.get('permissions') as string) : []
+    };
 
     // Initialize Supabase clients
     const supabase = await createClient();
     const adminClient = createAdminClient();
 
     // Verify the invitation token by checking the staff_invitations table
-    const { data: invitation, error: verifyError } = await supabase
+    const { data: invitation, error: verifyError } = await adminClient
       .from('staff_invitations')
       .select('*')
-      .eq('metadata->>token', token)
+      .eq('id', token)
       .eq('status', 'pending')
       .gt('expires_at', new Date().toISOString())
+      .eq('email', email)
       .single();
 
-    if (verifyError || !invitation) {
-      console.error('Token verification error:', verifyError);
+    if (verifyError) {
+      if (verifyError.code === 'PGRST116') {
+        return NextResponse.json(
+          { error: 'Invitation not found or has expired' },
+          { status: 400 }
+        );
+      }
       return NextResponse.json(
-        { error: 'Invalid or expired invitation token' },
+        { error: 'Failed to verify invitation' },
+        { status: 500 }
+      );
+    }
+
+    if (!invitation) {
+      return NextResponse.json(
+        { error: 'Invalid or expired invitation' },
         { status: 400 }
       );
     }
@@ -98,7 +123,6 @@ export async function POST(request: NextRequest) {
     });
 
     if (userCheckError) {
-      console.error('Error checking existing user:', userCheckError);
       return NextResponse.json(
         { error: 'Failed to check existing user' },
         { status: 500 }
@@ -112,15 +136,16 @@ export async function POST(request: NextRequest) {
         existingUser.users[0].id,
         {
           password,
+          email_confirm: true,
+          email: invitation.email,
           user_metadata: {
-            full_name,
+            full_name: fullName,
             tenant_id: invitation.tenant_id
           }
         }
       );
 
       if (updateError) {
-        console.error('Error updating existing user:', updateError);
         return NextResponse.json(
           { error: 'Failed to update existing user' },
           { status: 500 }
@@ -135,13 +160,12 @@ export async function POST(request: NextRequest) {
         password,
         email_confirm: true,
         user_metadata: {
-          full_name,
+          full_name: fullName,
           tenant_id: invitation.tenant_id
         }
       });
 
       if (authError) {
-        console.error('Auth error details:', authError);
         return NextResponse.json(
           { error: authError.message || 'Failed to create user account' },
           { status: 500 }
@@ -152,21 +176,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Create or update profile
-    const { error: profileError } = await supabase
+    const { error: profileError } = await adminClient
       .from('profiles')
       .upsert({
         id: authData.user.id,
         email: invitation.email,
-        full_name,
+        full_name: fullName,
         role: invitation.role,
         tenant_id: invitation.tenant_id,
-        phone_number: '+254000000000',
+        phone_number: phoneNumber,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       });
 
     if (profileError) {
-      console.error('Profile creation/update error:', profileError);
       return NextResponse.json(
         { error: 'Failed to create/update user profile' },
         { status: 500 }
@@ -175,7 +198,7 @@ export async function POST(request: NextRequest) {
 
     // Create role-specific record
     const { error: roleError } = await createRoleSpecificRecord(
-      supabase,
+      adminClient,
       authData.user.id,
       invitation.tenant_id,
       invitation.role,
@@ -184,9 +207,8 @@ export async function POST(request: NextRequest) {
 
     if (roleError) {
       // Clean up if role-specific record creation fails
-      await supabase.from('profiles').delete().eq('id', authData.user.id);
+      await adminClient.from('profiles').delete().eq('id', authData.user.id);
       await adminClient.auth.admin.deleteUser(authData.user.id);
-      console.error('Role-specific record creation error:', roleError);
       return NextResponse.json(
         { error: `Failed to create ${invitation.role} record` },
         { status: 500 }
@@ -194,13 +216,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Update invitation status
-    const { error: updateError } = await supabase
+    const { error: updateError } = await adminClient
       .from('staff_invitations')
       .update({ status: 'accepted' })
       .eq('id', invitation.id);
 
     if (updateError) {
-      console.error('Failed to update invitation status:', updateError);
       // Don't fail the request if this fails, as the user is already created
     }
 
@@ -213,7 +234,6 @@ export async function POST(request: NextRequest) {
       redirect: '/login'
     });
   } catch (error) {
-    console.error('Error in accept-invitation:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

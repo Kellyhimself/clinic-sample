@@ -15,13 +15,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useRouter, useSearchParams } from 'next/navigation';
-import { initializeTransaction } from '@/lib/paystack';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { getSubscriptionData, getInvoices } from '@/app/actions/subscription';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 
 const plans = {
   free: {
@@ -62,56 +58,174 @@ const plans = {
   }
 };
 
+interface SubscriptionData {
+  id: string;
+  tenant_id: string;
+  plan_type: string;
+  status: string;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean | null;
+  billing_address: string | null;
+  billing_email: string | null;
+  contact_person: string | null;
+  contact_phone: string | null;
+  is_active: boolean | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+interface InvoiceMetadata {
+  plan?: string;
+  tenant_id?: string;
+  phone_number?: string;
+  [key: string]: unknown;
+}
+
+interface Invoice {
+  id: string;
+  tenant_id: string;
+  amount: number;
+  currency: string | null;
+  status: string;
+  payment_method: string | null;
+  payment_date: string | null;
+  paystack_payment_id: string | null;
+  external_invoice_id: string | null;
+  invoice_number: string;
+  invoice_date: string | null;
+  due_date: string | null;
+  period_start: string | null;
+  period_end: string | null;
+  metadata: InvoiceMetadata | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
 export default function BillingPage() {
-  const { user, role } = useAuth();
+  const { user, loading: authLoading, tenantId } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [subscriptionData, setSubscriptionData] = useState<any>(null);
-  const [invoices, setInvoices] = useState<any[]>([]);
+  const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [isLoadingInvoices, setIsLoadingInvoices] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      fetchSubscriptionData();
-      fetchInvoices();
-    }
-  }, [user]);
+    if (authLoading) return;
 
-  const fetchSubscriptionData = async () => {
-    const { data: tenantData, error: tenantError } = await supabase
-      .from('tenants')
-      .select('*')
-      .eq('id', user?.tenant_id)
-      .single();
-
-    if (tenantError) {
-      console.error('Error fetching tenant data:', tenantError);
+    if (!user || !tenantId) {
+      router.push('/login');
       return;
     }
 
-    setSubscriptionData(tenantData);
+      fetchSubscriptionData();
+      fetchInvoices();
+  }, [user, authLoading, router, tenantId]);
+
+  const fetchSubscriptionData = async () => {
+    if (!tenantId) return;
+
+    try {
+      const { data, error } = await getSubscriptionData(tenantId);
+
+      if (error) {
+        console.error('Error fetching tenant data:', error);
+        toast.error('Failed to fetch subscription data');
+      return;
+    }
+
+      if (data) {
+        const subscriptionData: SubscriptionData = {
+          id: data.id,
+          tenant_id: tenantId,
+          plan_type: data.plan_type || 'free',
+          status: data.status || 'inactive',
+          current_period_start: data.current_period_start || null,
+          current_period_end: data.current_period_end || null,
+          cancel_at_period_end: data.cancel_at_period_end || null,
+          billing_address: data.billing_address || null,
+          billing_email: data.billing_email || null,
+          contact_person: data.contact_person || null,
+          contact_phone: data.contact_phone || null,
+          is_active: data.is_active || null,
+          created_at: data.created_at || null,
+          updated_at: data.updated_at || null
+        };
+        setSubscriptionData(subscriptionData);
+      }
+    } catch (error) {
+      console.error('Error in fetchSubscriptionData:', error);
+      toast.error('Failed to fetch subscription data');
+    }
   };
 
   const fetchInvoices = async () => {
-    const { data, error } = await supabase
-      .from('subscription_invoices')
-      .select('*')
-      .eq('tenant_id', user?.tenant_id)
-      .order('created_at', { ascending: false });
+    if (!tenantId) return;
+
+    try {
+      setIsLoadingInvoices(true);
+      console.log('Fetching invoices for tenant:', tenantId);
+      const { data, error } = await getInvoices(tenantId);
 
     if (error) {
       console.error('Error fetching invoices:', error);
+        toast.error('Failed to fetch payment history');
       return;
     }
 
-    setInvoices(data);
+      console.log('Raw invoice data:', data);
+
+      if (data) {
+        const formattedInvoices: Invoice[] = data.map(invoice => ({
+          id: invoice.id,
+          tenant_id: tenantId,
+          amount: invoice.amount,
+          currency: invoice.currency || null,
+          status: invoice.status || 'pending',
+          payment_method: invoice.payment_method || null,
+          payment_date: invoice.payment_date || null,
+          paystack_payment_id: invoice.paystack_payment_id || null,
+          external_invoice_id: invoice.external_invoice_id || null,
+          invoice_number: invoice.invoice_number,
+          invoice_date: invoice.invoice_date || null,
+          due_date: invoice.due_date || null,
+          period_start: invoice.period_start || null,
+          period_end: invoice.period_end || null,
+          metadata: invoice.metadata ? {
+            plan: typeof invoice.metadata === 'object' && invoice.metadata !== null ? 
+              (invoice.metadata as InvoiceMetadata).plan : undefined,
+            tenant_id: typeof invoice.metadata === 'object' && invoice.metadata !== null ? 
+              (invoice.metadata as InvoiceMetadata).tenant_id : undefined,
+            phone_number: typeof invoice.metadata === 'object' && invoice.metadata !== null ? 
+              (invoice.metadata as InvoiceMetadata).phone_number : undefined,
+            ...(typeof invoice.metadata === 'object' && invoice.metadata !== null ? 
+              invoice.metadata as Record<string, unknown> : {})
+          } : null,
+          created_at: invoice.created_at || null,
+          updated_at: invoice.updated_at || null
+        }));
+        console.log('Formatted invoices:', formattedInvoices);
+        setInvoices(formattedInvoices);
+      } else {
+        console.log('No invoice data received');
+      }
+    } catch (error) {
+      console.error('Error in fetchInvoices:', error);
+      toast.error('Failed to fetch payment history');
+    } finally {
+      setIsLoadingInvoices(false);
+    }
   };
 
   // Handle success/cancel from Paystack
   useEffect(() => {
+    if (!user) return;
+
     if (searchParams) {
       const reference = searchParams.get('reference');
       const trxref = searchParams.get('trxref');
@@ -120,66 +234,107 @@ export default function BillingPage() {
         toast.success('Payment successful! Your subscription has been updated.');
         fetchSubscriptionData();
         fetchInvoices();
-        // Redirect to dashboard after showing toast
-        setTimeout(() => {
-          router.push('/dashboard');
-        }, 2000);
       }
     }
-  }, [searchParams, router]);
+  }, [searchParams, router, user]);
 
   const handleUpgradeClick = (planKey: string) => {
+    if (!user) {
+      toast.error('Please log in to upgrade your plan');
+      router.push('/login');
+      return;
+    }
+
     setSelectedPlan(planKey);
     setShowPaymentDialog(true);
   };
 
   const handlePayment = async (method: 'card' | 'mpesa') => {
-    if (!selectedPlan || !user) {
-      toast.error('No plan selected or user not logged in');
+    if (!user || !tenantId) {
+      router.push('/login');
+      return;
+    }
+
+    if (!selectedPlan) {
+      toast.error('No plan selected');
       return;
     }
 
     try {
       setLoading(true);
       setShowPaymentDialog(false);
+      setIsRedirecting(true);
 
       const plan = plans[selectedPlan as keyof typeof plans];
-      const callback_url = `${process.env.NEXT_PUBLIC_APP_URL}/settings/billing`;
+      const callback_url = `${window.location.origin}/settings/billing`;
 
-      const response = await initializeTransaction({
+      const response = await fetch('/api/payments/initialize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
         amount: plan.price,
         email: user.email!,
         callback_url,
+          method,
         metadata: {
           plan: selectedPlan,
-          tenant_id: user.tenant_id,
+            tenant_id: tenantId,
           phone_number: phoneNumber || user.phone || '',
         },
+        }),
       });
 
-      if (response.status) {
-        // Redirect to Paystack payment page
-        window.location.href = response.data.authorization_url;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to initialize payment');
+      }
+
+      if (data.status) {
+        window.location.href = data.data.authorization_url;
       } else {
         toast.error('Failed to initialize payment');
+        setIsRedirecting(false);
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to process payment');
       console.error('Payment error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to process payment');
+      setIsRedirecting(false);
     } finally {
       setLoading(false);
     }
   };
 
+  if (authLoading || isRedirecting) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50">
+        <div className="w-full max-w-md space-y-8 p-8">
+          <div className="bg-white p-8 rounded-lg shadow-lg text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-indigo-600" />
+            <h2 className="text-xl font-semibold text-gray-900">
+              {isRedirecting ? 'Just a moment as you are being redirected to the payment portal...' : 'Loading...'}
+            </h2>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user || !tenantId) {
+    return null; // Will redirect in useEffect
+  }
+
   return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50">
     <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-8">Billing & Subscription</h1>
+        <h1 className="text-3xl font-bold mb-8 text-center text-gray-900">Billing & Subscription</h1>
       
       <Tabs defaultValue="subscription" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="subscription">Subscription</TabsTrigger>
-          <TabsTrigger value="payment">Payment Methods</TabsTrigger>
-          <TabsTrigger value="history">Payment History</TabsTrigger>
+          <TabsList className="w-full max-w-md mx-auto">
+            <TabsTrigger value="subscription" className="flex-1">Subscription</TabsTrigger>
+            <TabsTrigger value="history" className="flex-1">Payment History</TabsTrigger>
         </TabsList>
         
         <TabsContent value="subscription">
@@ -202,10 +357,9 @@ export default function BillingPage() {
                         </li>
                       ))}
                     </ul>
-                    {key !== subscriptionData?.plan_type && (
                       <Button
                         onClick={() => handleUpgradeClick(key)}
-                        disabled={loading}
+                        disabled={loading || key === subscriptionData?.plan_type}
                         className="w-full"
                       >
                         {loading ? (
@@ -216,11 +370,10 @@ export default function BillingPage() {
                         ) : (
                           <>
                             <Wallet className="mr-2 h-4 w-4" />
-                            {key === 'free' ? 'Downgrade' : 'Upgrade'}
+                            {key === subscriptionData?.plan_type ? 'Current Plan' : key === 'free' ? 'Downgrade' : 'Upgrade'}
                           </>
                         )}
                       </Button>
-                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -228,98 +381,76 @@ export default function BillingPage() {
           </div>
         </TabsContent>
         
-        <TabsContent value="payment">
+          <TabsContent value="history">
           <Card>
-            <CardHeader>
-              <CardTitle>Payment Methods</CardTitle>
-              <CardDescription>
-                Manage your payment methods and billing information
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center space-x-4">
-                    <CreditCard className="h-6 w-6" />
-                    <div>
-                      <h3 className="font-medium">Credit Card</h3>
-                      <p className="text-sm text-muted-foreground">Pay with card</p>
-                    </div>
-                  </div>
-                  <Button variant="outline" onClick={() => handlePayment('card')} disabled={loading}>
-                    {loading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      'Pay'
-                    )}
-                  </Button>
+              <CardHeader className="p-2 sm:p-4">
+                <div className="flex items-center gap-2 sm:gap-4">
+                  <CardTitle className="text-base sm:text-lg">Payment History</CardTitle>
                 </div>
-                
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center space-x-4">
-                    <Wallet className="h-6 w-6" />
-                    <div>
-                      <h3 className="font-medium">M-PESA</h3>
-                      <p className="text-sm text-muted-foreground">Pay with M-Pesa</p>
+              </CardHeader>
+              <div className="p-2 sm:p-4 md:p-6">
+                <div className="w-full mx-auto bg-white rounded-lg overflow-hidden">
+                  {isLoadingInvoices ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      <span className="ml-2 text-sm text-gray-600">Loading payment history...</span>
                     </div>
-                  </div>
-                  <Button variant="outline" onClick={() => handlePayment('mpesa')} disabled={loading}>
-                    {loading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      'Pay'
-                    )}
-                  </Button>
+                  ) : (
+                    <Table className="w-full border-collapse">
+                      <TableHeader>
+                        <TableRow className="bg-gray-50">
+                          <TableHead className="text-xs font-medium text-gray-700 p-2">Invoice #</TableHead>
+                          <TableHead className="text-xs font-medium text-gray-700 p-2">Date</TableHead>
+                          <TableHead className="text-xs font-medium text-gray-700 p-2">Amount</TableHead>
+                          <TableHead className="text-xs font-medium text-gray-700 p-2">Status</TableHead>
+                          <TableHead className="text-xs font-medium text-gray-700 p-2">Payment Method</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {invoices.length > 0 ? (
+                          invoices.map((invoice) => (
+                            <TableRow key={invoice.id} className="hover:bg-gray-100 border-b">
+                              <TableCell className="text-sm p-2">{invoice.invoice_number}</TableCell>
+                              <TableCell className="text-sm p-2">
+                                {invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString() : 'N/A'}
+                              </TableCell>
+                              <TableCell className="text-sm p-2">KSh {invoice.amount.toLocaleString()}</TableCell>
+                              <TableCell className="text-sm p-2">
+                                <Badge
+                                  variant={
+                                    invoice.status === 'paid'
+                                      ? 'default'
+                                      : invoice.status === 'failed'
+                                      ? 'destructive'
+                                      : 'secondary'
+                                  }
+                                >
+                                  {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-sm p-2">
+                                {invoice.payment_method ? (
+                                  <Badge variant="outline" className="capitalize">
+                                    {invoice.payment_method}
+                                  </Badge>
+                                ) : (
+                                  'N/A'
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={5} className="text-center text-sm text-gray-500 py-4">
+                              No payment history available
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  )}
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      
-        <TabsContent value="history">
-          <Card>
-            <CardHeader>
-              <CardTitle>Payment History</CardTitle>
-              <CardDescription>
-                View your past payments and invoices
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {invoices.length > 0 ? (
-                  <div className="space-y-4">
-                    {invoices.map((invoice) => (
-                      <div key={invoice.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div>
-                          <h3 className="font-medium">Invoice #{invoice.invoice_number}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {new Date(invoice.invoice_date).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium">KSh {invoice.amount.toLocaleString()}</p>
-                          <p className={`text-sm ${
-                            invoice.status === 'paid' ? 'text-green-600' : 
-                            invoice.status === 'failed' ? 'text-red-600' : 
-                            'text-yellow-600'
-                          }`}>
-                            {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No payment history available</p>
-                )}
-              </div>
-            </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
@@ -361,6 +492,7 @@ export default function BillingPage() {
           </div>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 } 

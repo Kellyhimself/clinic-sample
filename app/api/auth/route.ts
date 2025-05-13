@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/app/lib/supabase/server';
 
-
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { action, email, password, full_name } = await request.json();
@@ -39,7 +38,7 @@ export async function POST(request: NextRequest) {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { full_name } },
+        options: { data: { full_name } }
       });
       if (error) throw new Error(error.message);
 

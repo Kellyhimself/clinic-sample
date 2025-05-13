@@ -19,28 +19,47 @@ export async function sendInvitationEmail({
 }: SendInvitationEmailParams) {
   try {
     const { data, error } = await resend.emails.send({
-      from: 'onboarding@resend.dev',
+      from: process.env.EMAIL_FROM || 'noreply@yourdomain.com',
       to,
       subject: `You've been invited to join ${tenantName}`,
       html: `
-        <div>
-          <h1>Welcome to ${tenantName}!</h1>
-          <p>You've been invited by ${invitedBy} to join as a ${role}.</p>
-          <p>Click the link below to accept the invitation and set up your account:</p>
-          <a href="${invitationLink}">Accept Invitation</a>
-          <p>This invitation will expire in 7 days.</p>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px;">
+            <h1 style="color: #2d3748; margin-bottom: 20px;">Welcome to ${tenantName}!</h1>
+            
+            <p style="color: #4a5568; margin-bottom: 15px;">You've been invited by ${invitedBy} to join as a ${role}.</p>
+            
+            <div style="background-color: #ffffff; padding: 20px; border-radius: 5px; margin: 20px 0;">
+              <p style="color: #4a5568; margin-bottom: 15px;">To accept this invitation and set up your account, click the button below:</p>
+              
+              <a href="${invitationLink}" 
+                 style="display: inline-block; background-color: #4299e1; color: white; padding: 12px 24px; 
+                        text-decoration: none; border-radius: 5px; font-weight: bold;">
+                Accept Invitation
+              </a>
+            </div>
+            
+            <p style="color: #718096; font-size: 14px; margin-top: 20px;">
+              This invitation will expire in 7 days. If you did not expect this invitation, 
+              please ignore this email or contact your administrator.
+            </p>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+              <p style="color: #718096; font-size: 12px;">
+                This is an automated message, please do not reply to this email.
+              </p>
+            </div>
+          </div>
         </div>
       `
     });
 
     if (error) {
-      console.error('Failed to send invitation email:', error);
       throw error;
     }
 
     return data;
   } catch (error) {
-    console.error('Error sending invitation email:', error);
     throw error;
   }
 }
@@ -58,26 +77,40 @@ export async function sendWelcomeEmail({
 }: SendWelcomeEmailParams) {
   try {
     const { data, error } = await resend.emails.send({
-      from: 'onboarding@resend.dev',
+      from: process.env.EMAIL_FROM || 'noreply@yourdomain.com',
       to,
       subject: `Welcome to ${tenantName}!`,
       html: `
-        <div>
-          <h1>Welcome to ${tenantName}, ${fullName}!</h1>
-          <p>Your account has been successfully created.</p>
-          <p>You can now log in and start using the platform.</p>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px;">
+            <h1 style="color: #2d3748; margin-bottom: 20px;">Welcome to ${tenantName}, ${fullName}!</h1>
+            
+            <p style="color: #4a5568; margin-bottom: 15px;">
+              Your account has been successfully created. You can now log in and start using the platform.
+            </p>
+            
+            <div style="background-color: #ffffff; padding: 20px; border-radius: 5px; margin: 20px 0;">
+              <p style="color: #4a5568; margin-bottom: 15px;">
+                If you have any questions or need assistance, please contact your administrator.
+              </p>
+            </div>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+              <p style="color: #718096; font-size: 12px;">
+                This is an automated message, please do not reply to this email.
+              </p>
+            </div>
+          </div>
         </div>
       `
     });
 
     if (error) {
-      console.error('Failed to send welcome email:', error);
       throw error;
     }
 
     return data;
   } catch (error) {
-    console.error('Error sending welcome email:', error);
     throw error;
   }
 } 

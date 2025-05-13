@@ -1,4 +1,5 @@
 import axios from 'axios';
+import * as crypto from 'crypto';
 
 // Initialize Paystack API
 const paystack = axios.create({
@@ -142,4 +143,13 @@ export async function enableSubscription(subscriptionId: string) {
     console.error('Paystack subscription enable error:', error);
     throw error;
   }
+}
+
+export function verifyPaystackWebhook(payload: any, signature: string): boolean {
+  const secret = process.env.PAYSTACK_SECRET_KEY!;
+  const hash = crypto
+    .createHmac('sha512', secret)
+    .update(JSON.stringify(payload))
+    .digest('hex');
+  return hash === signature;
 } 

@@ -1,248 +1,120 @@
 import { NextResponse } from 'next/server';
-import { headers } from 'next/headers';
-import * as crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
+import { headers } from 'next/headers';
+import { verifyPaystackWebhook } from '@/lib/paystack';
 
-// Initialize Supabase client
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Verify Paystack webhook signature
-function verifyWebhookSignature(payload: string, signature: string): boolean {
-  const secret = process.env.PAYSTACK_SECRET_KEY!;
-  const hash = crypto
-    .createHmac('sha512', secret)
-    .update(payload)
-    .digest('hex');
-  return hash === signature;
-}
-
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
+    const body = await req.json();
     const headersList = headers();
-    const signature = headersList.get('x-paystack-signature');
+    const paystackSignature = headersList.get('x-paystack-signature');
 
-    if (!signature) {
-      return new NextResponse('No signature', { status: 401 });
+    if (!paystackSignature) {
+      return NextResponse.json({ error: 'No signature provided' }, { status: 401 });
     }
 
-    const payload = await request.text();
-    const isValid = verifyWebhookSignature(payload, signature);
-
+    const isValid = verifyPaystackWebhook(body, paystackSignature);
     if (!isValid) {
-      return new NextResponse('Invalid signature', { status: 401 });
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
 
-    const event = JSON.parse(payload);
+    const event = body.event;
+    console.log('Received Paystack webhook event:', event);
 
-    // Handle different event types
-    switch (event.event) {
-      case 'subscription.create':
-        await handleSubscriptionCreated(event.data);
-        break;
-      case 'subscription.enable':
-        await handleSubscriptionEnabled(event.data);
-        break;
-      case 'subscription.disable':
-        await handleSubscriptionDisabled(event.data);
-        break;
-      case 'charge.success':
-        await handlePaymentSuccess(event.data);
-        break;
-      case 'charge.failed':
-        await handlePaymentFailed(event.data);
-        break;
-      default:
-        console.log('Unhandled event:', event.event);
+    if (event === 'charge.success') {
+      const payment = body.data;
+      console.log('Processing payment success:', payment);
+
+      const { plan, tenant_id } = payment.metadata || {};
+      if (!tenant_id) {
+        console.error('No tenant_id in payment metadata');
+        return NextResponse.json({ error: 'No tenant_id in metadata' }, { status: 400 });
+      }
+
+      // Create subscription invoice
+      const { error: invoiceError } = await supabase
+        .from('subscription_invoices')
+        .insert({
+          tenant_id,
+          amount: payment.amount / 100, // Convert from kobo to naira
+          currency: payment.currency,
+          status: 'paid',
+          payment_method: payment.channel,
+          payment_date: payment.paid_at,
+          paystack_payment_id: payment.id.toString(),
+          external_invoice_id: payment.reference,
+          invoice_number: `INV-${payment.reference}`,
+          invoice_date: payment.created_at,
+          metadata: payment
+        });
+
+      if (invoiceError) {
+        console.error('Error creating invoice:', invoiceError);
+        return NextResponse.json({ error: 'Failed to create invoice' }, { status: 500 });
+      }
+
+      // Update tenant subscription
+    const { error: tenantError } = await supabase
+      .from('tenants')
+      .update({
+        subscription_status: 'active',
+          plan_type: plan,
+          last_payment_date: payment.paid_at,
+          payment_method: payment.channel,
+          paystack_customer_id: payment.customer.customer_code,
+          paystack_subscription_id: payment.reference,
+          subscription_start_date: payment.created_at,
+          subscription_end_date: new Date(new Date(payment.created_at).setFullYear(new Date(payment.created_at).getFullYear() + 1)).toISOString()
+        })
+        .eq('id', tenant_id);
+
+    if (tenantError) {
+      console.error('Error updating tenant:', tenantError);
+        return NextResponse.json({ error: 'Failed to update tenant' }, { status: 500 });
+      }
+
+      // Create subscription limit if it doesn't exist
+      const { data: existingLimit } = await supabase
+        .from('subscription_limits')
+        .select()
+        .eq('tenant_id', tenant_id)
+        .single();
+
+      if (!existingLimit) {
+        const { error: limitError } = await supabase
+          .from('subscription_limits')
+      .insert({
+            tenant_id,
+            plan_type: plan,
+            max_patients: plan === 'pro' ? 1000 : 100,
+            max_appointments_per_month: plan === 'pro' ? 500 : 50,
+            max_inventory_items: plan === 'pro' ? 2000 : 200,
+            max_users: plan === 'pro' ? 10 : 3,
+            max_transactions_per_month: plan === 'pro' ? 1000 : 100,
+            features: {
+              advanced_reporting: plan === 'pro',
+              custom_branding: plan === 'pro',
+              priority_support: plan === 'pro'
+            }
+          });
+
+        if (limitError) {
+          console.error('Error creating subscription limit:', limitError);
+          return NextResponse.json({ error: 'Failed to create subscription limit' }, { status: 500 });
+        }
+      }
+
+      return NextResponse.json({ success: true });
     }
 
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error('Webhook error:', error);
-    return new NextResponse('Webhook error', { status: 500 });
-  }
-}
-
-// Handle subscription created event
-async function handleSubscriptionCreated(data: any) {
-  const { subscription, customer } = data;
-  const tenantId = data.metadata?.tenant_id;
-
-  if (!tenantId) {
-    console.error('No tenant_id in metadata');
-    return;
-  }
-
-  const { error } = await supabase
-    .from('tenants')
-    .update({
-      paystack_customer_id: customer.customer_code,
-      paystack_subscription_id: subscription.subscription_code,
-      subscription_status: subscription.status,
-      subscription_start_date: new Date(subscription.created_at).toISOString(),
-      subscription_end_date: new Date(subscription.next_payment_date).toISOString(),
-      plan_type: data.metadata?.plan || 'free',
-      payment_method: 'paystack',
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', tenantId);
-
-  if (error) {
-    console.error('Error updating tenant subscription:', error);
-  }
-}
-
-// Handle subscription enabled event
-async function handleSubscriptionEnabled(data: any) {
-  const { subscription } = data;
-  const tenantId = data.metadata?.tenant_id;
-
-  if (!tenantId) {
-    console.error('No tenant_id in metadata');
-    return;
-  }
-
-  const { error } = await supabase
-    .from('tenants')
-    .update({
-      subscription_status: 'active',
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', tenantId);
-
-  if (error) {
-    console.error('Error enabling subscription:', error);
-  }
-}
-
-// Handle subscription disabled event
-async function handleSubscriptionDisabled(data: any) {
-  const { subscription } = data;
-  const tenantId = data.metadata?.tenant_id;
-
-  if (!tenantId) {
-    console.error('No tenant_id in metadata');
-    return;
-  }
-
-  const { error } = await supabase
-    .from('tenants')
-    .update({
-      subscription_status: 'inactive',
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', tenantId);
-
-  if (error) {
-    console.error('Error disabling subscription:', error);
-  }
-}
-
-// Handle payment success event
-async function handlePaymentSuccess(data: any) {
-  const { payment, subscription } = data;
-  const tenantId = data.metadata?.tenant_id;
-
-  if (!tenantId) {
-    console.error('No tenant_id in metadata');
-    return;
-  }
-
-  // Insert into subscription_invoices
-  const { error: invoiceError } = await supabase
-    .from('subscription_invoices')
-    .insert({
-      tenant_id: tenantId,
-      amount: payment.amount / 100, // Convert from kobo to naira
-      currency: payment.currency,
-      status: 'paid',
-      invoice_number: payment.reference,
-      invoice_date: new Date(payment.paid_at).toISOString(),
-      payment_date: new Date(payment.paid_at).toISOString(),
-      payment_method: payment.channel,
-      paystack_payment_id: payment.id.toString(),
-      paystack_subscription_id: subscription?.subscription_code,
-      period_start: new Date(payment.created_at).toISOString(),
-      period_end: new Date(payment.paid_at).toISOString(),
-      metadata: {
-        payment_id: payment.id,
-        payment_reference: payment.reference,
-        payment_channel: payment.channel,
-        payment_gateway: 'paystack'
-      }
-    });
-
-  if (invoiceError) {
-    console.error('Error creating invoice:', invoiceError);
-    return;
-  }
-
-  // Update tenant's last payment date
-  const { error: tenantError } = await supabase
-    .from('tenants')
-    .update({
-      last_payment_date: new Date(payment.paid_at).toISOString(),
-      payment_failures: 0,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', tenantId);
-
-  if (tenantError) {
-    console.error('Error updating tenant payment info:', tenantError);
-  }
-}
-
-// Handle payment failed event
-async function handlePaymentFailed(data: any) {
-  const { payment, subscription } = data;
-  const tenantId = data.metadata?.tenant_id;
-
-  if (!tenantId) {
-    console.error('No tenant_id in metadata');
-    return;
-  }
-
-  // Insert failed payment into subscription_invoices
-  const { error: invoiceError } = await supabase
-    .from('subscription_invoices')
-    .insert({
-      tenant_id: tenantId,
-      amount: payment.amount / 100,
-      currency: payment.currency,
-      status: 'failed',
-      invoice_number: payment.reference,
-      invoice_date: new Date(payment.created_at).toISOString(),
-      payment_method: payment.channel,
-      paystack_payment_id: payment.id.toString(),
-      paystack_subscription_id: subscription?.subscription_code,
-      period_start: new Date(payment.created_at).toISOString(),
-      period_end: new Date(payment.created_at).toISOString(),
-      metadata: {
-        payment_id: payment.id,
-        payment_reference: payment.reference,
-        payment_channel: payment.channel,
-        payment_gateway: 'paystack',
-        failure_reason: payment.gateway_response
-      }
-    });
-
-  if (invoiceError) {
-    console.error('Error creating failed invoice:', invoiceError);
-    return;
-  }
-
-  // Increment payment failures count
-  const { error: tenantError } = await supabase
-    .from('tenants')
-    .update({
-      payment_failures: supabase.raw('payment_failures + 1'),
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', tenantId);
-
-  if (tenantError) {
-    console.error('Error updating tenant payment failures:', tenantError);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 

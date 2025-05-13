@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -15,9 +15,8 @@ interface SignupFormProps {
   email: string;
 }
 
-export function SignupForm({ token, role, email }: SignupFormProps) {
+export default function SignupForm({ token, role, email }: SignupFormProps) {
   const router = useRouter();
-  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     full_name: '',
@@ -36,16 +35,43 @@ export function SignupForm({ token, role, email }: SignupFormProps) {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const formatPhoneNumber = (phone: string): string => {
+    // Remove any non-digit characters
+    const digitsOnly = phone.replace(/\D/g, '');
+    
+    // Handle different formats
+    if (digitsOnly.startsWith('254')) {
+      // Already in international format
+      return `+${digitsOnly}`;
+    } else if (digitsOnly.startsWith('0')) {
+      // Convert 07XXXXXXXX to +2547XXXXXXXX
+      return `+254${digitsOnly.substring(1)}`;
+    } else if (digitsOnly.startsWith('7') || digitsOnly.startsWith('1')) {
+      // For numbers starting with 7 or 1, add 254 prefix
+      return `+254${digitsOnly}`;
+    }
+    
+    // If none of the above, assume it's a full number with country code
+    return `+${digitsOnly}`;
+  };
+
+  const validatePhoneNumber = (phone: string): boolean => {
+    const formattedPhone = formatPhoneNumber(phone);
+    return formattedPhone.match(/^\+254\d{9}$/) !== null;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     if (formData.password !== formData.confirm_password) {
-      toast({
-        title: 'Error',
-        description: 'Passwords do not match',
-        variant: 'destructive'
-      });
+      toast.error('Passwords do not match');
+      setIsLoading(false);
+      return;
+    }
+
+    if (!validatePhoneNumber(formData.phone_number)) {
+      toast.error('Invalid phone number format. Please use format 07XXXXXXXX or +254XXXXXXXXX');
       setIsLoading(false);
       return;
     }
@@ -55,7 +81,7 @@ export function SignupForm({ token, role, email }: SignupFormProps) {
       form.append('email', email);
       form.append('password', formData.password);
       form.append('fullName', formData.full_name);
-      form.append('phoneNumber', formData.phone_number);
+      form.append('phoneNumber', formatPhoneNumber(formData.phone_number));
       form.append('token', token);
 
       // Add role-specific fields
@@ -81,18 +107,11 @@ export function SignupForm({ token, role, email }: SignupFormProps) {
         throw new Error(data.error || 'Failed to create account');
       }
 
-      toast({
-        title: 'Success',
-        description: 'Account created successfully. Please log in.',
-      });
+      toast.success('Account created successfully. Please log in.');
 
       router.push(data.redirect || '/login');
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to create account',
-        variant: 'destructive',
-      });
+      toast.error(error instanceof Error ? error.message : 'Failed to create account');
     } finally {
       setIsLoading(false);
     }
@@ -150,7 +169,9 @@ export function SignupForm({ token, role, email }: SignupFormProps) {
               required
               value={formData.phone_number}
               onChange={handleChange}
+              placeholder="07XXXXXXXX or +254XXXXXXXXX"
             />
+            <p className="text-xs text-gray-500">Format: 07XXXXXXXX (e.g., 0712345678) or +254XXXXXXXXX (e.g., +254712345678)</p>
           </div>
 
           <div className="space-y-2">

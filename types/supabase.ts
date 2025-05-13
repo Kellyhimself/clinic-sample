@@ -1366,6 +1366,121 @@ export type Database = {
             referencedColumns: ["id"];
           }
         ];
+      },
+      subscription_invoices: {
+        Row: {
+          amount: number
+          created_at: string | null
+          currency: string | null
+          due_date: string | null
+          external_invoice_id: string | null
+          id: string
+          invoice_date: string | null
+          invoice_number: string
+          metadata: Json | null
+          payment_date: string | null
+          payment_method: string | null
+          paystack_payment_id: string | null
+          paystack_subscription_id: string | null
+          period_end: string | null
+          period_start: string | null
+          status: string
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          currency?: string | null
+          due_date?: string | null
+          external_invoice_id?: string | null
+          id?: string
+          invoice_date?: string | null
+          invoice_number: string
+          metadata?: Json | null
+          payment_date?: string | null
+          payment_method?: string | null
+          paystack_payment_id?: string | null
+          paystack_subscription_id?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          status: string
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          currency?: string | null
+          due_date?: string | null
+          external_invoice_id?: string | null
+          id?: string
+          invoice_date?: string | null
+          invoice_number?: string
+          metadata?: Json | null
+          payment_date?: string | null
+          payment_method?: string | null
+          paystack_payment_id?: string | null
+          paystack_subscription_id?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          status?: string
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          }
+        ]
+      },
+      staff_invitations: {
+        Row: {
+          id: string
+          email: string
+          role: string
+          tenant_id: string
+          status: string
+          expires_at: string
+          metadata: Json | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          email: string
+          role: string
+          tenant_id: string
+          status?: string
+          expires_at: string
+          metadata?: Json | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          email?: string
+          role?: string
+          tenant_id?: string
+          status?: string
+          expires_at?: string
+          metadata?: Json | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_invitations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          }
+        ]
       }
     }
     Views: {
