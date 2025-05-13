@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 
-export default function JoinPage() {
+function JoinContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
@@ -140,5 +140,27 @@ export default function JoinPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function JoinPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-6">
+            <div className="animate-pulse">
+              <div className="h-8 bg-gray-200 rounded w-3/4 mb-4"></div>
+              <div className="space-y-3">
+                <div className="h-4 bg-gray-200 rounded"></div>
+                <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <JoinContent />
+    </Suspense>
   );
 } 
