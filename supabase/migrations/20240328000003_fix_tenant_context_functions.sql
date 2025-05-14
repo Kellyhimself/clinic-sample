@@ -30,19 +30,13 @@ BEGIN
     v_session_id := v_user_id;
     RAISE NOTICE 'Using session ID: %', v_session_id;
     
-    -- Delete any existing context for this session
-    DELETE FROM app.tenant_context 
-    WHERE session_id = v_session_id;
-    
-    -- Insert new context with error handling
-    BEGIN
-        INSERT INTO app.tenant_context (session_id, tenant_id, last_accessed_at)
-        VALUES (v_session_id, p_tenant_id, now());
-        RAISE NOTICE 'Inserted tenant context: session_id=%, tenant_id=%', v_session_id, p_tenant_id;
-    EXCEPTION WHEN OTHERS THEN
-        v_error := SQLERRM;
-        RAISE EXCEPTION 'Failed to insert tenant context: %', v_error;
-    END;
+    -- Use UPSERT to handle the tenant context
+    INSERT INTO app.tenant_context (session_id, tenant_id, last_accessed_at)
+    VALUES (v_session_id, p_tenant_id, now())
+    ON CONFLICT (session_id) 
+    DO UPDATE SET 
+        tenant_id = EXCLUDED.tenant_id,
+        last_accessed_at = now();
     
     -- Clean up old contexts (older than 24 hours)
     DELETE FROM app.tenant_context 
@@ -66,7 +60,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION public.get_tenant_id()
 RETURNS uuid
 LANGUAGE plpgsql
-STABLE
+VOLATILE
 AS $$
 DECLARE
     v_tenant_id uuid;
@@ -78,7 +72,6 @@ BEGIN
     -- Get JWT claims with error handling
     BEGIN
         v_jwt_claims := current_setting('request.jwt.claims', true)::json;
-        RAISE NOTICE 'JWT claims retrieved in get_tenant_id: %', v_jwt_claims;
     EXCEPTION WHEN OTHERS THEN
         v_error := SQLERRM;
         RAISE EXCEPTION 'Failed to get JWT claims: %', v_error;
@@ -92,33 +85,17 @@ BEGIN
 
     -- Use user ID as session ID for consistency
     v_session_id := v_user_id;
-    RAISE NOTICE 'Looking up tenant_id for session_id: %', v_session_id;
     
-    -- Try to get tenant_id from the context table
-    BEGIN
-        SELECT tc.tenant_id INTO v_tenant_id
-        FROM app.tenant_context tc
-        WHERE tc.session_id = v_session_id;
-        
-        IF v_tenant_id IS NOT NULL THEN
-            RAISE NOTICE 'Found tenant_id: %', v_tenant_id;
-        ELSE
-            RAISE NOTICE 'No tenant_id found for session_id: %', v_session_id;
-        END IF;
-    EXCEPTION WHEN OTHERS THEN
-        v_error := SQLERRM;
-        RAISE EXCEPTION 'Failed to get tenant_id: %', v_error;
-    END;
+    -- Get tenant ID from context
+    SELECT tenant_id INTO v_tenant_id
+    FROM app.tenant_context
+    WHERE session_id = v_session_id;
     
-    -- If no tenant_id found, check if the session exists
-    IF v_tenant_id IS NULL THEN
-        IF EXISTS (
-            SELECT 1 
-            FROM app.tenant_context tc
-            WHERE tc.session_id = v_session_id
-        ) THEN
-            RAISE EXCEPTION 'Session exists but tenant_id is null';
-        END IF;
+    -- Update last_accessed_at
+    IF v_tenant_id IS NOT NULL THEN
+        UPDATE app.tenant_context
+        SET last_accessed_at = now()
+        WHERE session_id = v_session_id;
     END IF;
     
     RETURN v_tenant_id;

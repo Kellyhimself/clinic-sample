@@ -19,7 +19,7 @@ import {
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/app/lib/auth/AuthProvider';
-import { LimitAwareButton } from '@/components/shared/LimitAwareButton';
+
 
 export default function DashboardClient() {
   const { tenantContext } = useAuth();

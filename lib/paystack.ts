@@ -1,11 +1,24 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import * as crypto from 'crypto';
+
+// Determine if we're in development or production
+const isDevelopment = process.env.NODE_ENV === 'development';
+
+// Get the appropriate secret key
+const getSecretKey = () => {
+  if (isDevelopment) {
+    return process.env.PAYSTACK_TEST_SECRET_KEY;
+  }
+  return process.env.PAYSTACK_SECRET_KEY;
+};
+
+const secretKey = getSecretKey();
 
 // Initialize Paystack API
 const paystack = axios.create({
   baseURL: 'https://api.paystack.co',
   headers: {
-    Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+    Authorization: `Bearer ${secretKey}`,
     'Content-Type': 'application/json',
   },
 });
@@ -38,6 +51,15 @@ export interface PaystackPayment {
   status: string;
   channel: string;
   created_at: string;
+}
+
+interface TransactionMetadata {
+  plan?: string;
+  plan_id?: string;
+  payment_method?: string;
+  phone_number?: string | null;
+  tenant_id?: string;
+  environment?: string;
 }
 
 // Create a subscription
@@ -79,20 +101,75 @@ export async function initializeTransaction({
   amount: number;
   email: string;
   callback_url: string;
-  metadata?: Record<string, any>;
+  metadata?: TransactionMetadata;
 }) {
   try {
+    console.log('Initializing Paystack transaction with:', {
+      amount,
+      email,
+      callback_url,
+      metadata,
+      isTestMode: isDevelopment,
+      environment: isDevelopment ? 'test' : 'production'
+    });
+
+    // Determine channels based on payment method
+    const channels = metadata?.payment_method === 'mpesa' 
+      ? ['mpesa', 'mobile_money']
+      : ['card', 'bank', 'ussd', 'qr'];
+
     const response = await paystack.post('/transaction/initialize', {
       amount: amount * 100, // Convert to kobo
       email,
       callback_url,
-      metadata,
-      channels: ['card', 'bank', 'ussd', 'qr', 'mpesa', 'mobile_money'],
+      currency: 'KES',
+      channels,
+      metadata: {
+        custom_fields: [
+          {
+            display_name: 'Plan',
+            variable_name: 'plan',
+            value: metadata?.plan
+          },
+          {
+            display_name: 'Plan ID',
+            variable_name: 'plan_id',
+            value: metadata?.plan_id
+          },
+          {
+            display_name: 'Payment Method',
+            variable_name: 'payment_method',
+            value: metadata?.payment_method
+          },
+          {
+            display_name: 'Phone Number',
+            variable_name: 'phone_number',
+            value: metadata?.phone_number
+          }
+        ],
+        tenant_id: metadata?.tenant_id,
+        environment: metadata?.environment
+      }
+    });
+
+    console.log('Paystack transaction initialization response:', {
+      status: response.status,
+      statusText: response.statusText,
+      data: response.data
     });
 
     return response.data;
   } catch (error) {
-    console.error('Paystack transaction initialization error:', error);
+    if (error instanceof AxiosError) {
+      console.error('Paystack transaction initialization error:', {
+        error: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        headers: error.response?.headers
+      });
+    } else {
+      console.error('Paystack transaction initialization error:', error);
+    }
     throw error;
   }
 }
@@ -145,8 +222,13 @@ export async function enableSubscription(subscriptionId: string) {
   }
 }
 
-export function verifyPaystackWebhook(payload: any, signature: string): boolean {
-  const secret = process.env.PAYSTACK_SECRET_KEY!;
+export function verifyPaystackWebhook(payload: Record<string, unknown>, signature: string): boolean {
+  const secret = getSecretKey();
+  if (!secret) {
+    console.error('Paystack secret key not found');
+    return false;
+  }
+  
   const hash = crypto
     .createHmac('sha512', secret)
     .update(JSON.stringify(payload))

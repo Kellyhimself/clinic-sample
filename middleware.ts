@@ -9,8 +9,6 @@ const ROUTE_REQUIREMENTS = {
   // Free plan routes
   '/appointments': 'free',
   '/inventory': 'free',
-  '/billing': 'free',
-  '/settings/billing': 'free',
   '/pharmacy': 'free',
   '/services': 'free',
   

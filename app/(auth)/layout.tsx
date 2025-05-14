@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { AuthProvider } from '@/app/lib/auth/AuthProvider';
 import AuthenticatedLayout from '@/components/AuthenticatedLayout';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -14,7 +13,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
     return <ErrorBoundary>{children}</ErrorBoundary>;
   }
 
-  // For protected routes, wrap with AuthProvider and AuthenticatedLayout
+  // For all protected routes, wrap with AuthProvider and AuthenticatedLayout
   return (
     <ErrorBoundary>
       <AuthProvider>

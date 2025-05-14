@@ -1,17 +1,18 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { headers } from 'next/headers';
 import { verifyPaystackWebhook } from '@/lib/paystack';
+import { createAdminClient } from '@/app/lib/supabase/admin';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+interface CustomField {
+  display_name: string;
+  variable_name: string;
+  value: string;
+}
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const headersList = headers();
+    const headersList = await headers();
     const paystackSignature = headersList.get('x-paystack-signature');
 
     if (!paystackSignature) {
@@ -24,17 +25,22 @@ export async function POST(req: Request) {
     }
 
     const event = body.event;
-    console.log('Received Paystack webhook event:', event);
 
     if (event === 'charge.success') {
       const payment = body.data;
-      console.log('Processing payment success:', payment);
 
-      const { plan, tenant_id } = payment.metadata || {};
+      // Extract plan from custom_fields in metadata
+      const customFields = payment.metadata?.custom_fields || [];
+      const planField = customFields.find((field: CustomField) => field.variable_name === 'plan_id');
+      const plan = planField?.value || 'pro'; // Default to 'pro' if not found
+
+      const tenant_id = payment.metadata?.tenant_id;
       if (!tenant_id) {
-        console.error('No tenant_id in payment metadata');
         return NextResponse.json({ error: 'No tenant_id in metadata' }, { status: 400 });
       }
+
+      // Create admin client for database operations
+      const supabase = createAdminClient();
 
       // Create subscription invoice
       const { error: invoiceError } = await supabase
@@ -54,27 +60,28 @@ export async function POST(req: Request) {
         });
 
       if (invoiceError) {
-        console.error('Error creating invoice:', invoiceError);
         return NextResponse.json({ error: 'Failed to create invoice' }, { status: 500 });
       }
 
       // Update tenant subscription
-    const { error: tenantError } = await supabase
-      .from('tenants')
-      .update({
-        subscription_status: 'active',
+      const { error: tenantError } = await supabase
+        .from('tenants')
+        .update({
+          subscription_status: 'active',
           plan_type: plan,
           last_payment_date: payment.paid_at,
           payment_method: payment.channel,
           paystack_customer_id: payment.customer.customer_code,
           paystack_subscription_id: payment.reference,
           subscription_start_date: payment.created_at,
-          subscription_end_date: new Date(new Date(payment.created_at).setFullYear(new Date(payment.created_at).getFullYear() + 1)).toISOString()
+          subscription_end_date: new Date(new Date(payment.created_at).setFullYear(new Date(payment.created_at).getFullYear() + 1)).toISOString(),
+          is_active: true,
+          payment_failures: 0
         })
-        .eq('id', tenant_id);
+        .eq('id', tenant_id)
+        .select();
 
-    if (tenantError) {
-      console.error('Error updating tenant:', tenantError);
+      if (tenantError) {
         return NextResponse.json({ error: 'Failed to update tenant' }, { status: 500 });
       }
 
@@ -88,7 +95,7 @@ export async function POST(req: Request) {
       if (!existingLimit) {
         const { error: limitError } = await supabase
           .from('subscription_limits')
-      .insert({
+          .insert({
             tenant_id,
             plan_type: plan,
             max_patients: plan === 'pro' ? 1000 : 100,
@@ -104,7 +111,6 @@ export async function POST(req: Request) {
           });
 
         if (limitError) {
-          console.error('Error creating subscription limit:', limitError);
           return NextResponse.json({ error: 'Failed to create subscription limit' }, { status: 500 });
         }
       }
@@ -114,7 +120,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error('Webhook error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 
