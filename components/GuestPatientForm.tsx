@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { LimitAwareButton } from '@/components/shared/LimitAwareButton';
 import {
   Select,
   SelectContent,
@@ -237,13 +238,15 @@ export default function GuestPatientForm({ onSuccess, onProgress }: GuestPatient
         />
       </div>
 
-      <Button 
+      <LimitAwareButton 
         type="submit" 
         className="w-full h-8 mt-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700"
         disabled={isSubmitting}
+        limitType="patients"
+        loading={isSubmitting}
       >
         {isSubmitting ? 'Creating Patient...' : 'Create Guest Patient'}
-      </Button>
+      </LimitAwareButton>
     </form>
   );
 } 

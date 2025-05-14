@@ -50,18 +50,11 @@ interface SaleItem {
 interface NewSaleFormProps {
   initialPatients?: Patient[];
   initialMedications?: Medication[];
-  AddGuestButton?: React.ComponentType<{
-    variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
-    size?: 'default' | 'sm' | 'lg' | 'icon';
-    limitType?: string;
-    children?: React.ReactNode;
-  }>;
 }
 
 export default function NewSaleForm({ 
   initialPatients = [], 
   initialMedications = [],
-  AddGuestButton = Button 
 }: NewSaleFormProps) {
   const router = useRouter();
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -478,13 +471,12 @@ Thank you for your business!
                           onPatientCreated={handleGuestPatientCreated}
                           triggerButtonText="Add Guest"
                           triggerButton={
-                            <AddGuestButton
+                            <Button
                               variant="outline"
                               size="default"
-                              limitType="patients"
                             >
                               Add Guest
-                            </AddGuestButton>
+                            </Button>
                           }
                         />
                         <Button

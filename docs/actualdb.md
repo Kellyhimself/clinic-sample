@@ -418,6 +418,7 @@ export type Database = {
           expiry_date: string
           id: string
           medication_id: string
+          purchase_price: number
           quantity: number
           tenant_id: string | null
           unit_price: number
@@ -429,6 +430,7 @@ export type Database = {
           expiry_date: string
           id?: string
           medication_id: string
+          purchase_price?: number
           quantity?: number
           tenant_id?: string | null
           unit_price: number
@@ -440,6 +442,7 @@ export type Database = {
           expiry_date?: string
           id?: string
           medication_id?: string
+          purchase_price?: number
           quantity?: number
           tenant_id?: string | null
           unit_price?: number
@@ -473,7 +476,6 @@ export type Database = {
           name: string
           strength: string
           tenant_id: string | null
-          unit_price: number
           updated_at: string | null
         }
         Insert: {
@@ -486,7 +488,6 @@ export type Database = {
           name: string
           strength: string
           tenant_id?: string | null
-          unit_price: number
           updated_at?: string | null
         }
         Update: {
@@ -499,7 +500,6 @@ export type Database = {
           name?: string
           strength?: string
           tenant_id?: string | null
-          unit_price?: number
           updated_at?: string | null
         }
         Relationships: [

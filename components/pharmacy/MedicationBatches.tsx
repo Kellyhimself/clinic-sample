@@ -73,6 +73,7 @@ export default function MedicationBatches({ medication }: MedicationBatchesProps
                     <TableHead>Batch Number</TableHead>
                     <TableHead>Expiry Date</TableHead>
                     <TableHead>Quantity</TableHead>
+                    <TableHead>Purchase Price</TableHead>
                     <TableHead>Unit Price</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
@@ -85,6 +86,7 @@ export default function MedicationBatches({ medication }: MedicationBatchesProps
                       <TableCell>BATCH-{index + 1}</TableCell>
                       <TableCell>{format(new Date(), 'MMM d, yyyy')}</TableCell>
                       <TableCell>0</TableCell>
+                      <TableCell>KSh 0.00</TableCell>
                       <TableCell>KSh 0.00</TableCell>
                       <TableCell>
                         <Badge variant="default">Active</Badge>
@@ -134,6 +136,7 @@ export default function MedicationBatches({ medication }: MedicationBatchesProps
                 <TableHead>Batch Number</TableHead>
                 <TableHead>Expiry Date</TableHead>
                 <TableHead>Quantity</TableHead>
+                <TableHead>Purchase Price</TableHead>
                 <TableHead>Unit Price</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
@@ -153,6 +156,7 @@ export default function MedicationBatches({ medication }: MedicationBatchesProps
                     <TableCell>{batch.batch_number}</TableCell>
                     <TableCell>{format(new Date(batch.expiry_date), 'MMM d, yyyy')}</TableCell>
                     <TableCell>{batch.quantity}</TableCell>
+                    <TableCell>KSh {batch.purchase_price?.toFixed(2) || 'N/A'}</TableCell>
                     <TableCell>KSh {batch.unit_price.toFixed(2)}</TableCell>
                     <TableCell>
                       {isExpired ? (

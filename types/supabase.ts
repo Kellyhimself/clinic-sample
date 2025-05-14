@@ -1894,7 +1894,7 @@ export type InventoryItem = {
   batch_number?: string;
   expiry_date?: string;
   quantity?: number;
-  purchase_price?: number;
+  purchase_price: number;
 };
 
 export interface ReceiptData {

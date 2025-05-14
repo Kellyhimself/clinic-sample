@@ -118,7 +118,6 @@ export async function fetchMedications(): Promise<Medication[]> {
       category,
       dosage_form,
       strength,
-      unit_price,
       description,
       is_active,
       created_at,

@@ -57,7 +57,6 @@ export async function fetchInventory(search?: string): Promise<Medication[]> {
       category,
       dosage_form,
       strength,
-      unit_price,
       description,
       is_active,
       created_at,
@@ -162,7 +161,7 @@ export async function manageInventory(
     }
 
     // Validate required fields
-    if (!item.name || !item.category || !item.dosage_form || !item.strength || !item.unit_price) {
+    if (!item.name || !item.category || !item.dosage_form || !item.strength) {
       throw new Error('Missing required fields');
     }
 
@@ -177,7 +176,6 @@ export async function manageInventory(
           category: item.category,
           dosage_form: item.dosage_form,
           strength: item.strength,
-          unit_price: item.unit_price,
           description: item.description,
           is_active: true,
           tenant_id: tenantId
@@ -523,7 +521,6 @@ export async function fetchStockAlerts(): Promise<{
       category,
       dosage_form,
       strength,
-      unit_price,
       description,
       is_active,
       created_at,
@@ -553,7 +550,6 @@ export async function fetchStockAlerts(): Promise<{
             category: medication.category,
             dosage_form: medication.dosage_form,
             strength: medication.strength,
-            unit_price: medication.unit_price,
             description: medication.description,
             is_active: medication.is_active,
             created_at: medication.created_at || new Date().toISOString(),
@@ -589,7 +585,6 @@ export async function fetchStockAlerts(): Promise<{
       category,
       dosage_form,
       strength,
-      unit_price,
       description,
       is_active,
       created_at,
@@ -626,7 +621,6 @@ export async function fetchStockAlerts(): Promise<{
             category: medication.category,
             dosage_form: medication.dosage_form,
             strength: medication.strength,
-            unit_price: medication.unit_price,
             description: medication.description,
             is_active: medication.is_active,
             created_at: medication.created_at || new Date().toISOString(),
@@ -653,6 +647,13 @@ export async function fetchBasicMedications(search?: string): Promise<{
   dosage_form: string;
   strength: string;
   description: string | null;
+  batches: {
+    id: string;
+    batch_number: string;
+    expiry_date: string;
+    quantity: number;
+    unit_price: number;
+  }[];
 }[]> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -699,21 +700,27 @@ export async function fetchBasicMedications(search?: string): Promise<{
       category,
       dosage_form,
       strength,
-      description
+      description,
+      medication_batches (
+        id,
+        batch_number,
+        expiry_date,
+        quantity,
+        unit_price
+      )
     `)
-    .eq('is_active', true)
     .eq('tenant_id', tenantId)
+    .eq('is_active', true)
     .order('name');
 
   if (search) {
-    query = query.or(`name.ilike.%${search}%,dosage_form.ilike.%${search}%,strength.ilike.%${search}%`);
+    query = query.or(`name.ilike.%${search}%,category.ilike.%${search}%`);
   }
 
   const { data, error } = await query;
 
   if (error) {
-    console.error('Error fetching medications:', error);
-    throw new Error(`Failed to fetch medications: ${error.message}`);
+    throw error;
   }
 
   return data || [];
@@ -805,6 +812,7 @@ export async function addBatch(batchData: {
   expiry_date: string;
   quantity: number;
   unit_price: number;
+  purchase_price: number;
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -843,35 +851,25 @@ export async function addBatch(batchData: {
     throw new Error('Failed to get tenant ID');
   }
 
-  // First verify the medication belongs to the tenant
-  const { data: medication, error: medicationError } = await supabase
-    .from('medications')
-    .select('id')
-    .eq('id', batchData.medication_id)
-    .eq('tenant_id', tenantId)
-    .maybeSingle();
+  try {
+    const { error: batchError } = await supabase
+      .from('medication_batches')
+      .insert({
+        medication_id: batchData.medication_id,
+        batch_number: batchData.batch_number,
+        expiry_date: batchData.expiry_date,
+        quantity: batchData.quantity,
+        unit_price: batchData.unit_price,
+        purchase_price: batchData.purchase_price,
+        tenant_id: tenantId
+      });
 
-  if (medicationError) {
-    throw new Error(`Failed to verify medication: ${medicationError.message}`);
+    if (batchError) {
+      console.error('Error creating batch:', batchError);
+      throw new Error(`Failed to create batch: ${batchError.message}`);
+    }
+  } catch (error) {
+    console.error('Error in addBatch:', error);
+    throw error;
   }
-
-  if (!medication) {
-    throw new Error('Medication not found or does not belong to tenant');
-  }
-
-  // Add the batch
-  const { data, error } = await supabase
-    .from('medication_batches')
-    .insert({
-      ...batchData,
-      tenant_id: tenantId
-    })
-    .select()
-    .single();
-
-  if (error) {
-    throw new Error(`Failed to add batch: ${error.message}`);
-  }
-
-  return data;
 }

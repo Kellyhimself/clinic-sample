@@ -98,7 +98,7 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
       {/* Sidebar container */}
       <div
         className={cn(
-          'bg-gradient-to-b from-blue-100 to-teal-100 shadow-lg border-r border-blue-200',
+          'bg-gradient-to-b from-blue-100/80 to-teal-100/80 backdrop-blur-sm shadow-lg border-r border-blue-200',
           'transition-all duration-300 ease-in-out h-screen',
           isMobileView ? 'fixed top-0 left-0 z-50 w-64' : 'relative w-64',
           isMobileView && !isSidebarOpen && 'transform -translate-x-full',
@@ -131,7 +131,7 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
         />
         <main
           className={cn(
-            'bg-gray-50 flex-1 overflow-y-auto',
+            'bg-transparent flex-1 overflow-y-auto',
             screenSize === 'xs' ? 'p-2' : screenSize === 'sm' ? 'p-3' : screenSize === 'md' ? 'p-4' : 'p-4 sm:p-6'
           )}
         >

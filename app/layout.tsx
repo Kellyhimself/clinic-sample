@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import QueryProvider from "@/components/providers/QueryProvider";
 import { viewport } from "./viewport-meta";
 import Script from "next/script";
+import AnimatedBackground from '@/components/AnimatedBackground';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -48,6 +49,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden`}
       >
         <Script src="https://js.paystack.co/v1/inline.js" strategy="afterInteractive" />
+        <AnimatedBackground />
         <QueryProvider>
           <div className="min-h-screen max-w-full">
             {children}

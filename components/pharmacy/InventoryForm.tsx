@@ -62,7 +62,6 @@ interface InventoryFormProps {
     strength: string;
     barcode?: string;
     shelf_location?: string;
-    unit_price: number;
     supplier_id?: string;
     description?: string;
     is_active?: boolean;
@@ -89,10 +88,24 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
     strength: initialData?.strength || '',
     barcode: initialData?.barcode || '',
     shelf_location: initialData?.shelf_location || '',
-    unit_price: initialData?.unit_price || 0,
     supplier_id: initialData?.supplier_id || '',
     description: initialData?.description || '',
   });
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      category: '',
+      manufacturer: '',
+      dosage_form: '',
+      strength: '',
+      barcode: '',
+      shelf_location: '',
+      supplier_id: '',
+      description: '',
+    });
+    setCurrentStep('basic');
+  };
 
   // Check inventory limit on component mount
   useEffect(() => {
@@ -118,7 +131,12 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
       });
 
       toast.success(initialData ? 'Medication updated successfully' : 'Medication added successfully');
-      router.push('/pharmacy/inventory');
+      
+      if (initialData) {
+        router.push('/pharmacy/inventory');
+      } else {
+        resetForm();
+      }
     } catch (error) {
       if (error instanceof Error && error.message.includes('Inventory limit reached')) {
         toast.error('Inventory limit reached', {
@@ -128,6 +146,7 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
         toast.error('Failed to save medication');
         console.error('Error saving medication:', error);
       }
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -135,26 +154,26 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
   const renderStepContent = () => {
     switch (currentStep) {
       case 'basic':
-  return (
+        return (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <h2 className="text-lg font-semibold">Basic Information</h2>
             </div>
             <div className="space-y-4">
-          <div className="space-y-2">
+              <div className="space-y-2">
                 <Label htmlFor="name">Medication Name *</Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
-              required
-            />
-          </div>
-          <div className="space-y-2">
+                  required
+                />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="category">Category *</Label>
                 <Select
-              value={formData.category}
+                  value={formData.category}
                   onValueChange={(value) => setFormData({ ...formData, category: value })}
                 >
                   <SelectTrigger className="w-full h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
@@ -168,11 +187,11 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
                     ))}
                   </SelectContent>
                 </Select>
-          </div>
-          <div className="space-y-2">
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="dosage_form">Dosage Form *</Label>
                 <Select
-              value={formData.dosage_form}
+                  value={formData.dosage_form}
                   onValueChange={(value) => setFormData({ ...formData, dosage_form: value })}
                 >
                   <SelectTrigger className="w-full h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
@@ -198,16 +217,16 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
               <h2 className="text-lg font-semibold">Additional Details</h2>
             </div>
             <div className="space-y-4">
-          <div className="space-y-2">
+              <div className="space-y-2">
                 <Label htmlFor="strength">Strength *</Label>
-            <Input
-              id="strength"
-              value={formData.strength}
-              onChange={(e) => setFormData({ ...formData, strength: e.target.value })}
+                <Input
+                  id="strength"
+                  value={formData.strength}
+                  onChange={(e) => setFormData({ ...formData, strength: e.target.value })}
                   className="w-full h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
-              required
-            />
-          </div>
+                  required
+                />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="manufacturer">Manufacturer</Label>
                 <Input
@@ -234,22 +253,10 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
         return (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <h2 className="text-lg font-semibold">Pricing & Location</h2>
+              <h2 className="text-lg font-semibold">Location & Supplier</h2>
             </div>
             <div className="space-y-4">
-          <div className="space-y-2">
-                <Label htmlFor="unit_price">Unit Price *</Label>
-            <Input
-              id="unit_price"
-              type="number"
-              step="0.01"
-              value={formData.unit_price}
-              onChange={(e) => setFormData({ ...formData, unit_price: parseFloat(e.target.value) })}
-                  className="w-full h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
-              required
-            />
-          </div>
-          <div className="space-y-2">
+              <div className="space-y-2">
                 <Label htmlFor="shelf_location">Shelf Location</Label>
                 <Input
                   id="shelf_location"
@@ -260,13 +267,13 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="supplier_id">Supplier ID</Label>
-            <Input
+                <Input
                   id="supplier_id"
                   value={formData.supplier_id}
                   onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })}
                   className="w-full h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
-            />
-          </div>
+                />
+              </div>
             </div>
           </div>
         );
@@ -293,37 +300,36 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
                   <ChevronDown className="h-4 w-4" />
                 </CollapsibleTrigger>
                 <CollapsibleContent className="p-4 border-t">
-                <div className="text-sm space-y-1">
-                  <p><span className="font-medium">Strength:</span> {formData.strength}</p>
-                  <p><span className="font-medium">Manufacturer:</span> {formData.manufacturer || 'N/A'}</p>
-                  <p><span className="font-medium">Barcode:</span> {formData.barcode || 'N/A'}</p>
-                </div>
+                  <div className="text-sm space-y-1">
+                    <p><span className="font-medium">Strength:</span> {formData.strength}</p>
+                    <p><span className="font-medium">Manufacturer:</span> {formData.manufacturer || 'N/A'}</p>
+                    <p><span className="font-medium">Barcode:</span> {formData.barcode || 'N/A'}</p>
+                  </div>
                 </CollapsibleContent>
               </Collapsible>
 
               <Collapsible>
                 <CollapsibleTrigger className="w-full flex items-center justify-between p-4 border rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
-                  <h3 className="font-medium">Pricing & Location</h3>
+                  <h3 className="font-medium">Location & Supplier</h3>
                   <ChevronDown className="h-4 w-4" />
                 </CollapsibleTrigger>
                 <CollapsibleContent className="p-4 border-t">
-                <div className="text-sm space-y-1">
-                  <p><span className="font-medium">Unit Price:</span> ${formData.unit_price}</p>
-                  <p><span className="font-medium">Shelf Location:</span> {formData.shelf_location || 'N/A'}</p>
-                  <p><span className="font-medium">Supplier ID:</span> {formData.supplier_id || 'N/A'}</p>
-                </div>
+                  <div className="text-sm space-y-1">
+                    <p><span className="font-medium">Shelf Location:</span> {formData.shelf_location || 'N/A'}</p>
+                    <p><span className="font-medium">Supplier ID:</span> {formData.supplier_id || 'N/A'}</p>
+                  </div>
                 </CollapsibleContent>
               </Collapsible>
 
-        <div className="space-y-2">
-          <Label htmlFor="description">Description</Label>
-          <Textarea
-            id="description"
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="w-full bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
-          />
-        </div>
+                />
+              </div>
             </div>
           </div>
         );
@@ -338,11 +344,11 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
             <Button
               variant="ghost"
               size="icon"
-            onClick={() => router.back()}
+              onClick={() => router.back()}
               className="h-6 w-6"
-          >
+            >
               <ArrowLeft className="h-3 w-3" />
-          </Button>
+            </Button>
             <h2 className="text-sm font-semibold">
               {initialData ? 'Edit Medication' : 'Add New Medication'}
             </h2>
@@ -415,9 +421,6 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
                     <div className="text-sm">
                       <span className="font-medium">Strength:</span> {formData.strength || 'Not set'}
                     </div>
-                    <div className="text-sm">
-                      <span className="font-medium">Unit Price:</span> ${formData.unit_price || '0.00'}
-                    </div>
                   </div>
                 </div>
               </div>
@@ -455,7 +458,7 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
                     disabled={
                       (currentStep === 'basic' && (!formData.name || !formData.category || !formData.dosage_form)) ||
                       (currentStep === 'details' && !formData.strength) ||
-                      (currentStep === 'pricing' && !formData.unit_price)
+                      (currentStep === 'pricing' && !formData.shelf_location)
                     }
                     className="w-full"
                   >

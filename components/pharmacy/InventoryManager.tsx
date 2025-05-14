@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { fetchInventory, deleteBatch } from '@/lib/inventory';
 import { toast } from 'sonner';
-import { Search, MoreVertical, Plus, Trash2, Eye } from 'lucide-react';
+import { Search, MoreVertical, Plus, Trash2, Eye, Pill } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -136,6 +136,10 @@ export default function InventoryManager() {
       toast.error('Failed to delete batch');
       console.error('Error deleting batch:', error);
     }
+  };
+
+  const handleAddNewMedication = () => {
+    router.push('/pharmacy/inventory/add');
   };
 
   const filteredMedications = medications.filter(medication => {
@@ -304,29 +308,48 @@ export default function InventoryManager() {
   };
 
   return (
-    <div className="inventory-container">
-      <Card className="shadow-md">
-        <CardHeader className="pb-2 sm:pb-4">
-          <CardTitle className="text-xl sm:text-2xl">Inventory Management</CardTitle>
-          <CardDescription className="text-sm sm:text-base">
-            Manage your medication inventory, track stock levels, and monitor expiry dates
-          </CardDescription>
+    <div className="inventory-container min-h-screen bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50">
+      <Card className="shadow-md bg-white/80 backdrop-blur-sm">
+        <CardHeader className="pb-2 sm:pb-4 bg-gradient-to-r from-blue-500/10 to-teal-500/10 rounded-t-lg">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 md:gap-4">
+            <div>
+              <CardTitle className={`${isNarrowMobile ? 'xs-heading' : isSmallMediumMobile ? 'xsm-heading' : isMediumMobile ? 'sm-heading' : 'text-xl md:text-2xl'} font-bold text-gray-800 leading-tight`}>
+                Inventory Management
+              </CardTitle>
+              <CardDescription className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-sm sm:text-base'} text-gray-600`}>
+                Manage your medication inventory, track stock levels, and monitor expiry dates
+              </CardDescription>
+            </div>
+            <Button
+              onClick={handleAddNewMedication}
+              className={`w-full md:w-auto bg-gradient-to-r from-blue-500 to-teal-500 text-white hover:from-blue-600 hover:to-teal-600 ${
+                isNarrowMobile ? 'pharmacy-button-xs xs-new-sale-button' : 
+                isSmallMediumMobile ? 'pharmacy-button-xsm xsm-button' : 
+                isMediumMobile ? 'pharmacy-button-sm' : 'py-1 h-9'
+              } flex items-center gap-2`}
+            >
+              <Pill className={`${isNarrowMobile ? 'pharmacy-icon-xs' : isSmallMediumMobile ? 'pharmacy-icon-xsm' : isMediumMobile ? 'pharmacy-icon-sm' : 'h-3.5 w-3.5 md:h-4 md:w-4'}`} />
+              <span className={isNarrowMobile ? 'xs-truncate xs-content-wrap w-full max-w-[60px]' : isSmallMediumMobile ? 'xsm-truncate' : ''}>
+                {isNarrowMobile ? 'Add' : isSmallMediumMobile ? 'Add Med' : 'Add Medication'}
+              </span>
+            </Button>
+          </div>
         </CardHeader>
-        <div className={`${isNarrowMobile ? 'xs-padding' : isSmallMediumMobile ? 'xsm-padding xsm-filter-container' : isMediumMobile ? 'sm-padding' : 'p-2 md:p-4'} border-b flex flex-col sm:flex-row gap-2 md:gap-4`}>
+        <div className={`${isNarrowMobile ? 'xs-padding' : isSmallMediumMobile ? 'xsm-padding xsm-filter-container' : isMediumMobile ? 'sm-padding' : 'p-2 md:p-4'} border-b flex flex-col sm:flex-row gap-2 md:gap-4 bg-gradient-to-r from-gray-50 to-blue-50/50`}>
           <div className="relative flex-1">
             <Search className={`absolute left-2 top-2.5 ${isNarrowMobile ? 'h-3 w-3' : isSmallMediumMobile ? 'h-3.5 w-3.5' : 'h-4 w-4'} text-gray-400`} />
             <Input
               placeholder={isNarrowMobile || isSmallMediumMobile ? "Search..." : "Search medications..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className={`pl-8 ${isNarrowMobile ? 'h-7 xs-text' : isSmallMediumMobile ? 'h-7 xsm-text' : 'h-8 text-xs'} border-gray-300 focus:border-blue-500`}
+              className={`pl-8 ${isNarrowMobile ? 'h-7 xs-text' : isSmallMediumMobile ? 'h-7 xsm-text' : 'h-8 text-xs'} border-gray-300 focus:border-blue-500 bg-white/80 backdrop-blur-sm`}
             />
           </div>
           <Select
             value={categoryFilter}
             onValueChange={(value) => setCategoryFilter(value)}
           >
-            <SelectTrigger className={`w-full sm:w-[180px] ${isNarrowMobile ? 'h-7 xs-text' : isSmallMediumMobile ? 'h-7 xsm-text xsm-filter-dropdown' : 'h-8 text-xs'} border-gray-300 focus:border-blue-500`}>
+            <SelectTrigger className={`w-full sm:w-[180px] ${isNarrowMobile ? 'h-7 xs-text' : isSmallMediumMobile ? 'h-7 xsm-text xsm-filter-dropdown' : 'h-8 text-xs'} border-gray-300 focus:border-blue-500 bg-white/80 backdrop-blur-sm`}>
               <SelectValue placeholder="Filter by category" />
             </SelectTrigger>
             <SelectContent>
@@ -342,7 +365,7 @@ export default function InventoryManager() {
             value={stockFilter}
             onValueChange={(value) => setStockFilter(value)}
           >
-            <SelectTrigger className={`w-full sm:w-[180px] ${isNarrowMobile ? 'h-7 xs-text' : isSmallMediumMobile ? 'h-7 xsm-text xsm-filter-dropdown' : 'h-8 text-xs'} border-gray-300 focus:border-blue-500`}>
+            <SelectTrigger className={`w-full sm:w-[180px] ${isNarrowMobile ? 'h-7 xs-text' : isSmallMediumMobile ? 'h-7 xsm-text xsm-filter-dropdown' : 'h-8 text-xs'} border-gray-300 focus:border-blue-500 bg-white/80 backdrop-blur-sm`}>
               <SelectValue placeholder="Filter by stock" />
             </SelectTrigger>
             <SelectContent>
@@ -355,7 +378,7 @@ export default function InventoryManager() {
         
         {/* Mobile cards for narrow and small-medium screens */}
         {(isNarrowMobile || isSmallMediumMobile) && (
-          <div className="p-2 space-y-2">
+          <div className="p-2 space-y-2 bg-gradient-to-br from-gray-50 to-blue-50/30">
             {filteredMedications.length === 0 ? (
               <p className={`${isNarrowMobile ? 'xs-text' : 'xsm-text'} text-center text-gray-500 py-4`}>No medications found</p>
             ) : (
@@ -366,10 +389,10 @@ export default function InventoryManager() {
         
         {/* Table view for medium mobile and larger screens */}
         {!isNarrowMobile && !isSmallMediumMobile && (
-          <div className="inventory-table-container">
-            <Table className={isMediumMobile ? 'inventory-table-mobile' : 'mobile-table mobile-table-compact'}>
+          <div className="inventory-table-container bg-gradient-to-br from-gray-50 to-blue-50/30">
+            <Table className={`${isMediumMobile ? 'inventory-table-mobile' : 'mobile-table mobile-table-compact'} bg-white/80 backdrop-blur-sm`}>
               <TableHeader>
-                <TableRow className="bg-gray-50">
+                <TableRow className="bg-gradient-to-r from-blue-500/10 to-teal-500/10">
                   <TableHead className={`${isMediumMobile ? 'sm-text' : 'mobile-text-xs text-xs md:text-sm'} font-medium text-gray-700 mobile-table-cell`}>
                     Name
                   </TableHead>
@@ -381,9 +404,6 @@ export default function InventoryManager() {
                   </TableHead>
                   <TableHead className={`${isMediumMobile ? 'sm-text sm-hidden' : 'mobile-text-xs text-xs md:text-sm'} font-medium text-gray-700 hidden sm:table-cell mobile-table-cell`}>
                     Strength
-                  </TableHead>
-                  <TableHead className={`${isMediumMobile ? 'sm-text' : 'mobile-text-xs text-xs md:text-sm'} font-medium text-gray-700 mobile-table-cell`}>
-                    Unit Price
                   </TableHead>
                   <TableHead className={`${isMediumMobile ? 'sm-text' : 'mobile-text-xs text-xs md:text-sm'} font-medium text-gray-700 mobile-table-cell`}>
                     Stock
@@ -404,7 +424,7 @@ export default function InventoryManager() {
                   </TableRow>
                 ) : (
                   filteredMedications.map((medication) => (
-                    <TableRow key={medication.id} className="hover:bg-gray-100">
+                    <TableRow key={medication.id} className="hover:bg-blue-50/50 transition-colors">
                       <TableCell className={`${isMediumMobile ? 'sm-text' : 'mobile-text-xs text-xs md:text-sm'} text-gray-900 mobile-table-cell`}>
                         <div>
                           <div className="font-medium truncate-text" style={{ maxWidth: isMediumMobile ? '120px' : '150px' }}>{medication.name}</div>
@@ -423,9 +443,6 @@ export default function InventoryManager() {
                       </TableCell>
                       <TableCell className={`${isMediumMobile ? 'sm-text sm-hidden' : 'mobile-text-xs text-xs md:text-sm'} text-gray-900 hidden sm:table-cell mobile-table-cell`}>
                         {medication.strength}
-                      </TableCell>
-                      <TableCell className={`${isMediumMobile ? 'sm-text' : 'mobile-text-xs text-xs md:text-sm'} text-gray-900 mobile-table-cell`}>
-                        KSh {medication.unit_price.toFixed(2)}
                       </TableCell>
                       <TableCell className={`${isMediumMobile ? 'sm-text' : 'mobile-text-xs text-[10px] md:text-xs'} mobile-table-cell`}>
                         {medication.batches.reduce((sum, batch) => sum + batch.quantity, 0)}
@@ -448,20 +465,20 @@ export default function InventoryManager() {
                       <TableCell className="mobile-table-cell p-1">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className={`${isMediumMobile ? 'h-8 w-8' : 'h-7 w-7'}`}>
+                            <Button variant="ghost" size="icon" className={`${isMediumMobile ? 'h-8 w-8' : 'h-7 w-7'} hover:bg-blue-50`}>
                               <MoreVertical className={`${isMediumMobile ? 'h-4 w-4' : 'h-3 w-3'}`} />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                          <DropdownMenuContent align="end" className="bg-white/90 backdrop-blur-sm">
                             <DropdownMenuItem 
-                              className={`cursor-pointer text-blue-600 ${isMediumMobile ? 'sm-text' : ''}`}
+                              className={`cursor-pointer text-blue-600 ${isMediumMobile ? 'sm-text' : ''} hover:bg-blue-50`}
                               onClick={() => handleAddBatch(medication.id)}
                             >
                               <Plus className={`mr-1 ${isMediumMobile ? 'h-4 w-4' : 'h-3 w-3'}`} />
                               Add Batch
                             </DropdownMenuItem>
                             <DropdownMenuItem 
-                              className={`cursor-pointer text-green-600 ${isMediumMobile ? 'sm-text' : ''}`}
+                              className={`cursor-pointer text-green-600 ${isMediumMobile ? 'sm-text' : ''} hover:bg-green-50`}
                               onClick={() => router.push(`/pharmacy/inventory/${medication.id}/batches`)}
                             >
                               <Eye className={`mr-1 ${isMediumMobile ? 'h-4 w-4' : 'h-3 w-3'}`} />
@@ -469,7 +486,7 @@ export default function InventoryManager() {
                             </DropdownMenuItem>
                             {medication.batches.some(batch => new Date(batch.expiry_date) < new Date()) && (
                               <DropdownMenuItem 
-                                className={`cursor-pointer text-red-600 ${isMediumMobile ? 'sm-text' : ''}`}
+                                className={`cursor-pointer text-red-600 ${isMediumMobile ? 'sm-text' : ''} hover:bg-red-50`}
                                 onClick={() => handleDeleteBatch(medication.batches.find(b => new Date(b.expiry_date) < new Date())?.id || '')}
                               >
                                 <Trash2 className={`mr-1 ${isMediumMobile ? 'h-4 w-4' : 'h-3 w-3'}`} />
