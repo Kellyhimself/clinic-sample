@@ -147,7 +147,11 @@ export async function POST(request: Request) {
     }
 
     // Generate invitation link
-    const invitationLink = `${process.env.NEXT_PUBLIC_APP_URL}/signup?token=${invitationId}&role=${role}&email=${encodeURIComponent(email)}`;
+    const baseUrl = process.env.NODE_ENV === 'development' 
+      ? 'http://localhost:3000'
+      : process.env.NEXT_PUBLIC_APP_URL;
+      
+    const invitationLink = `${baseUrl}/signup?token=${invitationId}&role=${role}&email=${encodeURIComponent(email)}`;
 
     // Send invitation email using the email service
     await sendInvitationEmail({

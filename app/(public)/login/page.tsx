@@ -3,11 +3,14 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 
-export default function LoginPage({
+export default async function LoginPage({
   searchParams,
 }: {
   searchParams: { redirectedFrom?: string; message?: string };
 }) {
+  const message = searchParams?.message;
+  const redirectedFrom = searchParams?.redirectedFrom;
+
   return (
     <div className="min-h-[80vh] flex items-center justify-center bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50">
       <div className="w-full max-w-md">
@@ -27,12 +30,12 @@ export default function LoginPage({
           </div>
           
           <div className="p-6">
-            {searchParams.message && (
+            {message && (
               <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-700">
-                {searchParams.message}
+                {message}
               </div>
             )}
-            <LoginForm redirectTo={searchParams.redirectedFrom} />
+            <LoginForm redirectTo={redirectedFrom} />
           </div>
         </div>
       </div>

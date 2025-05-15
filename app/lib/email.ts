@@ -19,12 +19,14 @@ export async function sendInvitationEmail({
 }: SendInvitationEmailParams) {
   try {
     const { data, error } = await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'noreply@yourdomain.com',
+      from: process.env.EMAIL_FROM || 'noreply@veylor360.com',
       to,
       subject: `You've been invited to join ${tenantName}`,
+      reply_to: 'support@veylor360.com',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px;">
+            <img src="https://veylor360.com/logo.png" alt="${tenantName} Logo" style="max-width: 150px; margin-bottom: 20px;">
             <h1 style="color: #2d3748; margin-bottom: 20px;">Welcome to ${tenantName}!</h1>
             
             <p style="color: #4a5568; margin-bottom: 15px;">You've been invited by ${invitedBy} to join as a ${role}.</p>
@@ -46,7 +48,7 @@ export async function sendInvitationEmail({
             
             <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
               <p style="color: #718096; font-size: 12px;">
-                This is an automated message, please do not reply to this email.
+                This is an automated message from ${tenantName}. For support, please contact <a href="mailto:support@veylor360.com">support@veylor360.com</a>
               </p>
             </div>
           </div>
@@ -55,11 +57,13 @@ export async function sendInvitationEmail({
     });
 
     if (error) {
+      console.error('Resend API Error:', error);
       throw error;
     }
 
     return data;
   } catch (error) {
+    console.error('Email sending error:', error);
     throw error;
   }
 }
@@ -77,12 +81,14 @@ export async function sendWelcomeEmail({
 }: SendWelcomeEmailParams) {
   try {
     const { data, error } = await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'noreply@yourdomain.com',
+      from: process.env.EMAIL_FROM || 'noreply@veylor360.com',
       to,
       subject: `Welcome to ${tenantName}!`,
+      reply_to: 'support@veylor360.com',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px;">
+            <img src="https://veylor360.com/logo.png" alt="${tenantName} Logo" style="max-width: 150px; margin-bottom: 20px;">
             <h1 style="color: #2d3748; margin-bottom: 20px;">Welcome to ${tenantName}, ${fullName}!</h1>
             
             <p style="color: #4a5568; margin-bottom: 15px;">
@@ -91,13 +97,13 @@ export async function sendWelcomeEmail({
             
             <div style="background-color: #ffffff; padding: 20px; border-radius: 5px; margin: 20px 0;">
               <p style="color: #4a5568; margin-bottom: 15px;">
-                If you have any questions or need assistance, please contact your administrator.
+                If you have any questions or need assistance, please contact our support team.
               </p>
             </div>
             
             <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
               <p style="color: #718096; font-size: 12px;">
-                This is an automated message, please do not reply to this email.
+                This is an automated message from ${tenantName}. For support, please contact <a href="mailto:support@veylor360.com">support@veylor360.com</a>
               </p>
             </div>
           </div>
@@ -106,11 +112,13 @@ export async function sendWelcomeEmail({
     });
 
     if (error) {
+      console.error('Resend API Error:', error);
       throw error;
     }
 
     return data;
   } catch (error) {
+    console.error('Email sending error:', error);
     throw error;
   }
 } 

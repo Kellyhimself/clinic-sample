@@ -486,7 +486,7 @@ export default function Sidebar({ closeSidebar }: SidebarProps) {
     <div className="h-screen flex flex-col" ref={sidebarRef}>
       {/* Header with logo */}
       <div className="flex items-center justify-between mb-4 py-2">
-        <h1 className="text-xl font-bold text-blue-700 bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent">ClinicPanel</h1>
+        <h1 className="text-xl font-bold text-blue-700 bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent">@Veylor360</h1>
       </div>
       
       {/* Scrollable navigation */}

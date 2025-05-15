@@ -14,10 +14,15 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { User } from '@/types';
 import { useRouter, usePathname } from 'next/navigation';
+
+interface User {
+  id: string;
+  user_metadata?: {
+    full_name?: string;
+  };
+}
 
 interface NavbarProps {
   screenSize: string;
@@ -85,7 +90,16 @@ export default function Navbar({ screenSize, user, tenantContext, onLogout }: Na
 
   const showStockAlerts = isAdminOrStaff;
   const totalAlerts = lowStockCount + expiringCount;
-  const displayName = tenantContext?.name || 'User';
+  
+  // Get the second name from the user's full name
+  const getSecondName = (fullName: string) => {
+    const names = fullName.split(' ');
+    return names.length > 1 ? names[1] : names[0];
+  };
+  
+  const displayName = user?.user_metadata?.full_name 
+    ? getSecondName(user.user_metadata.full_name)
+    : 'User';
 
   // Determine navbar height and padding based on screen size
   const navbarHeight = screenSize === 'xs' ? 'h-12' : 'h-14';

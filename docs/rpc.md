@@ -479,9 +479,7 @@ are we not having duplacated files in relation to features and limits intergrati
 
 features.ts, features folder, featureGuard.tsx, featurecheck.ts, subscriptionFeatures.ts, useUsageLimits.ts, usageLimits.ts, planLimits. I hope we are not over complicating things and all these files have there own purposes and cant be removed
 
- The usage limit indicator is working perfectly for free plan tenants, but seems to raise alerts and render the @UsageLimitAlert.tsx  component even for pro and enterprise plans. For example in the @PharmacySalesManager.ts@x, the enterprice tenant is being prompted to upgrade.
-
-can we solve this without altering the functionality when it comes to free plan users, assume the contents and limits are being checked correctly for free plan users but not okay for upgraded plans, solve without having to creaaate unnecessary files, use existing feature/limits existing codes
-
-can we update the submit buttons in @NewSaleForm.tsx : 'submit sale' for guest sales and the 'comfirm sale' for quick sale to be @LimitAwareButton.tsx . Make sure to handle the loading state properly when the user gets to that last step to avoid flickering between 'loading..' and the actual buttons content. Refer to how you handled the submit button for the @InventoryForm.tsx . copy that implementation exactly but with limit being transactions
+curl -X POST http://localhost:3000/api/system-admin/create \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "email=admins@gmail.com&password=password&fullName=Kelly Admin"
 
