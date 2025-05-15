@@ -53,13 +53,11 @@ async function createRoleSpecificRecord(
         });
     
     case 'cashier':
+      // Since cashiers table is not in the schema, we'll create a profile with cashier role
       return await supabase
-        .from('cashiers')
-        .insert({
-          user_id: userId,
-          tenant_id: tenantId,
-          department: metadata.department || 'Finance'
-        });
+        .from('profiles')
+        .update({ role: 'cashier' })
+        .eq('id', userId);
     
     default:
       return { error: null }; // No role-specific table for other roles
@@ -125,11 +123,7 @@ export async function POST(request: NextRequest) {
 
     // Check if user already exists
     console.log('Checking for existing user...');
-    const { data: existingUser, error: userCheckError } = await adminClient.auth.admin.listUsers({
-      filters: {
-        email: invitation.email
-      }
-    });
+    const { data: { users }, error: userCheckError } = await adminClient.auth.admin.listUsers();
 
     if (userCheckError) {
       console.error('User check error:', userCheckError);
@@ -139,15 +133,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const existingUser = users?.find(user => user.email === invitation.email);
     let authData;
-    if (existingUser?.users && existingUser.users.length > 0) {
-      console.log('Updating existing user...');
+
+    if (existingUser) {
+      console.log('User already exists, updating...');
       const { data: updateData, error: updateError } = await adminClient.auth.admin.updateUserById(
-        existingUser.users[0].id,
+        existingUser.id,
         {
           password,
           email_confirm: true,
-          email: invitation.email,
           user_metadata: {
             full_name: fullName,
             tenant_id: invitation.tenant_id
