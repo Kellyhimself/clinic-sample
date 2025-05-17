@@ -5,27 +5,25 @@ import { User } from '@supabase/supabase-js';
 
 export const supabase = createClient();
 
+// Add session refresh interval (5 minutes)
+const SESSION_REFRESH_INTERVAL = 5 * 60 * 1000;
+
 export function useAuth() {
   const [tenantContext, setTenantContext] = useState<TenantContext | null>(null);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-    });
+    let refreshInterval: NodeJS.Timeout;
 
-    // Get initial tenant context
-    const context = getStoredTenantContext();
-    setTenantContext(context);
-    setLoading(false);
-
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setUser(session?.user ?? null);
-      
-      if (event === 'SIGNED_IN' && session) {
+    // Function to refresh session and tenant context
+    const refreshSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          setUser(session.user);
+          
+          // Refresh tenant context
         const { data: profile } = await supabase
           .from('profiles')
           .select('id, role, tenant_id')
@@ -49,14 +47,53 @@ export function useAuth() {
             setTenantContext(context);
           }
         }
+        }
+      } catch (error) {
+        console.error('Error refreshing session:', error);
+      }
+    };
+
+    // Initial session load
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        refreshSession();
+      }
+    });
+
+    // Get initial tenant context
+    const context = getStoredTenantContext();
+    setTenantContext(context);
+    setLoading(false);
+
+    // Set up session refresh interval
+    refreshInterval = setInterval(refreshSession, SESSION_REFRESH_INTERVAL);
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setUser(session?.user ?? null);
+      
+      if (event === 'SIGNED_IN' && session) {
+        await refreshSession();
       } else if (event === 'SIGNED_OUT') {
         clearStoredTenantContext();
         setTenantContext(null);
       }
     });
 
+    // Set up visibility change listener
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshSession();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       subscription.unsubscribe();
+      clearInterval(refreshInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 

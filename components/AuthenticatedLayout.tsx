@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/app/lib/auth/AuthProvider';
 import { useRouter } from 'next/navigation';
@@ -21,6 +21,8 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
   const [isScrolled, setIsScrolled] = useState(false);
   const { user, tenantContext, loading, error } = useAuth();
   const router = useRouter();
+  const [retryCount, setRetryCount] = useState(0);
+  const [isRetrying, setIsRetrying] = useState(false);
 
   // Handle responsive sidebar and screen size
   useEffect(() => {
@@ -62,6 +64,27 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Handle session recovery
+  useEffect(() => {
+    if (loading && retryCount < 3) {
+      const timer = setTimeout(() => {
+        setIsRetrying(true);
+        // Attempt to refresh the session
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session) {
+            setRetryCount(0);
+            setIsRetrying(false);
+          } else {
+            setRetryCount(prev => prev + 1);
+            setIsRetrying(false);
+          }
+        });
+      }, 2000 * (retryCount + 1)); // Exponential backoff
+
+      return () => clearTimeout(timer);
+    }
+  }, [loading, retryCount]);
+
   // Handle sign-out
   const handleLogout = async () => {
     try {
@@ -79,18 +102,64 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
     }
   };
 
+  // Function to handle manual retry
+  const handleRetry = () => {
+    setRetryCount(0);
+    setIsRetrying(true);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setRetryCount(0);
+        setIsRetrying(false);
+      } else {
+        setRetryCount(prev => prev + 1);
+        setIsRetrying(false);
+      }
+    });
+  };
+
   // If loading or error, show appropriate state
-  if (loading) {
+  if (loading || isRetrying) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        {retryCount > 0 && (
+          <div className="text-center">
+            <p className="text-gray-600 mb-2">Having trouble loading the page?</p>
+            <Button 
+              onClick={handleRetry}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Retry
+            </Button>
+          </div>
+        )}
       </div>
     );
   }
 
   if (error || !user || !tenantContext) {
-    router.push('/login');
-    return null;
+    // Only redirect to login if we've exhausted retries
+    if (retryCount >= 3) {
+      router.push('/login');
+      return null;
+    }
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+        <div className="text-center">
+          <p className="text-gray-600 mb-2">Session expired or invalid</p>
+          <Button 
+            onClick={handleRetry}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (
