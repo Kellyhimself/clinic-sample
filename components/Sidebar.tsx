@@ -82,18 +82,9 @@ export default function Sidebar({ closeSidebar }: SidebarProps) {
   const [pendingPaymentsCount, setPendingPaymentsCount] = useState(0);
   const [pendingAppointments, setPendingAppointments] = useState(0); 
   const [pendingSales, setPendingSales] = useState(0);
-  const [isMobileView, setIsMobileView] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
   
-  // Handle responsive behavior
-  useEffect(() => {
-    const handleResize = () => setIsMobileView(window.innerWidth < 768);
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
   // Handle click outside for dropdowns
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -477,27 +468,17 @@ export default function Sidebar({ closeSidebar }: SidebarProps) {
   }, []);
 
   const handleNavigation = useCallback(() => {
-    if (isMobileView && closeSidebar) {
+    if (closeSidebar) {
       closeSidebar();
     }
     setOpenDropdown(null);
-  }, [isMobileView, closeSidebar]);
+  }, [closeSidebar]);
 
   return (
     <div className="h-screen flex flex-col" ref={sidebarRef}>
-      {/* Header with logo and mobile toggle */}
+      {/* Header with logo */}
       <div className="flex items-center justify-between mb-4 py-2">
         <h1 className="text-xl font-bold text-blue-700 bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent">@Veylor360</h1>
-        {isMobileView && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={closeSidebar}
-            className="h-8 w-8 rounded-none bg-white text-blue-600 hover:text-blue-700 hover:bg-blue-50 shadow-md"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        )}
       </div>
       
       {/* Scrollable navigation */}

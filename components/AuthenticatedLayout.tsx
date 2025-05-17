@@ -110,7 +110,7 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
           <Button
             variant="ghost"
             className={cn(
-              'absolute top-4 right-4 md:hidden text-blue-600 hover:text-blue-700 hover:bg-blue-100 rounded-full',
+              'absolute top-4 right-4 md:hidden text-blue-600 hover:text-blue-700 hover:bg-blue-200 bg-blue-100 rounded-none',
               screenSize === 'xs' && 'top-2 right-2',
               screenSize === 'sm' && 'top-3 right-3'
             )}
@@ -139,11 +139,11 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
             <Button
               variant="ghost"
               className={cn(
-                'bg-blue-100 text-blue-600 hover:bg-blue-200 hover:text-blue-700 rounded-full shadow-md',
+                'bg-blue-100 text-blue-600 hover:bg-blue-200 hover:text-blue-700 rounded-none shadow-md',
                 screenSize === 'sm' && 'ml-2',
                 screenSize === 'xs' && 'mb-2',
                 isScrolled
-                  ? 'fixed top-4 left-4 z-50 bg-white shadow-lg transition-all duration-300'
+                  ? 'fixed top-4 left-4 z-50 bg-blue-100 shadow-lg transition-all duration-300'
                   : screenSize === 'sm' || screenSize === 'md'
                   ? 'absolute top-[3.6rem] left-3 z-40'
                   : 'mb-4'

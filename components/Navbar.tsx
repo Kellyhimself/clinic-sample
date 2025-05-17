@@ -205,7 +205,7 @@ export default function Navbar({ screenSize, user, tenantContext, onLogout }: Na
               variant="ghost" 
               size="icon" 
               className={cn(
-                "bg-white text-blue-600 hover:text-blue-700 hover:bg-blue-50 shadow-md",
+                "bg-blue-100 text-blue-600 hover:text-blue-700 hover:bg-blue-200 shadow-md",
                 screenSize === 'xs' ? "h-8 w-8 rounded-none" : "h-9 w-9 rounded-none",
                 screenSize === 'sm' && "mr-1.5"
               )}
