@@ -28,21 +28,41 @@ export default function SalesFilterBar({
   customClasses = {}
 }: SalesFilterBarProps) {
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between lg:gap-4">
       <Tabs 
         value={timeframe}
         onValueChange={(value) => onTimeframeChange(value as TimeframeType)}
-        className={`mb-3 md:mb-4 ${customClasses.timeframeSelect || ''}`}
+        className={`w-full lg:w-auto ${customClasses.timeframeSelect || ''}`}
       >
-        <TabsList className={`grid grid-cols-4 w-full max-w-full md:max-w-md h-8 md:h-10 px-0 ${customClasses.filterItem || ''}`}>
-          <TabsTrigger value="all" className={`text-[10px] md:text-xs lg:text-sm px-0 md:px-2 ${customClasses.button || ''}`}>All Time</TabsTrigger>
-          <TabsTrigger value="today" className={`text-[10px] md:text-xs lg:text-sm px-0 md:px-2 ${customClasses.button || ''}`}>Today</TabsTrigger>
-          <TabsTrigger value="week" className={`text-[10px] md:text-xs lg:text-sm px-0 md:px-2 ${customClasses.button || ''}`}>This Week</TabsTrigger>
-          <TabsTrigger value="month" className={`text-[10px] md:text-xs lg:text-sm px-0 md:px-2 ${customClasses.button || ''}`}>This Month</TabsTrigger>
+        <TabsList className={`grid grid-cols-4 w-full max-w-full lg:max-w-md h-8 md:h-10 px-0 bg-gradient-to-br from-blue-50 to-teal-50 border-blue-200 ${customClasses.filterItem || ''}`}>
+          <TabsTrigger 
+            value="all" 
+            className={`text-[10px] md:text-xs lg:text-sm px-0 md:px-2 text-gray-600 data-[state=active]:bg-white data-[state=active]:text-blue-600 ${customClasses.button || ''}`}
+          >
+            All Time
+          </TabsTrigger>
+          <TabsTrigger 
+            value="today" 
+            className={`text-[10px] md:text-xs lg:text-sm px-0 md:px-2 text-gray-600 data-[state=active]:bg-white data-[state=active]:text-blue-600 ${customClasses.button || ''}`}
+          >
+            Today
+          </TabsTrigger>
+          <TabsTrigger 
+            value="week" 
+            className={`text-[10px] md:text-xs lg:text-sm px-0 md:px-2 text-gray-600 data-[state=active]:bg-white data-[state=active]:text-blue-600 ${customClasses.button || ''}`}
+          >
+            This Week
+          </TabsTrigger>
+          <TabsTrigger 
+            value="month" 
+            className={`text-[10px] md:text-xs lg:text-sm px-0 md:px-2 text-gray-600 data-[state=active]:bg-white data-[state=active]:text-blue-600 ${customClasses.button || ''}`}
+          >
+            This Month
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
-      <div className="flex flex-col md:flex-row gap-2 md:gap-4">
+      <div className="flex flex-col md:flex-row gap-2 md:gap-4 mt-3 lg:mt-0">
         <Input
           placeholder="Search..."
           value={searchTerm}

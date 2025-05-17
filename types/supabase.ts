@@ -1544,8 +1544,26 @@ export type Database = {
           email: string
         }[]
       }
+      get_medication_profit_margins: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          medication_id: string
+          medication_name: string
+          batch_id: string
+          batch_number: string
+          quantity: number
+          total_price: number
+          purchase_price: number
+          unit_price: number
+          effective_cost: number
+          total_cost: number
+          profit: number
+          profit_margin: number
+          created_at: string
+        }[]
+      }
       get_top_selling_medications: {
-        Args: Record<PropertyKey, never>
+        Args: { p_tenant_id: string }
         Returns: {
           medication_id: string
           medication_name: string

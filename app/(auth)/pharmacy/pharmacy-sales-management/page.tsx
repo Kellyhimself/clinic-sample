@@ -4,10 +4,10 @@
 import PharmacySalesManager from '@/components/pharmacy/PharmacySalesManager';
 import PharmacyAnalyticsDashboard from '@/components/pharmacy/PharmacyAnalyticsDashboard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Suspense, useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSubscription } from '@/app/lib/hooks/useSubscription';
-import { fetchSales } from '@/lib/authActions';
-import { Sale } from '@/types/pharmacy';
+import { fetchSales } from '@/lib/sales';
+import { Sale } from '@/lib/sales';
 import { getFeatureDetails } from '@/app/lib/utils/featureCheck';
 import Head from 'next/head';
 

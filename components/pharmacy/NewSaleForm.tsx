@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +15,7 @@ import {
 import { createSale } from "@/lib/newSale";
 import { getOrCreateQuickSalePatient } from "@/lib/patients";
 import type { Patient, Medication } from "@/types/supabase";
-import { ArrowLeft } from "lucide-react";
+import { ShoppingCart } from "lucide-react";
 import GuestPatientDialog from '@/components/GuestPatientDialog';
 import {
   Dialog,
@@ -56,7 +55,6 @@ export default function NewSaleForm({
   initialPatients = [], 
   initialMedications = [],
 }: NewSaleFormProps) {
-  const router = useRouter();
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [items, setItems] = useState<SaleItem[]>([]);
@@ -401,28 +399,14 @@ Thank you for your business!
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50 p-2">
       <div className="w-full max-w-[1400px] mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
-        <div className="p-2 border-b">
+        <div className="p-2 border-b border-gray-200">
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.back()}
-              className="h-6 w-6"
-            >
-              <ArrowLeft className="h-3 w-3" />
-            </Button>
-            <h2 className="text-sm font-semibold">New Sale</h2>
+            <ShoppingCart className="h-6 w-6 text-blue-600" />
+            <h2 className="text-sm font-semibold text-gray-800">New Sale</h2>
           </div>
-          {selectedPatient && !isQuickSale && (
-            <div className="mt-1 text-xs text-gray-600">
-              Patient: {selectedPatient.full_name}
-            </div>
-          )}
-          {isQuickSale && (
-            <div className="mt-1 text-xs text-amber-600">
-              Quick Sale (No Patient Details)
-            </div>
-          )}
+          <div className="mt-1 text-xs text-gray-600">
+            Create a new pharmacy sale
+          </div>
         </div>
 
         <div className="p-4">
@@ -721,7 +705,7 @@ Thank you for your business!
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <div className="font-medium text-xs">{item.medication.name}</div>
-                          <div className="text-[10px] text-gray-500 flex justify-between">
+                          <div className="text-[10px] text-gray-500">
                             <span>Batch: {item.batch.batch_number}</span>
                             <span>Qty: {item.quantity} x ${item.unit_price}</span>
                           </div>
@@ -766,7 +750,7 @@ Thank you for your business!
                     <span className="font-medium">${pharmacyTotal.toFixed(2)}</span>
                   </div>
                   <div className="h-px bg-gray-200 my-1"></div>
-                  <div className="text-xs font-medium flex justify-between text-blue-700">
+                  <div className="text-xs font-medium text-gray-800 flex justify-between text-blue-700">
                     <span>Total:</span>
                     <span>${pharmacyTotal.toFixed(2)}</span>
                   </div>

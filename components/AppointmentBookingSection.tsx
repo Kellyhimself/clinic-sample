@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { 
@@ -16,10 +16,9 @@ import { Patient } from '@/types/supabase';
 import { handleBooking } from '@/lib/authActions';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
-import { useUsageLimits } from '@/app/lib/hooks/useUsageLimits';
-import { useFeatures } from '@/app/lib/hooks/useFeatures';
-import { UsageLimitAlert } from '@/components/shared/UsageLimitAlert';
+import { Calendar, Clock, User } from 'lucide-react';
+import { format } from 'date-fns';
+import { Textarea } from '@/components/ui/textarea';
 
 interface Service {
   id: string;
@@ -57,38 +56,7 @@ export default function AppointmentBookingSection({
   const [notes, setNotes] = useState('');
   const [filteredPatients, setFilteredPatients] = useState<Patient[]>([]);
   const [isBooking, setIsBooking] = useState(false);
-  const { checkUsage } = useUsageLimits();
-  const [usageLimit, setUsageLimit] = useState<{ allowed: boolean; current: number; limit: number } | null>(null);
-  const { getFeatureDetails } = useFeatures();
-
-  useEffect(() => {
-    const checkLimit = async () => {
-      try {
-        const limit = await checkUsage('appointments');
-        const feature = getFeatureDetails('unlimited_appointments');
-        const isProOrEnterprise = feature?.requiredPlan === 'pro' || feature?.requiredPlan === 'enterprise';
-        
-        if (isProOrEnterprise) {
-          setUsageLimit({
-            allowed: true,
-            current: limit.current,
-            limit: -1
-          });
-          return;
-        }
-
-        setUsageLimit({
-          allowed: limit.remaining > 0,
-          current: limit.current,
-          limit: limit.limit
-        });
-      } catch (error) {
-        console.error('Error checking usage limit:', error);
-      }
-    };
-
-    checkLimit();
-  }, [checkUsage, getFeatureDetails]);
+  const [duration, setDuration] = useState('');
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -192,35 +160,14 @@ export default function AppointmentBookingSection({
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50 p-2">
       <div className="w-full max-w-[1400px] mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
-        {usageLimit && !usageLimit.allowed && (
-          <UsageLimitAlert
-            limit={{
-              type: 'appointments',
-              current: usageLimit.current,
-              limit: usageLimit.limit,
-              isWithinLimit: usageLimit.allowed
-            }}
-            className="m-4"
-          />
-        )}
-
-        <div className="p-2 border-b">
+        <div className="p-2 border-b border-gray-200">
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.back()}
-              className="h-6 w-6"
-            >
-              <ArrowLeft className="h-3 w-3" />
-            </Button>
-            <h2 className="text-sm font-semibold">Book New Appointment</h2>
+            <Calendar className="h-6 w-6 text-blue-600" />
+            <h2 className="text-sm font-semibold text-gray-800">Book New Appointment</h2>
           </div>
-          {selectedPatient && (
-            <div className="mt-1 text-xs text-gray-600">
-              Patient: {selectedPatient.full_name}
-            </div>
-          )}
+          <div className="mt-1 text-xs text-gray-600">
+            Schedule a new appointment for a patient
+          </div>
         </div>
 
         <div className="p-4">
@@ -307,7 +254,7 @@ export default function AppointmentBookingSection({
                         <SelectContent>
                           {services.map((service) => (
                             <SelectItem key={service.id} value={service.id}>
-                              {service.name} - ${service.price}
+                              {service.name}
                             </SelectItem>
                           ))}
                           <SelectItem value="custom">Custom Service</SelectItem>
@@ -333,7 +280,7 @@ export default function AppointmentBookingSection({
                         <SelectContent>
                           {doctors.map((doctor) => (
                             <SelectItem key={doctor.id} value={doctor.id}>
-                              {doctor.full_name} {doctor.specialty ? `(${doctor.specialty})` : ''}
+                              {doctor.full_name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -349,11 +296,10 @@ export default function AppointmentBookingSection({
                         <Label className="text-xs">Date</Label>
                         <Input
                           id="date"
-                          type="date"
+                          type="datetime-local"
                           value={selectedDate}
                           onChange={(e) => setSelectedDate(e.target.value)}
                           className="h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
-                          min={new Date().toISOString().split('T')[0]}
                         />
                       </div>
                       <div className="flex flex-col gap-0.5">
@@ -369,12 +315,22 @@ export default function AppointmentBookingSection({
                     </div>
 
                     <div className="flex flex-col gap-0.5 mt-1">
-                      <Label className="text-xs">Notes (Optional)</Label>
+                      <Label className="text-xs">Duration</Label>
                       <Input
-                        id="notes"
+                        type="text"
+                        placeholder="Enter appointment duration in minutes"
+                        value={duration}
+                        onChange={(e) => setDuration(e.target.value)}
+                        className="h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-0.5 mt-1">
+                      <Label className="text-xs">Notes (Optional)</Label>
+                      <Textarea
+                        placeholder="Enter any additional notes"
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
-                        placeholder="Any special instructions"
                         className="h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
                       />
                     </div>
@@ -396,8 +352,7 @@ export default function AppointmentBookingSection({
                   <Button
                     onClick={() => setStep(step + 1)}
                     disabled={(step === 1 && !selectedPatient) || 
-                             (step === 2 && (!selectedService && !customService || !selectedDoctor)) ||
-                             (usageLimit && !usageLimit.allowed)}
+                             (step === 2 && (!selectedService && !customService || !selectedDoctor))}
                     size="sm"
                     className="h-8 bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700"
                   >
@@ -406,7 +361,7 @@ export default function AppointmentBookingSection({
                 ) : (
                   <Button 
                     onClick={handleSubmit}
-                    disabled={isBooking || !selectedDate || !selectedTime || (usageLimit && !usageLimit.allowed)}
+                    disabled={isBooking || !selectedDate || !selectedTime}
                     size="sm"
                     className="h-8 bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700"
                   >
@@ -420,84 +375,66 @@ export default function AppointmentBookingSection({
               <div className="space-y-2">
                 <h3 className="font-medium text-xs">Appointment Summary</h3>
                 <div className="p-3 border rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
-                  {selectedPatient ? (
-                    <div className="mb-3">
-                      <div className="text-xs font-medium">Patient</div>
-                      <div className="text-[11px] flex items-center">
-                        {selectedPatient.patient_type === 'guest' && (
-                          <span className="bg-amber-100 text-amber-800 text-[10px] px-1 rounded-sm mr-1">
-                            Guest
-                          </span>
-                        )}
+                  <div className="text-xs font-medium text-gray-800">Patient</div>
+                  <div className="text-[11px] flex items-center text-gray-600">
+                    {selectedPatient ? (
+                      <>
+                        <User className="h-3 w-3 mr-1" />
                         {selectedPatient.full_name}
-                      </div>
-                      {selectedPatient.phone_number && (
-                        <div className="text-[10px] text-gray-500">{selectedPatient.phone_number}</div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-[11px] text-gray-500 italic mb-3">No patient selected</div>
-                  )}
+                      </>
+                    ) : (
+                      <span className="text-[10px] text-gray-500">No patient selected</span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-gray-500">{selectedPatient?.phone_number}</div>
 
-                  {(selectedService || customService) && (
-                    <div className="mb-3">
-                      <div className="text-xs font-medium">Service</div>
-                      <div className="text-[11px]">
-                        {selectedService === 'custom' 
-                          ? customService 
-                          : selectedService 
-                            ? services.find(s => s.id === selectedService)?.name || 'Unknown service'
-                            : 'No service selected'}
-                      </div>
-                      {selectedService && selectedService !== 'custom' && (
+                  <div className="text-xs font-medium text-gray-800">Service</div>
+                  <div className="text-[11px] text-gray-600">
+                    {typeof selectedService === 'object' && selectedService !== null ? (
+                      <>
+                        {selectedService.name}
                         <div className="text-[10px] text-gray-500">
-                          ${services.find(s => s.id === selectedService)?.price.toFixed(2) || '0.00'} - 
-                          {services.find(s => s.id === selectedService)?.duration || 0} minutes
+                          {new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(selectedService.price)}
                         </div>
-                      )}
-                    </div>
-                  )}
+                      </>
+                    ) : (
+                      <span className="text-[10px] text-gray-500">No service selected</span>
+                    )}
+                  </div>
 
-                  {selectedDoctor && (
-                    <div className="mb-3">
-                      <div className="text-xs font-medium">Doctor</div>
-                      <div className="text-[11px]">
-                        {doctors.find(d => d.id === selectedDoctor)?.full_name || 'Unknown doctor'}
-                      </div>
-                      {doctors.find(d => d.id === selectedDoctor)?.specialty && (
-                        <div className="text-[10px] text-gray-500">
-                          {doctors.find(d => d.id === selectedDoctor)?.specialty}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  <div className="text-xs font-medium text-gray-800">Doctor</div>
+                  <div className="text-[11px] text-gray-600">
+                    {selectedDoctor ? (
+                      <>
+                        {selectedDoctor}
+                        <div className="text-[10px] text-gray-500">{doctors.find(d => d.id === selectedDoctor)?.specialty}</div>
+                      </>
+                    ) : (
+                      <span className="text-[10px] text-gray-500">No doctor selected</span>
+                    )}
+                  </div>
 
-                  {(selectedDate || selectedTime) && (
-                    <div className="mb-3">
-                      <div className="text-xs font-medium">Schedule</div>
-                      <div className="text-[11px] flex gap-1">
-                        {selectedDate && (
-                          <span>{new Date(selectedDate).toLocaleDateString()}</span>
-                        )}
-                        {selectedTime && (
-                          <span>at {selectedTime}</span>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                  <div className="text-xs font-medium text-gray-800">Schedule</div>
+                  <div className="text-[11px] flex gap-1 text-gray-600">
+                    {selectedDate ? (
+                      <>
+                        <Calendar className="h-3 w-3" />
+                        {format(new Date(selectedDate), 'MMM dd, yyyy')}
+                        <Clock className="h-3 w-3 ml-2" />
+                        {format(new Date(selectedDate), 'hh:mm a')}
+                        {duration && ` (${duration} min)`}
+                      </>
+                    ) : (
+                      <span className="text-[10px] text-gray-500">No date/time selected</span>
+                    )}
+                  </div>
 
-                  {notes && (
-                    <div className="mt-3">
-                      <div className="text-xs font-medium">Notes</div>
-                      <div className="text-[11px] text-gray-700">{notes}</div>
-                    </div>
-                  )}
+                  <div className="text-xs font-medium text-gray-800">Notes</div>
+                  <div className="text-[11px] text-gray-700">{notes}</div>
                   
-                  {(!selectedPatient && !selectedService && !customService && !selectedDoctor && !selectedDate && !selectedTime) && (
-                    <div className="text-center text-[11px] text-gray-500 italic py-4">
-                      Complete the form to see appointment details
-                    </div>
-                  )}
+                  <div className="text-center text-[11px] text-gray-500 italic py-4">
+                    {isBooking ? 'Saving appointment...' : 'Review the details before confirming'}
+                  </div>
                 </div>
               </div>
             </div>

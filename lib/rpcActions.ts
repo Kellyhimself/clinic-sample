@@ -2,6 +2,7 @@
 
 import { createClient } from '@/app/lib/supabase/server';
 import { Database } from '@/types/supabase';
+import { createClient as supabaseClient } from '@supabase/supabase-js';
 
 type SaleItem = Database['public']['Tables']['sale_items']['Row'] & {
   medication: {
@@ -39,6 +40,28 @@ type ProfitData = {
   reorder_suggested: boolean;
 };
 
+// Initialize Supabase client
+const supabase = supabaseClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+export interface MedicationProfitMargin {
+  medication_id: string;
+  medication_name: string;
+  batch_id: string;
+  batch_number: string;
+  quantity: number;
+  total_price: number;
+  purchase_price: number;
+  unit_price: number;
+  effective_cost: number;
+  total_cost: number;
+  profit: number;
+  profit_margin: number;
+  created_at: string;
+}
+
 /**
  * Server action to fetch top selling medications
  */
@@ -48,65 +71,77 @@ export async function getTopSellingMedications(): Promise<TopSellingMedication[]
     
     // Get the current user's tenant context
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
-
+    if (!user) {
+      console.error('No user found');
+      throw new Error('Not authenticated');
+    }
+    
     const { data: profile } = await supabase
       .from('profiles')
       .select('tenant_id')
       .eq('id', user.id)
       .single();
 
-    if (!profile?.tenant_id) throw new Error('No tenant context found');
+    if (!profile?.tenant_id) {
+      throw new Error('No tenant context found');
+    }
+    
     
     // Set tenant context
     const { error: setContextError } = await supabase
       .rpc('set_tenant_context', { p_tenant_id: profile.tenant_id });
 
     if (setContextError) {
-      console.error('Error setting tenant context:', setContextError);
       throw new Error('Failed to set tenant context');
     }
-
-    // Get tenant ID from context
+    // Get tenant ID from context to verify it was set correctly
     const { data: tenantId, error: getTenantError } = await supabase
       .rpc('get_tenant_id');
 
     if (getTenantError || !tenantId) {
-      console.error('Failed to get tenant ID:', getTenantError);
-      throw new Error('Failed to get tenant ID');
+     throw new Error('Failed to get tenant ID');
+    }
+
+    if (tenantId !== profile.tenant_id) {
+      throw new Error('Tenant context mismatch');
     }
     
-    // Custom query with tenant context
+    // Call the database function
     const { data, error } = await supabase
-      .from('sale_items')
-      .select(`
-        id,
-        medication_id,
-        quantity,
-        medication:medications (
-          id,
-          name
-        )
-      `)
-      .eq('tenant_id', tenantId)
-      .order('quantity', { ascending: false })
-      .limit(10);
-      
+      .rpc('get_top_selling_medications');
+
     if (error) {
-      console.error('Error fetching top selling medications:', error);
       throw new Error('Failed to fetch top selling medications');
     }
     
-    // Transform the data to match the expected format
-    const transformedData = (data as SaleItem[]).map(item => ({
-      medication_id: item.medication_id,
-      medication_name: item.medication.name,
-      total_quantity: item.quantity
-    }));
     
-    return transformedData || [];
+    if (!Array.isArray(data)) {
+     throw new Error('Invalid data format received from database');
+    }
+    
+    // Transform the data to match the expected format
+   
+    const transformedData = data.map(item => {
+      if (!item || typeof item !== 'object') {
+       throw new Error('Invalid item in medication data');
+      }
+      
+      const { medication_id, medication_name, total_quantity } = item;
+      
+      if (!medication_id || !medication_name || typeof total_quantity !== 'number') {
+       throw new Error('Invalid medication data structure');
+      }
+      
+      return {
+        medication_id,
+        medication_name,
+        total_quantity: Number(total_quantity)
+      };
+    });
+       
+    return transformedData;
   } catch (error) {
-    console.error('Error in getTopSellingMedications:', error);
+    
     throw error;
   }
 }
@@ -130,92 +165,17 @@ export async function calculateProfitAndReorders(): Promise<ProfitData[]> {
 
     if (!profile?.tenant_id) throw new Error('No tenant context found');
     
-    // Set tenant context
-    const { error: setContextError } = await supabase
-      .rpc('set_tenant_context', { p_tenant_id: profile.tenant_id });
+    // Call the RPC function to get profit data
+    const { data: profitData, error: rpcError } = await supabase
+      .rpc('calculate_profit_and_reorders', { p_tenant_id: profile.tenant_id });
 
-    if (setContextError) {
-      console.error('Error setting tenant context:', setContextError);
-      throw new Error('Failed to set tenant context');
+    if (rpcError) {
+      throw new Error('Failed to calculate profit and reorders');
     }
-
-    // Get tenant ID from context
-    const { data: tenantId, error: getTenantError } = await supabase
-      .rpc('get_tenant_id');
-
-    if (getTenantError || !tenantId) {
-      console.error('Failed to get tenant ID:', getTenantError);
-      throw new Error('Failed to get tenant ID');
-    }
-    
-    // First, get all medications for the tenant
-    const { data: medications, error: medicationsError } = await supabase
-      .from('medications')
-      .select(`
-        id,
-        name,
-        unit_price,
-        category,
-        dosage_form,
-        strength
-      `)
-      .eq('tenant_id', tenantId);
-      
-    if (medicationsError) {
-      console.error('Error fetching medications:', medicationsError);
-      throw new Error('Failed to fetch medications');
-    }
-    
-    // Then, get all sale items to calculate sales
-    const { data: saleItems, error: saleItemsError } = await supabase
-      .from('sale_items')
-      .select(`
-        id,
-        medication_id,
-        quantity,
-        unit_price,
-        total_price
-      `)
-      .eq('tenant_id', tenantId);
-      
-    if (saleItemsError) {
-      console.error('Error fetching sale items:', saleItemsError);
-      throw new Error('Failed to fetch sale items');
-    }
-    
-    // Calculate profits and reorder status for each medication
-    const profitData = medications.map(medication => {
-      // Get all sale items for this medication
-      const medicationSales = saleItems.filter(item => 
-        item.medication_id === medication.id
-      );
-      
-      // Calculate totals
-      const totalSales = medicationSales.reduce((sum, item) => 
-        sum + item.total_price, 0);
-      
-      const totalCost = medicationSales.reduce((sum, item) => 
-        sum + (item.quantity * medication.unit_price), 0);
-      
-      // Calculate profit margin
-      let profitMargin = 0;
-      if (totalCost > 0) {
-        profitMargin = ((totalSales - totalCost) / totalCost) * 100;
-      }
-      
-      return {
-        medication_id: medication.id,
-        name: medication.name,
-        total_sales: totalSales,
-        total_cost: totalCost,
-        profit_margin: profitMargin,
-        reorder_suggested: false // This would need to be calculated based on stock levels
-      };
-    });
     
     return profitData;
   } catch (error) {
-    console.error('Error in calculateProfitAndReorders:', error);
+    
     throw error;
   }
 }
@@ -347,6 +307,80 @@ export async function fetchSales(patientId?: string): Promise<Sale[]> {
     return salesWithPatients;
   } catch (error) {
     console.error('Error in fetchSales:', error);
+    throw error;
+  }
+}
+
+export async function getMedicationProfitMargins(): Promise<MedicationProfitMargin[]> {
+  try {
+    const supabase = await createClient();
+    
+    // Get the current user's tenant context
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.error('No user found');
+      throw new Error('Not authenticated');
+    }
+    
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('tenant_id')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile?.tenant_id) {
+      
+      throw new Error('No tenant context found');
+    }
+    
+
+    // Set tenant context
+ 
+    const { error: setContextError } = await supabase
+      .rpc('set_tenant_context', { p_tenant_id: profile.tenant_id });
+
+    if (setContextError) {
+      
+      throw new Error('Failed to set tenant context');
+    }
+
+    // Get tenant ID from context to verify it was set correctly
+    
+    const { data: tenantId, error: getTenantError } = await supabase
+      .rpc('get_tenant_id');
+
+    if (getTenantError || !tenantId) {
+     throw new Error('Failed to get tenant ID');
+    }
+
+    if (tenantId !== profile.tenant_id) {
+      throw new Error('Tenant context mismatch');
+    }
+    // Call the RPC function with tenant ID parameter
+    const response = await supabase
+      .rpc('get_medication_profit_margins', { p_tenant_id: profile.tenant_id });
+   
+    const { data, error } = response;
+
+    if (error) {
+      console.error('Error fetching medication profit margins:', error);
+      console.error('Error details:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      });
+      throw error;
+    }
+
+    if (!data) {
+      
+      return [];
+    }
+    
+ return data;
+  } catch (error) {
+ 
     throw error;
   }
 } 

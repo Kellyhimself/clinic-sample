@@ -5,13 +5,12 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { BarChart, Activity, DollarSign, Clock, ChevronRight, Package } from 'lucide-react';
-import { LimitAwareButton } from '@/components/shared/LimitAwareButton';
 import NewSaleFormWrapper from '@/app/(auth)/pharmacy/pharmacy-sales-management/new-sale/NewSaleFormWrapper';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 
 // Import shared components
 import SalesMetricCard from '@/components/shared/sales/SalesMetricCard';
 import SalesTable from '@/components/shared/sales/SalesTable';
-import SalesListCard from '@/components/shared/sales/SalesListCard';
 import SalesFilterBar, { TimeframeType, getDateRangeFromTimeframe } from '@/components/shared/sales/SalesFilterBar';
 import { StatusBadge } from '@/components/shared/sales/SalesTable';
 
@@ -128,13 +127,13 @@ export default function PharmacySalesManager({ initialSales }: PharmacySalesMana
       }
       
       if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
+        const searchLower = searchTerm.toLowerCase();
         filteredData = filteredData.filter(sale => {
           return (
             (sale.patient?.full_name?.toLowerCase().includes(searchLower)) ||
-            sale.items.some(item => item.medication.name.toLowerCase().includes(searchLower)) ||
+            (sale.items?.some(item => item.medication?.name?.toLowerCase().includes(searchLower)) || false) ||
             (sale.payment_method?.toLowerCase() || '').includes(searchLower) ||
-            sale.items.some((item) => item.batch.batch_number.toLowerCase().includes(searchLower))
+            (sale.items?.some((item) => item.batch?.batch_number?.toLowerCase().includes(searchLower)) || false)
           );
         });
       }
@@ -328,9 +327,8 @@ export default function PharmacySalesManager({ initialSales }: PharmacySalesMana
         <h2 className={`${isNarrowMobile ? 'xs-heading' : isSmallMediumMobile ? 'xsm-heading' : isMediumMobile ? 'sm-heading' : 'text-xl md:text-2xl'} font-bold text-gray-800 leading-tight`}>
           Pharmacy Sales Management
         </h2>
-        <LimitAwareButton 
+        <Button 
           onClick={() => router.push('/pharmacy/pharmacy-sales-management/new-sale')}
-          limitType="sales"
           className={`w-full md:w-auto bg-gradient-to-r from-indigo-500 to-indigo-600 text-white hover:from-indigo-600 hover:to-indigo-700 ${
             isNarrowMobile ? 'pharmacy-button-xs xs-new-sale-button' : 
             isSmallMediumMobile ? 'pharmacy-button-xsm xsm-button' : 
@@ -338,7 +336,7 @@ export default function PharmacySalesManager({ initialSales }: PharmacySalesMana
           }`}
         >
           New Sale
-        </LimitAwareButton>
+        </Button>
       </div>
 
       {/* Skip to content button for accessibility */}
@@ -445,31 +443,36 @@ export default function PharmacySalesManager({ initialSales }: PharmacySalesMana
           <div className="md:hidden space-y-2">
             {filteredSales.length === 0 ? (
               <div className={`text-center py-4 text-gray-500 ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-sm'}`} role="status">
-                No sales found
+                Loading sales data...
               </div>
             ) : (
               filteredSales.map((sale) => (
-                <SalesListCard<PharmacySale>
-                  key={sale.id}
-                  item={sale}
-                  title={(item: PharmacySale) => item.patient?.full_name || 'Walk-in Customer'}
-                  subtitle={(item: PharmacySale) => format(new Date(item.created_at), isNarrowMobile ? 'MM/dd' : isSmallMediumMobile ? 'MM/dd/yy' : 'MMM dd, yyyy')}
-                  status={{
-                    label: sale.payment_status,
-                    variant: sale.payment_status === 'paid' ? 'default' : 
-                            sale.payment_status === 'pending' ? 'secondary' : 'destructive'
-                  }}
-                  lineItems={sale.items?.map(item => ({
-                    name: `${item.medication.name} ${item.medication.strength}`,
-                    quantity: item.quantity,
-                    price: item.unit_price
-                  })) || []}
-                  totalAmount={sale.total_amount || calculateTotal(sale)}
-                  className={`pharmacy-sale-card ${isNarrowMobile ? 'xs-padding xs-card' : isSmallMediumMobile ? 'xsm-padding' : isMediumMobile ? 'sm-padding' : ''}`}
-                  titleClassName={`pharmacy-sale-title ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : ''}`}
-                  subtitleClassName={`pharmacy-sale-subtitle ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : ''}`}
-                  badgeClassName={isNarrowMobile ? 'pharmacy-badge-xs' : isSmallMediumMobile ? 'pharmacy-badge-xsm' : isMediumMobile ? 'pharmacy-badge-sm' : ''}
-                />
+                <Card key={sale.id} className={`pharmacy-sale-card bg-white border border-gray-200 ${isNarrowMobile ? 'xs-padding xs-card' : isSmallMediumMobile ? 'xsm-padding' : isMediumMobile ? 'sm-padding' : ''}`}>
+                  <CardHeader>
+                    <CardTitle className={`pharmacy-sale-title text-gray-900 ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : ''}`}>
+                      {sale.patient?.full_name || 'Walk-in Customer'}
+                    </CardTitle>
+                    <CardDescription className={`pharmacy-sale-subtitle text-gray-500 ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : ''}`}>
+                      {format(new Date(sale.created_at), isNarrowMobile ? 'MM/dd' : isSmallMediumMobile ? 'MM/dd/yy' : 'MMM dd, yyyy')}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Total Amount:</span>
+                        <span className="font-medium text-gray-900">{new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(sale.total_amount || calculateTotal(sale))}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Items:</span>
+                        <span className="text-sm text-gray-600">{sale.items?.length || 0} items</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Payment Method:</span>
+                        <span className="text-sm text-gray-600 capitalize">{sale.payment_method}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               ))
             )}
           </div>
@@ -481,7 +484,7 @@ export default function PharmacySalesManager({ initialSales }: PharmacySalesMana
               columns={salesColumns}
               isLoading={false}
               emptyMessage="No sales found"
-              className="pharmacy-table-mobile"
+              className="pharmacy-table-mobile bg-white border border-gray-200"
             />
           </div>
         </div>

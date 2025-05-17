@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { useFeatures } from '@/app/lib/hooks/useFeatures';
 import { UpgradePrompt } from '@/components/shared/UpgradePrompt';
 import { Package2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 
 interface MedicationBatchesProps {
   medication: Medication;
@@ -22,6 +23,15 @@ export default function MedicationBatches({ medication }: MedicationBatchesProps
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const { isFeatureEnabled } = useFeatures();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [newBatch, setNewBatch] = useState({
+    batch_number: '',
+    expiry_date: '',
+    quantity: 0,
+    purchase_price: 0,
+    unit_price: 0,
+    supplier: '',
+  });
 
   const handleDeleteBatch = async (batchId: string) => {
     setIsDeleting(batchId);

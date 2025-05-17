@@ -483,3 +483,25 @@ curl -X POST http://localhost:3000/api/system-admin/create \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "email=admins@gmail.com&password=password&fullName=Kelly Admin"
 
+  select 
+  si.id,
+  si.sale_id,
+  si.medication_id,
+  si.batch_id,
+  si.quantity,
+  si.unit_price,
+  si.total_price,
+  si.tenant_id,
+  si.created_at,
+  m.name as medication_name,
+  mb.batch_number,
+  s.created_at as sale_date
+from sale_items si
+left join medications m on m.id = si.medication_id
+left join medication_batches mb on mb.id = si.batch_id
+left join sales s on s.id = si.sale_id
+where si.tenant_id = '3f5b8b9f-794c-4ca0-b418-d63437ec1b21'
+order by si.created_at desc
+limit 10;
+
+ i want us to style the @HomePage() to give a SAAS landingpage. Maintain the color theme but incorporate the following screenshots to give users a clue of what the app features. 

@@ -45,18 +45,18 @@ export default function ServicesReportsSection({ tenantId }: ServicesReportsSect
     if (isFeatureEnabled && isAdvancedEnabled && isEnterpriseEnabled) return null;
     
     return (
-      <div className="bg-gradient-to-r from-indigo-50 to-indigo-100 border border-indigo-200 rounded-lg p-4 mb-6">
+      <div className="bg-gradient-to-r from-blue-50 to-teal-50 border border-blue-200 rounded-lg p-4 mb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <Lock className="h-5 w-5 text-indigo-600" />
+            <Lock className="h-5 w-5 text-blue-600" />
             <div>
-              <h3 className="text-sm font-semibold text-indigo-900">Upgrade to Pro or Enterprise</h3>
-              <p className="text-sm text-indigo-700">Get access to advanced analytics, detailed reports, and more</p>
+              <h3 className="text-sm font-semibold text-gray-800">Upgrade to Pro or Enterprise</h3>
+              <p className="text-sm text-gray-600">Get access to advanced analytics, detailed reports, and more</p>
             </div>
           </div>
           <Button 
             onClick={() => router.push('/settings/billing')}
-            className="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white hover:from-indigo-600 hover:to-indigo-700"
+            className="bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700"
           >
             Upgrade Now
           </Button>
@@ -75,8 +75,8 @@ export default function ServicesReportsSection({ tenantId }: ServicesReportsSect
         {isLocked && (
           <div className="absolute inset-0 bg-white/80 backdrop-blur-[2px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
             <div className="text-center p-4">
-              <Lock className="h-8 w-8 text-indigo-600 mx-auto mb-2" />
-              <p className="text-sm font-medium text-indigo-900">Available on {feature?.requiredPlan} plan</p>
+              <Lock className="h-8 w-8 text-blue-600 mx-auto mb-2" />
+              <p className="text-sm font-medium text-gray-800">Available on {feature?.requiredPlan} plan</p>
             </div>
           </div>
         )}
@@ -103,20 +103,20 @@ export default function ServicesReportsSection({ tenantId }: ServicesReportsSect
   return (
     <div className="space-y-5">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Services Reports</h1>
+        <h1 className="text-2xl font-bold text-gray-800">Services Reports</h1>
         {renderUpgradeBanner()}
       </div>
 
       {/* Basic Analytics - Available for Free */}
-      <Card>
+      <Card className="bg-gradient-to-br from-blue-50 to-teal-50 border border-blue-200">
         <CardHeader>
-          <CardTitle>Services Revenue Analysis</CardTitle>
+          <CardTitle className="text-gray-800">Services Revenue Analysis</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px] flex items-center justify-center bg-gray-50 rounded-md">
+          <div className="h-[300px] flex items-center justify-center bg-white/50 rounded-md">
             <div className="text-center">
-              <Activity className="h-16 w-16 text-gray-300 mx-auto" />
-              <p className="text-muted-foreground mt-2">Your services revenue trend will be displayed here</p>
+              <Activity className="h-16 w-16 text-blue-300 mx-auto" />
+              <p className="text-gray-600 mt-2">Your services revenue trend will be displayed here</p>
             </div>
           </div>
         </CardContent>
@@ -124,16 +124,16 @@ export default function ServicesReportsSection({ tenantId }: ServicesReportsSect
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {renderFeaturePreview(
-          <Card>
+          <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200">
             <CardHeader>
-              <CardTitle>Most Popular Services</CardTitle>
+              <CardTitle className="text-gray-800">Most Popular Services</CardTitle>
             </CardHeader>
             <CardContent>
               <ul className="space-y-2">
                 {['General Consultation', 'Laboratory Tests', 'Vaccinations', 'Dental Services', 'Physiotherapy'].map((service, i) => (
-                  <li key={i} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-md">
-                    <span>{service}</span>
-                    <span className="text-muted-foreground text-sm">Preview Data</span>
+                  <li key={i} className="flex justify-between items-center p-2 hover:bg-white/50 rounded-md">
+                    <span className="text-gray-700">{service}</span>
+                    <span className="text-gray-500 text-sm">Preview Data</span>
                   </li>
                 ))}
               </ul>
@@ -143,16 +143,16 @@ export default function ServicesReportsSection({ tenantId }: ServicesReportsSect
         )}
 
         {renderFeaturePreview(
-          <Card>
+          <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-200">
             <CardHeader>
-              <CardTitle>Revenue by Department</CardTitle>
+              <CardTitle className="text-gray-800">Revenue by Department</CardTitle>
             </CardHeader>
             <CardContent>
               <ul className="space-y-2">
                 {['General Practice', 'Laboratory', 'Radiology', 'Dental', 'Pediatrics'].map((dept, i) => (
-                  <li key={i} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-md">
-                    <span>{dept}</span>
-                    <span className="text-muted-foreground text-sm">Preview Data</span>
+                  <li key={i} className="flex justify-between items-center p-2 hover:bg-white/50 rounded-md">
+                    <span className="text-gray-700">{dept}</span>
+                    <span className="text-gray-500 text-sm">Preview Data</span>
                   </li>
                 ))}
               </ul>

@@ -36,7 +36,7 @@ export default function SalesTable<T>({
     return (
       <div className="flex items-center justify-center p-4 md:p-8">
         <div className="animate-spin rounded-full h-5 w-5 md:h-6 md:w-6 border-b-2 border-primary"></div>
-        <span className="ml-2 text-xs md:text-sm">Loading data...</span>
+        <span className="ml-2 text-xs md:text-sm text-gray-600">Loading data...</span>
       </div>
     );
   }
@@ -45,9 +45,9 @@ export default function SalesTable<T>({
     <div className="hidden md:block">
       <Table className={className}>
         <TableHeader>
-          <TableRow>
+          <TableRow className="bg-gradient-to-br from-blue-50 to-teal-50 border-blue-200">
             {columns.map((column) => (
-              <TableHead key={column.key} className="text-xs lg:text-sm mobile-text-xs mobile-table-cell">
+              <TableHead key={column.key} className="text-xs lg:text-sm mobile-text-xs mobile-table-cell text-gray-800">
                 {column.header}
               </TableHead>
             ))}
@@ -62,9 +62,9 @@ export default function SalesTable<T>({
             </TableRow>
           ) : (
             data.map((item, index) => (
-              <TableRow key={index} className="hover:bg-gray-100">
+              <TableRow key={index} className="hover:bg-gray-50 border-gray-200">
                 {columns.map((column) => (
-                  <TableCell key={`${index}-${column.key}`} className="mobile-table-cell mobile-text-xs text-xs">
+                  <TableCell key={`${index}-${column.key}`} className="mobile-table-cell mobile-text-xs text-xs text-gray-600">
                     {column.cell(item)}
                   </TableCell>
                 ))}

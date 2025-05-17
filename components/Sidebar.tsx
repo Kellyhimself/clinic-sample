@@ -29,7 +29,8 @@ import {
   LineChart,
   HeartPulse,
   Stethoscope,
-  PlusCircle
+  PlusCircle,
+  X
 } from 'lucide-react';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { fetchStockAlerts } from '@/lib/inventory';
@@ -484,9 +485,19 @@ export default function Sidebar({ closeSidebar }: SidebarProps) {
 
   return (
     <div className="h-screen flex flex-col" ref={sidebarRef}>
-      {/* Header with logo */}
+      {/* Header with logo and mobile toggle */}
       <div className="flex items-center justify-between mb-4 py-2">
         <h1 className="text-xl font-bold text-blue-700 bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent">@Veylor360</h1>
+        {isMobileView && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={closeSidebar}
+            className="h-8 w-8 rounded-none bg-white text-blue-600 hover:text-blue-700 hover:bg-blue-50 shadow-md"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
       </div>
       
       {/* Scrollable navigation */}

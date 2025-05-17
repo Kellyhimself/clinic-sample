@@ -75,21 +75,21 @@ export function UpgradePrompt({
         <p className="text-sm font-medium text-indigo-900 mb-2">
           {requiredPlan === 'pro' ? 'Pro' : 'Enterprise'} Plan Required
         </p>
-        {displayFeatures.length > 0 && (
-          <div className="space-y-1 mb-3 w-full">
-            {displayFeatures.map((feature, index) => (
-              <div key={index} className="flex items-center space-x-2">
-                <svg className="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span className="text-xs text-indigo-800">{feature}</span>
-              </div>
-            ))}
-          </div>
-        )}
+        <p className="text-xs text-gray-600 text-center mb-4">
+          {displayFeatures.length > 0 ? 'Features:' : 'No additional features available'}
+        </p>
+        <div className="w-full space-y-2 mb-4">
+          {displayFeatures.map((feature, index) => (
+            <div key={index} className="flex items-center gap-2">
+              <svg className="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="text-xs text-indigo-800">{feature}</span>
+            </div>
+          ))}
+        </div>
         <Button 
           onClick={handleUpgrade}
-          size="sm"
           className="w-full bg-gradient-to-r from-indigo-500 to-indigo-600 text-white hover:from-indigo-600 hover:to-indigo-700"
         >
           Upgrade Now

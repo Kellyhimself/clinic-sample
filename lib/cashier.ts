@@ -362,9 +362,9 @@ export async function processCashPayment(formData: FormData) {
         .eq('id', user.id)
         .single();
 
-    if (!profile || !['admin', 'cashier'].includes(profile.role)) {
+    if (!profile || !['admin', 'cashier', 'pharmacist', 'doctor'].includes(profile.role)) {
         console.log('Unauthorized role:', profile?.role);
-        throw new Error('Unauthorized: Only admins and cashiers can process payments');
+        throw new Error('Unauthorized: Only admins, cashiers, pharmacists, and doctors can process payments');
     }
 
     if (!profile.tenant_id) {
@@ -422,9 +422,9 @@ export async function processMpesaPayment(formData: FormData, isStaffPayment = f
       .eq('id', user.id)
       .single();
 
-  if (!profile || !['admin', 'cashier'].includes(profile.role)) {
+  if (!profile || !['admin', 'cashier', 'pharmacist', 'doctor'].includes(profile.role)) {
     console.log('Unauthorized role:', profile?.role);
-    throw new Error('Unauthorized: Only admins and cashiers can process payments');
+    throw new Error('Unauthorized: Only admins, cashiers, pharmacists, and doctors can process payments');
   }
 
   if (!profile.tenant_id) {

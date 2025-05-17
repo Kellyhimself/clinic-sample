@@ -942,41 +942,263 @@ async function wait(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+export async function fetchMedicationSalesMetrics(tenantId: string) {
+  console.log('=== fetchMedicationSalesMetrics START ===');
+  console.log('Fetching metrics for tenant:', tenantId);
+
+  try {
+    const supabase = await createClient();
+    
+    // Get medication sales with all necessary joins
+    const { data: medicationSales, error: medicationError } = await supabase
+      .from('sale_items')
+      .select(`
+        id,
+        sale_id,
+        medication_id,
+        batch_id,
+        quantity,
+        unit_price,
+        total_price,
+        tenant_id,
+        created_at,
+        medications (
+          id,
+          name,
+          dosage_form,
+          strength
+        ),
+        medication_batches (
+          id,
+          batch_number,
+          expiry_date
+        ),
+        sales (
+          id,
+          created_at
+        )
+      `)
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false });
+
+    if (medicationError) {
+      console.error('Error fetching medication sales:', medicationError);
+      return null;
+    }
+
+    console.log('Medication sales query result:', {
+      count: medicationSales?.length || 0,
+      firstItemId: medicationSales?.[0]?.id,
+      lastItemId: medicationSales?.[medicationSales.length - 1]?.id
+    });
+
+    // Calculate total quantity sold for each medication
+    const medicationCounts = medicationSales?.reduce((acc, item) => {
+      const key = item.medication_id;
+      if (!acc[key]) {
+        acc[key] = {
+          name: item.medications?.name || 'Unknown',
+          dosage_form: item.medications?.dosage_form,
+          strength: item.medications?.strength,
+          totalQuantity: 0,
+          totalRevenue: 0
+        };
+      }
+      acc[key].totalQuantity += item.quantity;
+      acc[key].totalRevenue += parseFloat(item.total_price);
+      return acc;
+    }, {} as Record<string, { 
+      name: string; 
+      dosage_form?: string; 
+      strength?: string; 
+      totalQuantity: number;
+      totalRevenue: number;
+    }>) || {};
+
+    // Find the medication with the highest total quantity
+    const mostSoldMedication = Object.entries(medicationCounts)
+      .sort(([, a], [, b]) => b.totalQuantity - a.totalQuantity)[0];
+
+    const metrics = {
+      mostSoldMedication: mostSoldMedication ? {
+        name: mostSoldMedication[1].name,
+        dosage_form: mostSoldMedication[1].dosage_form,
+        strength: mostSoldMedication[1].strength,
+        totalQuantity: mostSoldMedication[1].totalQuantity,
+        totalRevenue: mostSoldMedication[1].totalRevenue
+      } : null,
+      medicationCounts
+    };
+
+    console.log('Calculated medication metrics:', {
+      mostSoldMedication: metrics.mostSoldMedication,
+      totalMedications: Object.keys(medicationCounts).length
+    });
+
+    console.log('=== fetchMedicationSalesMetrics SUCCESS ===');
+    return metrics;
+  } catch (error) {
+    console.error('=== fetchMedicationSalesMetrics ERROR ===');
+    console.error('Error in fetchMedicationSalesMetrics:', error);
+    return null;
+  }
+}
+
+export async function fetchMedicationSales(
+  tenantId: string,
+  page: number = 1,
+  pageSize: number = 10
+): Promise<{ data: any[]; error: string | null }> {
+  console.log('=== fetchMedicationSales START ===');
+  console.log('Input parameters:', { tenantId, page, pageSize });
+
+  try {
+    const supabase = await createClient();
+    
+    // Calculate offset for pagination
+    const offset = (page - 1) * pageSize;
+
+    // Execute the query with the exact structure requested
+    const { data: medicationSales, error: salesError } = await supabase
+      .from('sale_items')
+      .select(`
+        id,
+        sale_id,
+        medication_id,
+        batch_id,
+        quantity,
+        unit_price,
+        total_price,
+        tenant_id,
+        created_at,
+        medications (
+          id,
+          name,
+          dosage_form,
+          strength
+        ),
+        medication_batches (
+          id,
+          batch_number,
+          expiry_date
+        ),
+        sales (
+          id,
+          created_at
+        )
+      `)
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + pageSize - 1);
+
+    if (salesError) {
+      console.error('Error fetching medication sales:', salesError);
+      return { data: [], error: salesError.message };
+    }
+
+    console.log('Medication sales query result:', {
+      count: medicationSales?.length || 0,
+      firstItemId: medicationSales?.[0]?.id,
+      lastItemId: medicationSales?.[medicationSales.length - 1]?.id
+    });
+
+    // Transform the data to match the requested structure
+    const transformedSales = medicationSales?.map(item => ({
+      id: item.id,
+      sale_id: item.sale_id,
+      medication_id: item.medication_id,
+      batch_id: item.batch_id,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      total_price: item.total_price,
+      tenant_id: item.tenant_id,
+      created_at: item.created_at,
+      medication_name: item.medications?.name,
+      batch_number: item.medication_batches?.batch_number,
+      sale_date: item.sales?.created_at
+    })) || [];
+
+    console.log('=== fetchMedicationSales SUCCESS ===');
+    return { data: transformedSales, error: null };
+  } catch (error) {
+    console.error('=== fetchMedicationSales ERROR ===');
+    console.error('Error in fetchMedicationSales:', error);
+    return { data: [], error: 'An unexpected error occurred' };
+  }
+}
+
 export async function fetchSales(
   searchTerm: string = '',
   timeframe: string = 'all',
   page: number = 1,
   pageSize: number = 10
 ): Promise<{ data: Sale[]; error: string | null }> {
+  console.log('=== fetchSales START ===');
+  console.log('Input parameters:', { searchTerm, timeframe, page, pageSize });
+  
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    console.log('Supabase client created');
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    console.log('Auth user:', { userId: user?.id, email: user?.email, error: userError });
     
     if (!user) {
+      console.error('No authenticated user found');
       return { data: [], error: 'Not authenticated' };
     }
 
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('role, tenant_id')
       .eq('id', user.id)
       .single();
 
+    console.log('User profile:', { 
+      role: profile?.role, 
+      tenantId: profile?.tenant_id,
+      userId: user.id,
+      error: profileError 
+    });
+
+    if (profileError) {
+      console.error('Error fetching profile:', profileError);
+      return { data: [], error: 'Failed to fetch user profile' };
+    }
+
     if (!profile || !['admin', 'pharmacist', 'cashier'].includes(profile.role)) {
+      console.error('Unauthorized role:', profile?.role);
       return { data: [], error: 'Unauthorized: Only admins, pharmacists and cashiers can fetch sales' };
     }
 
     if (!profile.tenant_id) {
+      console.error('No tenant ID found for user:', user.id);
       return { data: [], error: 'No tenant ID found for user' };
     }
 
     // Set tenant context
+    console.log('Setting tenant context for:', profile.tenant_id);
     const { error: setContextError } = await supabase
       .rpc('set_tenant_context', { p_tenant_id: profile.tenant_id });
 
     if (setContextError) {
+      console.error('Error setting tenant context:', setContextError);
       return { data: [], error: 'Failed to set tenant context' };
     }
+
+    // Get tenant ID from context to verify it was set correctly
+    const { data: tenantId, error: getTenantError } = await supabase
+      .rpc('get_tenant_id');
+
+    if (getTenantError || !tenantId) {
+      console.error('Error getting tenant ID from context:', getTenantError);
+      return { data: [], error: 'Failed to get tenant ID from context' };
+    }
+
+    console.log('Tenant context set successfully:', { 
+      expectedTenantId: profile.tenant_id,
+      actualTenantId: tenantId 
+    });
 
     // Calculate date range based on timeframe
     let startDate = null;
@@ -1006,6 +1228,8 @@ export async function fetchSales(
       }
     }
 
+    console.log('Date range:', { startDate, endDate, timeframe });
+
     // Build the query with left joins
     let query = supabase
       .from('sales')
@@ -1025,7 +1249,7 @@ export async function fetchSales(
           full_name,
           phone_number
         ),
-        sale_items (
+        items:sale_items (
           id,
           quantity,
           unit_price,
@@ -1037,12 +1261,12 @@ export async function fetchSales(
             strength
           ),
           batch:medication_batches (
-            id,
             batch_number,
             expiry_date
           )
         )
       `)
+      .eq('tenant_id', profile.tenant_id)
       .order('created_at', { ascending: false });
 
     // Apply date filtering if timeframe is not 'all'
@@ -1054,21 +1278,44 @@ export async function fetchSales(
 
     // Apply search term if provided
     if (searchTerm) {
-      query = query.or(`patient.full_name.ilike.%${searchTerm}%,sale_items.medication.name.ilike.%${searchTerm}%`);
+      query = query.or(`patient.full_name.ilike.%${searchTerm}%`);
     }
 
     // Apply pagination
     const offset = (page - 1) * pageSize;
     query = query.range(offset, offset + pageSize - 1);
 
+    console.log('Executing sales query with params:', {
+      tenantId: profile.tenant_id,
+      offset,
+      pageSize,
+      hasDateFilter: !!startDate,
+      hasSearchTerm: !!searchTerm
+    });
+
     const { data: sales, error: salesError } = await query;
 
     if (salesError) {
+      console.error('Error fetching sales:', salesError);
       return { data: [], error: salesError.message };
     }
 
-    return { data: sales || [], error: null };
+    console.log('Sales query result:', {
+      count: sales?.length || 0,
+      firstSaleId: sales?.[0]?.id,
+      lastSaleId: sales?.[sales.length - 1]?.id
+    });
+
+    if (!sales || sales.length === 0) {
+      console.log('No sales found for the given criteria');
+      return { data: [], error: null };
+    }
+
+    console.log('=== fetchSales SUCCESS ===');
+    return { data: sales, error: null };
   } catch (error) {
+    console.error('=== fetchSales ERROR ===');
+    console.error('Error in fetchSales:', error);
     return { data: [], error: 'An unexpected error occurred' };
   }
 }
@@ -1497,42 +1744,117 @@ export async function createSale(saleData: {
         console.log('Processing item:', {
           medicationId: item.medication_id,
           batchId: item.batch_id,
-          quantity: item.quantity
+          quantity: item.quantity,
+          unitPrice: item.unit_price,
+          totalPrice: item.total_price,
+          tenantId: tenantId
         });
 
-        // Insert sale item with explicit tenant_id
-        const { error: itemError } = await supabase
-          .from('sale_items')
-          .insert({
-            sale_id: sale.id,
-            medication_id: item.medication_id,
-            batch_id: item.batch_id,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            total_price: item.total_price,
-            tenant_id: tenantId
+        try {
+          // Insert sale item with explicit tenant_id
+          console.log('Attempting to insert sale item...');
+          const { data: insertedItem, error: itemError } = await supabase
+            .from('sale_items')
+            .insert({
+              sale_id: sale.id,
+              medication_id: item.medication_id,
+              batch_id: item.batch_id,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+              total_price: item.total_price,
+              tenant_id: tenantId
+            })
+            .select()
+            .single();
+
+          if (itemError) {
+            console.error('Error inserting sale item:', {
+              error: itemError,
+              details: itemError.details,
+              hint: itemError.hint,
+              code: itemError.code,
+              saleId: sale.id,
+              tenantId: tenantId,
+              item: {
+                medicationId: item.medication_id,
+                batchId: item.batch_id,
+                quantity: item.quantity
+              }
+            });
+            // Attempt to rollback the sale creation
+            await supabase.from('sales').delete().eq('id', sale.id);
+            throw itemError;
+          }
+
+          if (!insertedItem) {
+            console.error('No data returned after sale item insertion');
+            await supabase.from('sales').delete().eq('id', sale.id);
+            throw new Error('Failed to insert sale item: No data returned');
+          }
+
+          console.log('Sale item created successfully:', {
+            itemId: insertedItem.id,
+            saleId: sale.id,
+            tenantId: tenantId,
+            medicationId: item.medication_id,
+            batchId: item.batch_id,
+            quantity: item.quantity
           });
 
-        if (itemError) {
-          console.error('Error inserting sale item:', itemError);
+          // Verify the sale item was created
+          const { data: verifyItem, error: verifyError } = await supabase
+            .from('sale_items')
+            .select('*')
+            .eq('id', insertedItem.id)
+            .single();
+
+          if (verifyError) {
+            console.error('Error verifying sale item:', {
+              error: verifyError,
+              itemId: insertedItem.id
+            });
+            await supabase.from('sales').delete().eq('id', sale.id);
+            throw verifyError;
+          }
+
+          if (!verifyItem) {
+            console.error('Sale item not found after creation');
+            await supabase.from('sales').delete().eq('id', sale.id);
+            throw new Error('Sale item not found after creation');
+          }
+
+          console.log('Sale item verification successful:', {
+            itemId: verifyItem.id,
+            saleId: verifyItem.sale_id,
+            tenantId: verifyItem.tenant_id
+          });
+
+          // Decrement batch quantity
+          console.log('Decrementing batch quantity...');
+          const { error: decrementError } = await supabase.rpc('decrement_batch_quantity', {
+            p_batch_id: item.batch_id,
+            p_quantity: item.quantity
+          });
+
+          if (decrementError) {
+            console.error('Error decrementing batch quantity:', {
+              error: decrementError,
+              details: decrementError.details,
+              hint: decrementError.hint,
+              code: decrementError.code
+            });
+            // Attempt to rollback the sale creation and items
+            await supabase.from('sale_items').delete().eq('sale_id', sale.id);
+            await supabase.from('sales').delete().eq('id', sale.id);
+            throw decrementError;
+          }
+
+          console.log('Batch quantity decremented successfully');
+        } catch (error) {
+          console.error('Error in sale item processing:', error);
           // Attempt to rollback the sale creation
           await supabase.from('sales').delete().eq('id', sale.id);
-          throw itemError;
-        }
-
-        // Decrement batch quantity
-        console.log('Decrementing batch quantity...');
-        const { error: decrementError } = await supabase.rpc('decrement_batch_quantity', {
-          p_batch_id: item.batch_id,
-          p_quantity: item.quantity
-        });
-
-        if (decrementError) {
-          console.error('Error decrementing batch quantity:', decrementError);
-          // Attempt to rollback the sale creation and items
-          await supabase.from('sale_items').delete().eq('sale_id', sale.id);
-          await supabase.from('sales').delete().eq('id', sale.id);
-          throw decrementError;
+          throw error;
         }
       }
 

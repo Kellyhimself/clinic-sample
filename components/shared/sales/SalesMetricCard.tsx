@@ -26,22 +26,22 @@ export default function SalesMetricCard({
   description,
 }: SalesMetricCardProps) {
   return (
-    <Card className={`bg-gradient-to-br ${colorClass} shadow-sm overflow-hidden h-full`}>
+    <Card className={`bg-gradient-to-br ${colorClass} dark:from-gray-800 dark:to-gray-700 dark:border-gray-600 shadow-sm overflow-hidden h-full`}>
       <CardContent className="p-2 md:p-3 lg:p-4 flex flex-col items-center text-center h-full justify-center">
         <div className="flex justify-between items-center w-full mb-1 md:mb-2">
-          <p className="text-[10px] md:text-xs lg:text-sm font-semibold truncate pr-1">{title}</p>
+          <p className="text-[10px] md:text-xs lg:text-sm font-semibold truncate pr-1 dark:text-gray-300">{title}</p>
           {icon}
         </div>
-        <p className="text-sm sm:text-base md:text-xl lg:text-2xl font-bold truncate mt-1">{value}</p>
+        <p className="text-sm sm:text-base md:text-xl lg:text-2xl font-bold truncate mt-1 dark:text-gray-100">{value}</p>
         {subValue && (
-          <p className="text-[9px] sm:text-[11px] md:text-sm font-medium truncate mt-1 md:mt-2">{subValue}</p>
+          <p className="text-[9px] sm:text-[11px] md:text-sm font-medium truncate mt-1 md:mt-2 dark:text-gray-300">{subValue}</p>
         )}
         {trend && (
           <div className="flex items-center justify-center gap-1 mt-1 md:mt-2">
-            <span className={`text-[10px] md:text-xs font-medium ${trend.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+            <span className={`text-[10px] md:text-xs font-medium ${trend.isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
               {trend.value}
             </span>
-            {description && <span className="text-[8px] md:text-[10px] text-gray-600 truncate">{description}</span>}
+            {description && <span className="text-[8px] md:text-[10px] text-gray-600 dark:text-gray-400 truncate">{description}</span>}
           </div>
         )}
       </CardContent>

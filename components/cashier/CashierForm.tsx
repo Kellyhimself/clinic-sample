@@ -343,16 +343,16 @@ Thank you for your business!
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50 p-2 sm:p-4">
       <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
-        <Card className="shadow-md">
-          <CardHeader className="pb-2 sm:pb-4">
-            <CardTitle className="text-xl sm:text-2xl">Cashier Dashboard</CardTitle>
+        <Card className="shadow-md bg-white/80 backdrop-blur-sm">
+          <CardHeader className="pb-2 sm:pb-4 bg-gradient-to-r from-blue-500/10 to-teal-500/10 rounded-t-lg">
+            <CardTitle className="text-xl sm:text-2xl text-gray-800">Cashier Dashboard</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Column 1: Patient Selection */}
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Search Patient</Label>
+                  <Label className="text-gray-700">Search Patient</Label>
                   <Input
                     type="text"
                     placeholder="Search by name, email, or phone"
@@ -371,7 +371,7 @@ Thank you for your business!
                           }`}
                           onClick={() => handlePatientSelect(patient)}
                         >
-                          <div className="font-medium text-xs">{patient.full_name}</div>
+                          <div className="font-medium text-xs text-gray-800">{patient.full_name}</div>
                           <div className="text-[10px] text-gray-500">
                             {patient.patient_type === 'guest' && <span className="bg-amber-100 text-amber-800 px-1 rounded-sm mr-1">Guest</span>}
                             {patient.phone_number || 'No phone'}
@@ -388,11 +388,11 @@ Thank you for your business!
                 
                 {selectedPatient && (
                   <div className="space-y-1 sm:space-y-2">
-                    <h3 className="font-medium text-sm sm:text-base">Patient Details</h3>
+                    <h3 className="font-medium text-sm sm:text-base text-gray-800">Patient Details</h3>
                     <div className="text-xs sm:text-sm p-1.5 sm:p-2 border rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
-                      <p>Name: {selectedPatient.full_name}</p>
-                      <p>Phone: {selectedPatient.phone_number}</p>
-                      <p>Email: {selectedPatient.email}</p>
+                      <p className="text-gray-700">Name: {selectedPatient.full_name}</p>
+                      <p className="text-gray-700">Phone: {selectedPatient.phone_number}</p>
+                      <p className="text-gray-700">Email: {selectedPatient.email}</p>
                     </div>
                   </div>
                 )}
@@ -401,7 +401,7 @@ Thank you for your business!
               {/* Column 2: Payment Section */}
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-sm sm:text-base">Payment Method</Label>
+                  <Label className="text-sm sm:text-base text-gray-700">Payment Method</Label>
                   <Select
                     value={selectedPaymentMethod}
                     onValueChange={(value: 'cash' | 'mpesa') => setSelectedPaymentMethod(value)}
@@ -428,7 +428,7 @@ Thank you for your business!
                 </div>
 
                 <div className="space-y-2">
-                  <h3 className="font-medium text-sm sm:text-base">Payment Summary</h3>
+                  <h3 className="font-medium text-sm sm:text-base text-gray-800">Payment Summary</h3>
                   <div className="text-xs sm:text-sm space-y-1 p-1.5 sm:p-2 border rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
                     {isLoadingItems ? (
                       <div className="flex items-center justify-center space-x-2 py-4">
@@ -437,10 +437,10 @@ Thank you for your business!
                       </div>
                     ) : (
                       <>
-                        <p>Services Total Cost: KSh {appointmentsTotal.toFixed(2)}</p>
-                        <p>Medication Total Cost: KSh {salesTotal.toFixed(2)}</p>
+                        <p className="text-gray-700">Services Total Cost: KSh {appointmentsTotal.toFixed(2)}</p>
+                        <p className="text-gray-700">Medication Total Cost: KSh {salesTotal.toFixed(2)}</p>
                         {(appointmentsTotal > 0 || salesTotal > 0) ? (
-                          <p className="font-semibold">Grand Total: KSh {grandTotal.toFixed(2)}</p>
+                          <p className="font-semibold text-gray-800">Grand Total: KSh {grandTotal.toFixed(2)}</p>
                         ) : (
                           <p className="text-gray-500 italic">No unpaid items found</p>
                         )}
@@ -452,7 +452,7 @@ Thank you for your business!
                 <Button
                   onClick={handlePayment}
                   disabled={!selectedPatient || isProcessing || grandTotal === 0}
-                  className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 text-sm sm:text-base py-1.5 sm:py-2"
+                  className="w-full bg-gradient-to-r from-blue-500 to-teal-500 text-white hover:from-blue-600 hover:to-teal-600 text-sm sm:text-base py-1.5 sm:py-2"
                 >
                   {isProcessing ? 'Processing...' : 'Process Payment'}
                 </Button>
@@ -465,7 +465,7 @@ Thank you for your business!
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4 z-50">
             <div className="bg-white rounded-lg shadow-lg w-full max-w-sm sm:max-w-2xl max-h-[90vh] overflow-auto">
               <div className="p-3 sm:p-4 border-b flex justify-between items-center">
-                <h2 className="text-base sm:text-lg font-semibold">Payment Receipt</h2>
+                <h2 className="text-base sm:text-lg font-semibold text-gray-800">Payment Receipt</h2>
                 <Button
                   variant="ghost"
                   onClick={() => {
@@ -478,7 +478,7 @@ Thank you for your business!
                 </Button>
               </div>
               <div className="p-3 sm:p-4">
-                <pre className="whitespace-pre-wrap font-mono text-xs sm:text-sm">
+                <pre className="whitespace-pre-wrap font-mono text-xs sm:text-sm text-gray-700">
                   {receiptContent}
                 </pre>
               </div>

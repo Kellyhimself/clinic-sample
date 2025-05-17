@@ -235,51 +235,51 @@ export default function PaymentHistoryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50 p-2 sm:p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-2 sm:p-4">
       <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
-        <Card>
+        <Card className="dark:bg-gray-800 dark:border-gray-700">
           <CardHeader className="pb-2 sm:pb-6">
-            <CardTitle className="text-xl sm:text-2xl">Payment History</CardTitle>
+            <CardTitle className="text-xl sm:text-2xl dark:text-gray-100">Payment History</CardTitle>
           </CardHeader>
           <CardContent>
             {/* Filters */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
               <div>
-                <Label htmlFor="search" className="text-sm">Search</Label>
+                <Label htmlFor="search" className="text-sm dark:text-gray-300">Search</Label>
                 <Input
                   id="search"
                   placeholder="Search by patient, ref, or transaction ID"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-8 sm:h-10 text-sm"
+                  className="h-8 sm:h-10 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
                 />
               </div>
               
               <div>
-                <Label htmlFor="date-filter" className="text-sm">Date Range</Label>
+                <Label htmlFor="date-filter" className="text-sm dark:text-gray-300">Date Range</Label>
                 <Select value={dateFilter} onValueChange={setDateFilter}>
-                  <SelectTrigger id="date-filter" className="h-8 sm:h-10 text-sm">
+                  <SelectTrigger id="date-filter" className="h-8 sm:h-10 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">
                     <SelectValue placeholder="Select date range" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Time</SelectItem>
-                    <SelectItem value="today">Today</SelectItem>
-                    <SelectItem value="week">Last 7 Days</SelectItem>
-                    <SelectItem value="month">Last 30 Days</SelectItem>
+                  <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
+                    <SelectItem value="all" className="dark:text-gray-100 dark:hover:bg-gray-700">All Time</SelectItem>
+                    <SelectItem value="today" className="dark:text-gray-100 dark:hover:bg-gray-700">Today</SelectItem>
+                    <SelectItem value="week" className="dark:text-gray-100 dark:hover:bg-gray-700">Last 7 Days</SelectItem>
+                    <SelectItem value="month" className="dark:text-gray-100 dark:hover:bg-gray-700">Last 30 Days</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               
               <div>
-                <Label htmlFor="type-filter" className="text-sm">Payment Type</Label>
+                <Label htmlFor="type-filter" className="text-sm dark:text-gray-300">Payment Type</Label>
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger id="type-filter" className="h-8 sm:h-10 text-sm">
+                  <SelectTrigger id="type-filter" className="h-8 sm:h-10 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    <SelectItem value="appointment">Appointments</SelectItem>
-                    <SelectItem value="sale">Pharmacy Sales</SelectItem>
+                  <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
+                    <SelectItem value="all" className="dark:text-gray-100 dark:hover:bg-gray-700">All Types</SelectItem>
+                    <SelectItem value="appointment" className="dark:text-gray-100 dark:hover:bg-gray-700">Appointments</SelectItem>
+                    <SelectItem value="sale" className="dark:text-gray-100 dark:hover:bg-gray-700">Pharmacy Sales</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -287,7 +287,7 @@ export default function PaymentHistoryPage() {
             
             {/* Payment history table */}
             {loading ? (
-              <div className="text-center py-10">Loading payment history...</div>
+              <div className="text-center py-10 dark:text-gray-300">Loading payment history...</div>
             ) : filteredPayments.length > 0 ? (
               <>
                 {/* Mobile view */}
@@ -301,33 +301,33 @@ export default function PaymentHistoryPage() {
                 </div>
               
                 {/* Desktop table view */}
-                <div className="hidden md:block rounded-md border overflow-hidden">
+                <div className="hidden md:block rounded-md border dark:border-gray-700 overflow-hidden">
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-10"></TableHead>
-                          <TableHead className="whitespace-nowrap">Date</TableHead>
-                          <TableHead className="whitespace-nowrap">Patient</TableHead>
-                          <TableHead className="whitespace-nowrap">Reference</TableHead>
-                          <TableHead className="whitespace-nowrap">Amount</TableHead>
-                          <TableHead className="whitespace-nowrap">Method</TableHead>
-                          <TableHead className="whitespace-nowrap">Transaction ID</TableHead>
+                        <TableRow className="dark:bg-gray-800 dark:hover:bg-gray-700">
+                          <TableHead className="w-10 dark:text-gray-300"></TableHead>
+                          <TableHead className="whitespace-nowrap dark:text-gray-300">Date</TableHead>
+                          <TableHead className="whitespace-nowrap dark:text-gray-300">Patient</TableHead>
+                          <TableHead className="whitespace-nowrap dark:text-gray-300">Reference</TableHead>
+                          <TableHead className="whitespace-nowrap dark:text-gray-300">Amount</TableHead>
+                          <TableHead className="whitespace-nowrap dark:text-gray-300">Method</TableHead>
+                          <TableHead className="whitespace-nowrap dark:text-gray-300">Transaction ID</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {filteredPayments.map((payment) => (
                           <React.Fragment key={`payment-${payment.id}`}>
                             <TableRow 
-                              className={payment.type === 'combined' ? 'bg-blue-50' : ''}
+                              className={payment.type === 'combined' ? 'bg-blue-50 dark:bg-blue-900/20' : 'dark:bg-gray-800 dark:hover:bg-gray-700'}
                             >
-                              <TableCell className="p-2">
+                              <TableCell className="p-2 dark:text-gray-300">
                                 {payment.type === 'combined' && (
                                   <Button
                                     variant="ghost"
                                     size="icon"
                                     onClick={() => toggleRowExpansion(payment.id)}
-                                    className="h-7 w-7"
+                                    className="h-7 w-7 dark:text-gray-300 dark:hover:bg-gray-700"
                                   >
                                     {expandedRows.has(payment.id) ? 
                                       <ChevronUp className="h-4 w-4" /> : 
@@ -336,24 +336,24 @@ export default function PaymentHistoryPage() {
                                   </Button>
                                 )}
                               </TableCell>
-                              <TableCell className="p-2">{formatDate(payment.date)}</TableCell>
-                              <TableCell className="p-2">{payment.patient_name}</TableCell>
-                              <TableCell className="p-2">{payment.reference}</TableCell>
-                              <TableCell className="p-2 font-medium">{formatCurrency(payment.amount)}</TableCell>
-                              <TableCell className="p-2 capitalize">{payment.payment_method}</TableCell>
-                              <TableCell className="p-2 text-gray-500">{payment.transaction_id || '-'}</TableCell>
+                              <TableCell className="p-2 dark:text-gray-300">{formatDate(payment.date)}</TableCell>
+                              <TableCell className="p-2 dark:text-gray-300">{payment.patient_name}</TableCell>
+                              <TableCell className="p-2 dark:text-gray-300">{payment.reference}</TableCell>
+                              <TableCell className="p-2 font-medium dark:text-gray-100">{formatCurrency(payment.amount)}</TableCell>
+                              <TableCell className="p-2 capitalize dark:text-gray-300">{payment.payment_method}</TableCell>
+                              <TableCell className="p-2 text-gray-500 dark:text-gray-400">{payment.transaction_id || '-'}</TableCell>
                             </TableRow>
                             
                             {/* Expanded details for combined payments */}
                             {payment.type === 'combined' && expandedRows.has(payment.id) && 
                               payment.related_items?.map((item, index) => (
-                                <TableRow key={`${payment.id}-item-${index}`} className="bg-gray-50">
+                                <TableRow key={`${payment.id}-item-${index}`} className="bg-gray-50 dark:bg-gray-700/50">
                                   <TableCell className="p-2"></TableCell>
                                   <TableCell className="p-2" colSpan={2}></TableCell>
-                                  <TableCell className="pl-8 text-sm text-gray-600 p-2">
+                                  <TableCell className="pl-8 text-sm text-gray-600 dark:text-gray-300 p-2">
                                     {item.reference}
                                   </TableCell>
-                                  <TableCell className="text-sm text-gray-600 p-2">
+                                  <TableCell className="text-sm text-gray-600 dark:text-gray-300 p-2">
                                     {formatCurrency(item.amount)}
                                   </TableCell>
                                   <TableCell className="p-2" colSpan={2}></TableCell>
@@ -369,10 +369,10 @@ export default function PaymentHistoryPage() {
               </>
             ) : (
               <div className="text-center py-6 sm:py-10">
-                <p className="text-gray-500 text-sm sm:text-base">No payments found matching your filters</p>
+                <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base">No payments found matching your filters</p>
                 <Button 
                   variant="outline" 
-                  className="mt-4 text-sm h-8 sm:h-10"
+                  className="mt-4 text-sm h-8 sm:h-10 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
                   onClick={() => {
                     setSearchQuery('');
                     setDateFilter('all');
@@ -388,7 +388,7 @@ export default function PaymentHistoryPage() {
               <Button 
                 onClick={loadPaymentHistory}
                 variant="outline"
-                className="text-sm h-8 sm:h-10"
+                className="text-sm h-8 sm:h-10 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
               >
                 Refresh Data
               </Button>

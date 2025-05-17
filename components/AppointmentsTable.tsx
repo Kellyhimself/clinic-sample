@@ -416,11 +416,11 @@ export default function AppointmentsTable({
   // Function to render card-style rows for mobile view
   const renderMobileCards = () => {
     return table.getRowModel().rows.map((row) => (
-      <div key={row.id} className="mobile-card mb-4 p-3 border rounded-lg shadow-sm bg-white">
+      <div key={row.id} className="mobile-card mb-4 p-3 border rounded-lg shadow-sm bg-white dark:bg-gray-800 dark:border-gray-700">
         <div className="flex justify-between items-center mb-2">
           <div>
-            <span className="font-medium">Date: </span>
-            <span>{new Date(row.original.date).toLocaleDateString()}</span>
+            <span className="font-medium dark:text-gray-300">Date: </span>
+            <span className="dark:text-gray-300">{new Date(row.original.date).toLocaleDateString()}</span>
           </div>
           <Badge
             variant={
@@ -438,21 +438,21 @@ export default function AppointmentsTable({
         
         <div className="grid grid-cols-2 gap-1">
           <div>
-            <span className="font-medium">Time: </span>
-            <span>{row.original.time}</span>
+            <span className="font-medium dark:text-gray-300">Time: </span>
+            <span className="dark:text-gray-300">{row.original.time}</span>
           </div>
           
           {isAdminOrStaff && (
             <div>
-              <span className="font-medium">Patient: </span>
-              <span className="truncate block">{row.original.profiles?.full_name || 'N/A'}</span>
+              <span className="font-medium dark:text-gray-300">Patient: </span>
+              <span className="truncate block dark:text-gray-300">{row.original.profiles?.full_name || 'N/A'}</span>
               <PatientBadge patientId={row.original.patient_id} />
             </div>
           )}
           
           <div className="mt-1">
-            <span className="font-medium">Service: </span>
-            <span>{row.original.services?.name || 'Custom'}</span>
+            <span className="font-medium dark:text-gray-300">Service: </span>
+            <span className="dark:text-gray-300">{row.original.services?.name || 'Custom'}</span>
           </div>
         </div>
         
@@ -495,11 +495,11 @@ export default function AppointmentsTable({
         <Table className="w-full border-collapse text-xs">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="bg-gray-50">
+              <TableRow key={headerGroup.id} className="bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700">
                 {headerGroup.headers.map((header) => (
                   <TableHead
                     key={header.id}
-                    className="py-1 px-2 font-medium text-gray-700 mobile-text-xs"
+                    className="py-1 px-2 font-medium text-gray-700 dark:text-gray-300 mobile-text-xs"
                   >
                     {header.column.id === 'date' ? 'Date' :
                      header.column.id === 'time' ? 'Time' :
@@ -516,12 +516,12 @@ export default function AppointmentsTable({
               table.getRowModel().rows.map((row) => (
                 <TableRow 
                   key={row.id} 
-                  className="hover:bg-gray-100 border-b cursor-pointer transition-colors"
+                  className="hover:bg-gray-100 dark:hover:bg-gray-700 border-b dark:border-gray-700 cursor-pointer transition-colors"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
-                      className="py-1 px-2 mobile-text-xs"
+                      className="py-1 px-2 mobile-text-xs dark:text-gray-300"
                       data-label={cell.column.id === 'date' ? 'Date' : 
                                  cell.column.id === 'time' ? 'Time' : 
                                  cell.column.id === 'profiles.full_name' ? 'Patient' : 
@@ -534,7 +534,7 @@ export default function AppointmentsTable({
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="text-center text-sm text-gray-500 py-2">
+                <TableCell colSpan={columns.length} className="text-center text-sm text-gray-500 dark:text-gray-400 py-2">
                   No appointments found.
                 </TableCell>
               </TableRow>
@@ -547,8 +547,8 @@ export default function AppointmentsTable({
 
   return (
     <div className="space-y-4 appointments-container">
-      <Card>
-        <CardHeader className="p-2 sm:p-4">
+      <Card className="bg-white/80 backdrop-blur-sm">
+        <CardHeader className="p-2 sm:p-4 bg-gradient-to-r from-blue-500/10 to-teal-500/10 rounded-t-lg">
           <div className="flex items-center gap-2 sm:gap-4">
             <Button
               variant="ghost"
@@ -556,9 +556,9 @@ export default function AppointmentsTable({
               onClick={() => router.back()}
               className="h-7 w-7"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-4 w-4 text-gray-700" />
             </Button>
-            <CardTitle className="text-base sm:text-lg">Appointments</CardTitle>
+            <CardTitle className="text-base sm:text-lg text-gray-800">Appointments</CardTitle>
           </div>
         </CardHeader>
         <div className="p-2 sm:p-4 md:p-6">
@@ -574,9 +574,9 @@ export default function AppointmentsTable({
             />
           )}
 
-          <div className="w-full mx-auto bg-white rounded-lg overflow-hidden">
+          <div className="w-full mx-auto bg-white/80 backdrop-blur-sm rounded-lg overflow-hidden">
             {isAdminOrStaff && (
-              <div className="p-2 sm:p-4 border-b flex flex-col sm:flex-row gap-2 sm:gap-4">
+              <div className="p-2 sm:p-4 border-b flex flex-col sm:flex-row gap-2 sm:gap-4 bg-gradient-to-r from-gray-50 to-blue-50/50">
                 <Select
                   value={filterType}
                   onValueChange={(value) => {
@@ -593,10 +593,10 @@ export default function AppointmentsTable({
                     );
                   }}
                 >
-                  <SelectTrigger className="w-full sm:w-[180px] text-sm border-gray-300 focus:border-blue-500 h-8">
+                  <SelectTrigger className="w-full sm:w-[180px] text-sm border-gray-300 focus:border-blue-500 h-8 bg-white/80 backdrop-blur-sm">
                     <SelectValue placeholder="Select filter" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white/90 backdrop-blur-sm">
                     <SelectItem value="time">Time</SelectItem>
                     <SelectItem value="patient">Patient</SelectItem>
                     <SelectItem value="service">Service</SelectItem>
@@ -609,7 +609,7 @@ export default function AppointmentsTable({
                   })`}
                   value={filterValue}
                   onChange={(e) => handleFilterChange(e.target.value)}
-                  className="w-full sm:max-w-xs text-sm border-gray-300 focus:border-blue-500 p-2 rounded border h-8"
+                  className="w-full sm:max-w-xs text-sm border-gray-300 focus:border-blue-500 p-2 rounded border h-8 bg-white/80 backdrop-blur-sm"
                 />
               </div>
             )}
@@ -619,7 +619,7 @@ export default function AppointmentsTable({
               <Table className="w-full border-collapse">
                 <TableHeader>
                   {table.getHeaderGroups().map((headerGroup) => (
-                    <TableRow key={headerGroup.id} className="bg-gray-50">
+                    <TableRow key={headerGroup.id} className="bg-gradient-to-r from-blue-500/10 to-teal-500/10">
                       {headerGroup.headers.map((header) => (
                         <TableHead
                           key={header.id}
@@ -637,12 +637,12 @@ export default function AppointmentsTable({
                     table.getRowModel().rows.map((row) => (
                       <TableRow 
                         key={row.id} 
-                        className="hover:bg-gray-100 border-b cursor-pointer transition-colors"
+                        className="hover:bg-blue-50/50 border-b border-gray-100 cursor-pointer transition-colors"
                       >
                         {row.getVisibleCells().map((cell) => (
                           <TableCell
                             key={cell.id}
-                            className="text-xs sm:text-sm text-gray-900 p-1 sm:p-2 whitespace-nowrap"
+                            className="text-xs sm:text-sm text-gray-700 p-1 sm:p-2 whitespace-nowrap"
                             data-label={cell.column.id === 'date' ? 'Date' : 
                                        cell.column.id === 'time' ? 'Time' : 
                                        cell.column.id === 'services.name' ? 'Service' : 
