@@ -277,7 +277,7 @@ export default function InventoryManager() {
           <div>
             <p className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : 'sm-text'} text-gray-500`}>Price</p>
             <p className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : 'sm-text'} font-medium`}>
-              KSh {medication.unit_price.toFixed(2)}
+              KSh {medication.unit_price.toFixed(2)}{/* was causing an error */}
             </p>
           </div>
           <div>
