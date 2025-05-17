@@ -27,7 +27,6 @@ interface Medication {
   category: string;
   dosage_form: string;
   strength: string;
-  unit_price: number;
   description: string | null;
   is_active: boolean | null;
   created_at: string | null;
@@ -38,6 +37,10 @@ interface Medication {
     expiry_date: string;
     quantity: number;
     unit_price: number;
+    purchase_price: number;
+    tenant_id: string | null;
+    created_at: string | null;
+    updated_at: string | null;
   }[];
 }
 
@@ -71,32 +74,48 @@ export default function InventoryManager() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const LOW_STOCK_THRESHOLD = 10; // You can adjust this value based on your needs
+  const LOW_STOCK_THRESHOLD = 10;
 
   useEffect(() => {
     const fetchData = async () => {
-      console.log('=== InventoryManager fetchData START ===');
+      setLoading(true);
+      setError(null);
+      
       try {
-        console.log('Calling fetchInventory...');
         const data = await fetchInventory();
-        console.log('fetchInventory result:', { 
-          hasData: !!data,
-          dataLength: data?.length || 0,
-          sampleMedication: data?.[0] ? {
-            id: data[0].id,
-            name: data[0].name,
-            batches: data[0].batches,
-            totalStock: data[0].batches.reduce((sum, batch) => sum + batch.quantity, 0)
-          } : null
-        });
-        setMedications(data);
-        setError(null);
+        
+        // Ensure all medications have required properties with default values
+        const sanitizedData = (data || []).map(med => ({
+          ...med,
+          id: med.id || '',
+          name: med.name || 'Unnamed Medication',
+          category: med.category || 'Uncategorized',
+          dosage_form: med.dosage_form || 'N/A',
+          strength: med.strength || '',
+          description: med.description || null,
+          is_active: med.is_active ?? true,
+          created_at: med.created_at || null,
+          updated_at: med.updated_at || null,
+          batches: (med.batches || []).map(batch => ({
+            ...batch,
+            id: batch.id || '',
+            batch_number: batch.batch_number || '',
+            expiry_date: batch.expiry_date || new Date().toISOString(),
+            quantity: batch.quantity || 0,
+            unit_price: batch.unit_price || 0,
+            purchase_price: batch.purchase_price || 0,
+            tenant_id: batch.tenant_id || null,
+            created_at: batch.created_at || null,
+            updated_at: batch.updated_at || null
+          }))
+        }));
+        
+        setMedications(sanitizedData);
       } catch (err) {
-        console.error('Error in fetchData:', err);
-        setError('Failed to fetch inventory');
+        console.error('Error fetching inventory:', err);
+        setError('Failed to fetch inventory data');
       } finally {
         setLoading(false);
-        console.log('=== InventoryManager fetchData END ===');
       }
     };
 
@@ -230,81 +249,66 @@ export default function InventoryManager() {
 
   // Function to render mobile cards for narrow screens
   const renderMobileCards = () => {
-    return filteredMedications.map((medication) => (
-      <div key={medication.id} className="inventory-card p-3">
-        <div className="flex justify-between items-start mb-2">
-          <div className="truncate-text" style={{ maxWidth: '70%' }}>
-            <h3 className={`font-medium ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : 'sm-text'} truncate-text`}>{medication.name}</h3>
-            <p className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : 'sm-text'} text-gray-500 mt-1 truncate-text`}>
-              {medication.category} • {medication.dosage_form} {medication.strength}
-            </p>
+    if (!filteredMedications || filteredMedications.length === 0) {
+      return (
+        <div className="inventory-card p-3">
+          <p className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : 'sm-text'} text-gray-500`}>
+            No medications found
+          </p>
+        </div>
+      );
+    }
+
+    return filteredMedications.map((medication) => {
+      if (!medication) return null;
+      
+      const totalStock = medication.batches?.reduce((sum, batch) => sum + (batch?.quantity || 0), 0) || 0;
+      const latestBatch = medication.batches?.[0];
+      const unitPrice = latestBatch?.unit_price || 0;
+      
+      return (
+        <div key={medication.id || Math.random()} className="inventory-card p-3">
+          <div className="flex justify-between items-start mb-2">
+            <div className="truncate-text" style={{ maxWidth: '70%' }}>
+              <h3 className={`font-medium ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : 'sm-text'} truncate-text`}>
+                {medication.name || 'Unnamed Medication'}
+              </h3>
+              <p className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : 'sm-text'} text-gray-500 mt-1 truncate-text`}>
+                {medication.category || 'Uncategorized'} • {medication.dosage_form || 'N/A'} {medication.strength || ''}
+              </p>
+            </div>
+            {getStatusBadge(medication)}
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className={`${isNarrowMobile ? 'h-6 w-6' : isSmallMediumMobile ? 'h-6 w-6' : 'h-7 w-7'} p-0`}>
-                <MoreVertical className={`${isNarrowMobile ? 'h-3 w-3' : isSmallMediumMobile ? 'h-3.5 w-3.5' : 'h-4 w-4'}`} />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className={isNarrowMobile ? 'inventory-dropdown-xs' : isSmallMediumMobile ? 'inventory-dropdown-xsm' : ''}>
-              <DropdownMenuItem 
-                className={`cursor-pointer text-blue-600 ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : 'sm-text'}`}
-                onClick={() => handleAddBatch(medication.id)}
-              >
-                <Plus className={`mr-1 ${isNarrowMobile ? 'h-3 w-3' : isSmallMediumMobile ? 'h-3.5 w-3.5' : 'h-4 w-4'}`} />
-                Add Batch
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                className={`cursor-pointer text-green-600 ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : 'sm-text'}`}
-                onClick={() => router.push(`/pharmacy/inventory/${medication.id}/batches`)}
-              >
-                <Eye className={`mr-1 ${isNarrowMobile ? 'h-3 w-3' : isSmallMediumMobile ? 'h-3.5 w-3.5' : 'h-4 w-4'}`} />
-                View Batches
-              </DropdownMenuItem>
-              {medication.batches.some(batch => new Date(batch.expiry_date) < new Date()) && (
-                <DropdownMenuItem 
-                  className={`cursor-pointer text-red-600 ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : 'sm-text'}`}
-                  onClick={() => handleDeleteBatch(medication.batches.find(b => new Date(b.expiry_date) < new Date())?.id || '')}
-                >
-                  <Trash2 className={`mr-1 ${isNarrowMobile ? 'h-3 w-3' : isSmallMediumMobile ? 'h-3.5 w-3.5' : 'h-4 w-4'}`} />
-                  Delete Expired
+          <div className="flex justify-between items-center mt-2">
+            <div className="flex items-center space-x-2">
+              <span className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : 'sm-text'} text-gray-600`}>
+                Stock: {totalStock}
+              </span>
+              <span className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : 'sm-text'} text-gray-600`}>
+                Price: KSh {unitPrice.toFixed(2)}
+              </span>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleAddBatch(medication.id)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Batch
                 </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-        
-        <div className="grid grid-cols-2 gap-2 mt-2">
-          <div>
-            <p className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : 'sm-text'} text-gray-500`}>Price</p>
-            <p className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : 'sm-text'} font-medium`}>
-              KSh {medication.unit_price.toFixed(2)}{/* was causing an error */}
-            </p>
-          </div>
-          <div>
-            <p className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : 'sm-text'} text-gray-500`}>Stock</p>
-            <p className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : 'sm-text'} font-medium`}>
-              {medication.batches.reduce((sum, batch) => sum + batch.quantity, 0)} units
-            </p>
+                <DropdownMenuItem onClick={() => router.push(`/pharmacy/inventory/${medication.id}`)}>
+                  <Eye className="mr-2 h-4 w-4" />
+                  View Details
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
-        
-        <div className="mt-2 flex justify-between items-center">
-          {getStatusBadge(medication)}
-          
-          {medication.batches.some(batch => new Date(batch.expiry_date) < new Date()) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleDeleteBatch(medication.batches.find(b => new Date(b.expiry_date) < new Date())?.id || '')}
-                className={`text-red-600 hover:text-red-700 ${isNarrowMobile ? 'xs-text inventory-button-xs' : isSmallMediumMobile ? 'xsm-text inventory-button-xsm' : 'sm-text inventory-button-sm'}`}
-              >
-                <Trash2 className={`mr-1 ${isNarrowMobile ? 'h-3 w-3' : isSmallMediumMobile ? 'h-3.5 w-3.5' : 'h-4 w-4'}`} />
-                {isNarrowMobile ? 'Del' : isSmallMediumMobile ? 'Delete' : 'Delete'}
-              </Button>
-          )}
-        </div>
-      </div>
-    ));
+      );
+    });
   };
 
   return (
@@ -379,11 +383,7 @@ export default function InventoryManager() {
         {/* Mobile cards for narrow and small-medium screens */}
         {(isNarrowMobile || isSmallMediumMobile) && (
           <div className="p-2 space-y-2 bg-gradient-to-br from-gray-50 to-blue-50/30">
-            {filteredMedications.length === 0 ? (
-              <p className={`${isNarrowMobile ? 'xs-text' : 'xsm-text'} text-center text-gray-500 py-4`}>No medications found</p>
-            ) : (
-              renderMobileCards()
-            )}
+            {renderMobileCards()}
           </div>
         )}
         

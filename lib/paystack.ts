@@ -23,6 +23,9 @@ const paystack = axios.create({
   },
 });
 
+// Export the configured Paystack client
+export const getPaystackClient = () => paystack;
+
 // Types
 export interface PaystackSubscription {
   id: string;
