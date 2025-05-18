@@ -4,11 +4,10 @@ import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
-import { Menu, X, RefreshCw } from 'lucide-react';
+import { X, RefreshCw, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/app/lib/auth/AuthProvider';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/app/lib/auth/client';
+import { supabase, useAuth } from '@/app/lib/auth/client';
 
 interface AuthenticatedLayoutProps {
   children: React.ReactNode;
@@ -19,7 +18,7 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
   const [isMobileView, setIsMobileView] = useState(false);
   const [screenSize, setScreenSize] = useState('');
   const [isScrolled, setIsScrolled] = useState(false);
-  const { user, tenantContext, loading, error } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
@@ -139,7 +138,7 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
     );
   }
 
-  if (error || !user || !tenantContext) {
+  if (!user ) {
     // Only redirect to login if we've exhausted retries
     if (retryCount >= 3) {
       router.push('/login');
@@ -148,7 +147,7 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4">
         <div className="text-center">
-          <p className="text-gray-600 mb-2">Session expired or invalid</p>
+          <p className="text-gray-600 mb-2">Just a moment</p>
           <Button 
             onClick={handleRetry}
             variant="outline"
@@ -174,7 +173,7 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
           screenSize === 'xs' && 'w-56'
         )}
       >
-        <Sidebar tenantContext={tenantContext} closeSidebar={closeSidebar} />
+        <Sidebar closeSidebar={closeSidebar} />
         {isMobileView && isSidebarOpen && (
           <Button
             variant="ghost"
@@ -194,8 +193,6 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
       <div className="flex flex-col flex-1 transition-all duration-300 ease-in-out">
         <Navbar 
           screenSize={screenSize} 
-          user={user} 
-          tenantContext={tenantContext} 
           onLogout={handleLogout} 
         />
         <main
@@ -219,7 +216,10 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
               )}
               onClick={() => setIsSidebarOpen(true)}
             >
-              <Menu className={cn('w-6 h-6', screenSize === 'xs' && 'w-5 h-5')} />
+              <div className="flex flex-col items-center gap-0.5">
+                <ChevronDown className={cn('w-4 h-4', screenSize === 'xs' && 'w-3 h-3')} />
+                <ChevronDown className={cn('w-4 h-4', screenSize === 'xs' && 'w-3 h-3')} />
+              </div>
             </Button>
           )}
           <div

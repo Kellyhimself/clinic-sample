@@ -16,36 +16,23 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useRouter, usePathname } from 'next/navigation';
-
-interface User {
-  id: string;
-  user_metadata?: {
-    full_name?: string;
-  };
-}
+import { useAuth } from '@/app/lib/auth/client';
 
 interface NavbarProps {
   screenSize: string;
-  user: User;
-  tenantContext: {
-    name: string;
-    role: string;
-  } | null;
   onLogout: () => Promise<void>;
 }
 
-export default function Navbar({ screenSize, user, tenantContext, onLogout }: NavbarProps) {
+export default function Navbar({ screenSize, onLogout }: NavbarProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const isAdminOrStaff = tenantContext?.role === 'admin' || tenantContext?.role === 'staff';
-  const isPharmacist = tenantContext?.role === 'pharmacist' || tenantContext?.role === 'admin';
+  const { user, role } = useAuth();
+  
   const [lowStockCount, setLowStockCount] = useState(0);
   const [expiringCount, setExpiringCount] = useState(0);
 
-  // Debug props
-  useEffect(() => {
-    console.log("Navbar received props:", { user, tenantContext, screenSize });
-  }, [user, tenantContext, screenSize]);
+  const isPharmacist = role === 'pharmacist';
+  const isAdminOrStaff = ['admin', 'staff'].includes(role || '');
 
   const handleSignOut = async () => {
     await onLogout();
@@ -65,7 +52,7 @@ export default function Navbar({ screenSize, user, tenantContext, onLogout }: Na
   useEffect(() => {
     const checkStockAlerts = async () => {
       try {
-        if (isPharmacist) {
+        if (isPharmacist || role === 'admin') {
           const result = await fetchStockAlerts();
           if (result) {
             const { lowStock = [], expiring = [] } = result;
@@ -86,9 +73,9 @@ export default function Navbar({ screenSize, user, tenantContext, onLogout }: Na
     checkStockAlerts();
     const interval = setInterval(checkStockAlerts, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [isPharmacist]);
+  }, [isPharmacist, role]);
 
-  const showStockAlerts = isAdminOrStaff;
+  const showStockAlerts = isPharmacist || role === 'admin';
   const totalAlerts = lowStockCount + expiringCount;
   
   // Get the second name from the user's full name
@@ -170,7 +157,10 @@ export default function Navbar({ screenSize, user, tenantContext, onLogout }: Na
                   </TooltipTrigger>
                   <TooltipContent className="bg-white border border-blue-100 shadow-md">
                     <p className="text-xs text-blue-700">
-                      {lowStockCount} low stock and {expiringCount} expiring items
+                      {lowStockCount > 0 && `${lowStockCount} low stock item${lowStockCount !== 1 ? 's' : ''}`}
+                      {lowStockCount > 0 && expiringCount > 0 && ' and '}
+                      {expiringCount > 0 && `${expiringCount} expiring item${expiringCount !== 1 ? 's' : ''}`}
+                      {totalAlerts === 0 && 'No stock alerts'}
                     </p>
                   </TooltipContent>
                 </Tooltip>

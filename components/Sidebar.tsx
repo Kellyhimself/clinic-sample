@@ -29,13 +29,12 @@ import {
   LineChart,
   HeartPulse,
   Stethoscope,
-  PlusCircle,
-  X
+  PlusCircle
 } from 'lucide-react';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { fetchStockAlerts } from '@/lib/inventory';
 import { getAllPendingPayments } from '@/lib/cashier';
-import { useAuth } from '@/app/lib/auth/AuthProvider';
+import { useAuth } from '@/app/lib/auth/client';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface SubNavItem { 
@@ -55,27 +54,13 @@ interface NavItem {
   roles?: string[]; // Add role restriction
 }
 
-interface Medication {
-  id: string;
-  name: string;
-  category: string | null;
-  dosage_form: string;
-  strength: string;
-  description: string | null;
-  batches?: {
-    id: string;
-    quantity: number;
-    expiry_date: string;
-  }[];
-}
-
 interface SidebarProps {
   closeSidebar?: () => void; // Optional callback to close the sidebar when a link is clicked
 }
 
 export default function Sidebar({ closeSidebar }: SidebarProps) {
   const pathname = usePathname();
-  const { tenantContext } = useAuth();
+  const { role } = useAuth();
   const [hasStockAlerts, setHasStockAlerts] = useState(false);
   const [lowStockCount, setLowStockCount] = useState(0);
   const [expiringCount, setExpiringCount] = useState(0);
@@ -111,7 +96,7 @@ export default function Sidebar({ closeSidebar }: SidebarProps) {
 
   // Handle role-based data fetching and alerts
   useEffect(() => {
-    if (!['admin', 'cashier'].includes(tenantContext?.role || '')) {
+    if (!['admin', 'cashier'].includes(role || '')) {
       return;
     }
 
@@ -129,11 +114,11 @@ export default function Sidebar({ closeSidebar }: SidebarProps) {
     checkPendingPayments();
     const interval = setInterval(checkPendingPayments, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [tenantContext?.role]);
+  }, [role]);
 
   // Only set up inventory checks for admin and pharmacist roles
   useEffect(() => {
-    if (!['admin', 'pharmacist'].includes(tenantContext?.role || '')) {
+    if (!['admin', 'pharmacist'].includes(role || '')) {
       return;
     }
 
@@ -161,7 +146,7 @@ export default function Sidebar({ closeSidebar }: SidebarProps) {
     checkStockAlerts();
     const interval = setInterval(checkStockAlerts, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [tenantContext?.role]);
+  }, [role]);
 
   // Handle alert clearing on navigation
   useEffect(() => {
@@ -444,23 +429,23 @@ export default function Sidebar({ closeSidebar }: SidebarProps) {
   let navItems: NavItem[] = [...baseNavItems];
   
   // Add staff menus for admin and staff roles
-  if (tenantContext?.role === 'admin' || tenantContext?.role === 'staff') {
+  if (role === 'admin' || role === 'staff') {
     navItems = [...navItems, ...staffNavItems];
   }
   
   // Add doctor menus for admin and doctor roles
-  if (tenantContext?.role === 'admin' || tenantContext?.role === 'doctor') {
+  if (role === 'admin' || role === 'doctor') {
     navItems = [...navItems, ...doctorNavItems];
   }
   
   // Add admin menus for admin only
-  if (tenantContext?.role === 'admin') {
+  if (role === 'admin') {
     navItems = [...navItems, ...adminNavItems];
   }
 
   const hasAccess = (item: NavItem | SubNavItem) => {
     if (!item.roles) return true;
-    return item.roles.includes(tenantContext?.role || '');
+    return item.roles.includes(role || '');
   };
 
   const handleDropdownToggle = useCallback((label: string) => {
@@ -485,7 +470,7 @@ export default function Sidebar({ closeSidebar }: SidebarProps) {
       <ScrollArea className="flex-1">
         <nav className="space-y-2">
           <div className="text-sm text-blue-700 mb-2 px-2 font-medium">
-            Role: <span className="font-semibold bg-blue-100 px-2 py-0.5 rounded-full">{tenantContext?.role}</span>
+            Role: <span className="font-semibold bg-blue-100 px-2 py-0.5 rounded-full">{role}</span>
           </div>
           
           {navItems.map((item) => (

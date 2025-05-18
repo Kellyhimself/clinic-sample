@@ -83,11 +83,6 @@ interface FormData {
   dosage_form: string;
   strength: string;
   description: string;
-  unit_price: number;
-  purchase_price: number;
-  batch_number: string;
-  expiry_date: string;
-  quantity: number;
   manufacturer?: string;
   barcode?: string;
   shelf_location?: string;
@@ -98,18 +93,13 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { checkUsage, limits } = useUsageLimits();
-  const [currentStep, setCurrentStep] = useState<'basic' | 'details' | 'pricing' | 'review'>('basic');
+  const [currentStep, setCurrentStep] = useState<'basic' | 'details' | 'review'>('basic');
   const [formData, setFormData] = useState<FormData>({
     name: initialData?.name || '',
     category: initialData?.category || '',
     dosage_form: initialData?.dosage_form || '',
     strength: initialData?.strength || '',
     description: initialData?.description || '',
-    unit_price: initialData?.unit_price || 0,
-    purchase_price: initialData?.purchase_price || 0,
-    batch_number: '',
-    expiry_date: '',
-    quantity: 0,
     manufacturer: initialData?.manufacturer || '',
     barcode: initialData?.barcode || '',
     shelf_location: initialData?.shelf_location || '',
@@ -123,11 +113,6 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
       dosage_form: '',
       strength: '',
       description: '',
-      unit_price: 0,
-      purchase_price: 0,
-      batch_number: '',
-      expiry_date: '',
-      quantity: 0,
       manufacturer: '',
       barcode: '',
       shelf_location: '',
@@ -276,17 +261,6 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
                   className="w-full h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
                 />
               </div>
-            </div>
-          </div>
-        );
-
-      case 'pricing':
-        return (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-lg font-semibold text-gray-800">Location & Supplier</h2>
-            </div>
-            <div className="space-y-4">
               <div className="space-y-1">
                 <Label className="text-xs text-gray-700">Shelf Location</Label>
                 <Input
@@ -304,37 +278,6 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
                   onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })}
                   className="w-full h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
                 />
-              </div>
-            </div>
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-900">Pricing Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Unit Price
-                  </label>
-                  <input
-                    type="number"
-                    name="unit_price"
-                    value={formData.unit_price}
-                    onChange={(e) => setFormData({ ...formData, unit_price: Number(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Purchase Price
-                  </label>
-                  <input
-                    type="number"
-                    name="purchase_price"
-                    value={formData.purchase_price}
-                    onChange={(e) => setFormData({ ...formData, purchase_price: Number(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
               </div>
             </div>
           </div>
@@ -366,17 +309,6 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
                     <p><span className="font-medium text-gray-800">Strength:</span> {formData.strength}</p>
                     <p><span className="font-medium text-gray-800">Manufacturer:</span> {formData.manufacturer || 'N/A'}</p>
                     <p><span className="font-medium text-gray-800">Barcode:</span> {formData.barcode || 'N/A'}</p>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-
-              <Collapsible>
-                <CollapsibleTrigger className="w-full flex items-center justify-between p-4 border rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
-                  <h3 className="font-medium text-gray-800">Location & Supplier</h3>
-                  <ChevronDown className="h-4 w-4" />
-                </CollapsibleTrigger>
-                <CollapsibleContent className="p-4 border-t">
-                  <div className="text-sm space-y-1 text-gray-600">
                     <p><span className="font-medium text-gray-800">Shelf Location:</span> {formData.shelf_location || 'N/A'}</p>
                     <p><span className="font-medium text-gray-800">Supplier ID:</span> {formData.supplier_id || 'N/A'}</p>
                   </div>
@@ -424,23 +356,23 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
           {/* Step Indicator */}
           <div className="flex justify-center mb-3">
             <div className="flex items-center space-x-1">
-              {['basic', 'details', 'pricing', 'review'].map((step, index) => (
+              {['basic', 'details', 'review'].map((step, index) => (
                 <div key={step} className="flex items-center">
                   <div
                     className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
                       currentStep === step
                         ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
-                        : ['basic', 'details', 'pricing', 'review'].indexOf(currentStep) > index
+                        : ['basic', 'details', 'review'].indexOf(currentStep) > index
                         ? 'bg-gradient-to-r from-green-500 to-green-600 text-white'
                         : 'bg-gray-200 text-gray-600'
                     }`}
                   >
                     {index + 1}
                   </div>
-                  {index < 3 && (
+                  {index < 2 && (
                     <div
                       className={`w-12 h-0.5 ${
-                        ['basic', 'details', 'pricing', 'review'].indexOf(currentStep) > index 
+                        ['basic', 'details', 'review'].indexOf(currentStep) > index 
                           ? 'bg-gradient-to-r from-green-500 to-green-600' 
                           : 'bg-gray-200'
                       }`}
@@ -496,8 +428,7 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setCurrentStep(currentStep === 'review' ? 'pricing' : 
-                      currentStep === 'pricing' ? 'details' : 'basic')}
+                    onClick={() => setCurrentStep(currentStep === 'review' ? 'details' : 'basic')}
                     className="w-full border-gray-200 text-gray-700 hover:bg-gray-50"
                   >
                     Back
@@ -518,13 +449,11 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
                   <Button
                     type="button"
                     onClick={() => setCurrentStep(
-                      currentStep === 'basic' ? 'details' :
-                      currentStep === 'details' ? 'pricing' : 'review'
+                      currentStep === 'basic' ? 'details' : 'review'
                     )}
                     disabled={
                       (currentStep === 'basic' && (!formData.name || !formData.category || !formData.dosage_form)) ||
-                      (currentStep === 'details' && !formData.strength) ||
-                      (currentStep === 'pricing' && (!formData.unit_price || !formData.purchase_price))
+                      (currentStep === 'details' && !formData.strength)
                     }
                     className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700"
                   >

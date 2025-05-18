@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -26,6 +26,7 @@ import {
   ChevronDown,
   ChevronUp,
   Info,
+  Search,
 } from 'lucide-react';
 import { fetchPaymentHistory } from '@/lib/cashier';
 import { cn } from '@/lib/utils';
@@ -59,6 +60,26 @@ export default function PaymentHistoryPage() {
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [showDetails, setShowDetails] = useState<string | null>(null);
+  const [isNarrowMobile, setIsNarrowMobile] = useState(false);
+  const [isSmallMediumMobile, setIsSmallMediumMobile] = useState(false);
+  const [isMediumMobile, setIsMediumMobile] = useState(false);
+
+  // Check screen size on component mount and resize
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      setIsNarrowMobile(width <= 358);
+      setIsSmallMediumMobile(width > 358 && width <= 409);
+      setIsMediumMobile(width > 409 && width <= 480);
+    };
+    
+    // Set initial state
+    handleResize();
+    
+    // Add resize listener
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     loadPaymentHistory();
@@ -156,19 +177,25 @@ export default function PaymentHistoryPage() {
   const PaymentCard = ({ payment }: { payment: Payment }) => {
     return (
       <div className={cn(
-        "p-3 border rounded-lg mb-3",
-        payment.type === 'combined' ? 'bg-blue-50 border-blue-200' : 'bg-white border-gray-200',
+        "p-3 border rounded-lg mb-3 bg-white/80 backdrop-blur-sm",
+        payment.type === 'combined' ? 'bg-blue-50 border-blue-200' : 'border-gray-200',
         showDetails === payment.id ? 'ring-2 ring-blue-300' : ''
       )}>
         <div className="flex justify-between items-start mb-1">
-          <div className="font-medium truncate mr-2">{payment.patient_name}</div>
+          <div className={`font-medium truncate mr-2 ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : ''}`}>
+            {payment.patient_name}
+          </div>
           <div className="text-right">
-            <div className="font-semibold text-sm">{formatCurrency(payment.amount)}</div>
-            <div className="text-xs text-gray-500">{formatDate(payment.date)}</div>
+            <div className={`font-semibold ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-sm'}`}>
+              {formatCurrency(payment.amount)}
+            </div>
+            <div className={`text-gray-500 ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-xs'}`}>
+              {formatDate(payment.date)}
+            </div>
           </div>
         </div>
         
-        <div className="flex justify-between text-xs text-gray-500">
+        <div className={`flex justify-between text-gray-500 ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-xs'}`}>
           <div className="truncate mr-2">{payment.reference}</div>
           <div className="capitalize">{payment.payment_method}</div>
         </div>
@@ -179,12 +206,12 @@ export default function PaymentHistoryPage() {
               variant="outline"
               size="sm"
               onClick={() => toggleRowExpansion(payment.id)}
-              className="text-xs h-7 w-auto flex-1"
+              className={`${isNarrowMobile ? 'pharmacy-button-xs' : isSmallMediumMobile ? 'pharmacy-button-xsm' : isMediumMobile ? 'pharmacy-button-sm' : 'text-xs h-7'} w-auto flex-1 border-gray-300 hover:bg-blue-50`}
             >
               {expandedRows.has(payment.id) ? 'Hide Items' : 'View Items'}
               {expandedRows.has(payment.id) ? 
-                <ChevronUp className="h-3 w-3 ml-1" /> : 
-                <ChevronDown className="h-3 w-3 ml-1" />
+                <ChevronUp className={`${isNarrowMobile ? 'pharmacy-icon-xs' : isSmallMediumMobile ? 'pharmacy-icon-xsm' : isMediumMobile ? 'pharmacy-icon-sm' : 'h-3 w-3'} ml-1`} /> : 
+                <ChevronDown className={`${isNarrowMobile ? 'pharmacy-icon-xs' : isSmallMediumMobile ? 'pharmacy-icon-xsm' : isMediumMobile ? 'pharmacy-icon-sm' : 'h-3 w-3'} ml-1`} />
               }
             </Button>
           )}
@@ -193,16 +220,16 @@ export default function PaymentHistoryPage() {
             variant="outline"
             size="sm"
             onClick={() => toggleDetails(payment.id)}
-            className="text-xs h-7 w-auto flex-1"
+            className={`${isNarrowMobile ? 'pharmacy-button-xs' : isSmallMediumMobile ? 'pharmacy-button-xsm' : isMediumMobile ? 'pharmacy-button-sm' : 'text-xs h-7'} w-auto flex-1 border-gray-300 hover:bg-blue-50`}
           >
             Details
-            <Info className="h-3 w-3 ml-1" />
+            <Info className={`${isNarrowMobile ? 'pharmacy-icon-xs' : isSmallMediumMobile ? 'pharmacy-icon-xsm' : isMediumMobile ? 'pharmacy-icon-sm' : 'h-3 w-3'} ml-1`} />
           </Button>
         </div>
         
         {/* Expanded payment details */}
         {showDetails === payment.id && (
-          <div className="text-xs mt-2 p-2 bg-gray-50 rounded-md border border-gray-200 space-y-1">
+          <div className={`mt-2 p-2 bg-gray-50 rounded-md border border-gray-200 space-y-1 ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-xs'}`}>
             <div className="grid grid-cols-2">
               <span className="text-gray-500">Payment ID:</span>
               <span>{payment.id}</span>
@@ -220,10 +247,10 @@ export default function PaymentHistoryPage() {
         
         {/* Expanded items for combined payments */}
         {payment.type === 'combined' && expandedRows.has(payment.id) && payment.related_items && (
-          <div className="mt-2 p-2 bg-gray-50 rounded-md border border-gray-200">
-            <div className="text-xs font-medium mb-1">Payment Items:</div>
+          <div className={`mt-2 p-2 bg-gray-50 rounded-md border border-gray-200 ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-xs'}`}>
+            <div className="font-medium mb-1">Payment Items:</div>
             {payment.related_items.map((item, index) => (
-              <div key={index} className="text-xs py-1 flex justify-between border-t border-gray-100">
+              <div key={index} className="py-1 flex justify-between border-t border-gray-100">
                 <div className="text-gray-600 truncate mr-2">{item.reference}</div>
                 <div>{formatCurrency(item.amount)}</div>
               </div>
@@ -235,167 +262,178 @@ export default function PaymentHistoryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-2 sm:p-4">
-      <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
-        <Card className="dark:bg-gray-800 dark:border-gray-700">
-          <CardHeader className="pb-2 sm:pb-6">
-            <CardTitle className="text-xl sm:text-2xl dark:text-gray-100">Payment History</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {/* Filters */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
-              <div>
-                <Label htmlFor="search" className="text-sm dark:text-gray-300">Search</Label>
-                <Input
-                  id="search"
-                  placeholder="Search by patient, ref, or transaction ID"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-8 sm:h-10 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="date-filter" className="text-sm dark:text-gray-300">Date Range</Label>
-                <Select value={dateFilter} onValueChange={setDateFilter}>
-                  <SelectTrigger id="date-filter" className="h-8 sm:h-10 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">
-                    <SelectValue placeholder="Select date range" />
-                  </SelectTrigger>
-                  <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
-                    <SelectItem value="all" className="dark:text-gray-100 dark:hover:bg-gray-700">All Time</SelectItem>
-                    <SelectItem value="today" className="dark:text-gray-100 dark:hover:bg-gray-700">Today</SelectItem>
-                    <SelectItem value="week" className="dark:text-gray-100 dark:hover:bg-gray-700">Last 7 Days</SelectItem>
-                    <SelectItem value="month" className="dark:text-gray-100 dark:hover:bg-gray-700">Last 30 Days</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <Label htmlFor="type-filter" className="text-sm dark:text-gray-300">Payment Type</Label>
-                <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger id="type-filter" className="h-8 sm:h-10 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
-                    <SelectItem value="all" className="dark:text-gray-100 dark:hover:bg-gray-700">All Types</SelectItem>
-                    <SelectItem value="appointment" className="dark:text-gray-100 dark:hover:bg-gray-700">Appointments</SelectItem>
-                    <SelectItem value="sale" className="dark:text-gray-100 dark:hover:bg-gray-700">Pharmacy Sales</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+    <div className="inventory-container min-h-screen bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50">
+      <Card className="shadow-md bg-white/80 backdrop-blur-sm">
+        <CardHeader className="pb-2 sm:pb-4 bg-gradient-to-r from-blue-500/10 to-teal-500/10 rounded-t-lg">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 md:gap-4">
+            <div>
+              <CardTitle className={`${isNarrowMobile ? 'xs-heading' : isSmallMediumMobile ? 'xsm-heading' : isMediumMobile ? 'sm-heading' : 'text-xl md:text-2xl'} font-bold text-gray-800 leading-tight`}>
+                Payment History
+              </CardTitle>
+              <CardDescription className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-sm sm:text-base'} text-gray-600`}>
+                View and manage payment records for appointments and pharmacy sales
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {/* Filters */}
+          <div className={`${isNarrowMobile ? 'xs-padding' : isSmallMediumMobile ? 'xsm-padding xsm-filter-container' : isMediumMobile ? 'sm-padding' : 'p-2 md:p-4'} border-b flex flex-col sm:flex-row gap-2 md:gap-4 bg-gradient-to-r from-gray-50 to-blue-50/50`}>
+            <div className="relative flex-1">
+              <Search className={`absolute left-2 top-2.5 ${isNarrowMobile ? 'h-3 w-3' : isSmallMediumMobile ? 'h-3.5 w-3.5' : 'h-4 w-4'} text-gray-400`} />
+              <Input
+                placeholder={isNarrowMobile || isSmallMediumMobile ? "Search..." : "Search by patient, ref, or transaction ID"}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={`pl-8 ${isNarrowMobile ? 'h-7 xs-text' : isSmallMediumMobile ? 'h-7 xsm-text' : 'h-8 text-xs'} border-gray-300 focus:border-blue-500 bg-white/80 backdrop-blur-sm`}
+              />
             </div>
             
-            {/* Payment history table */}
-            {loading ? (
-              <div className="text-center py-10 dark:text-gray-300">Loading payment history...</div>
-            ) : filteredPayments.length > 0 ? (
-              <>
-                {/* Mobile view */}
-                <div className="md:hidden space-y-2">
-                  {filteredPayments.map((payment) => (
-                    <PaymentCard 
-                      key={`mobile-${payment.type}-${payment.id}`} 
-                      payment={payment} 
-                    />
-                  ))}
-                </div>
-              
-                {/* Desktop table view */}
-                <div className="hidden md:block rounded-md border dark:border-gray-700 overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="dark:bg-gray-800 dark:hover:bg-gray-700">
-                          <TableHead className="w-10 dark:text-gray-300"></TableHead>
-                          <TableHead className="whitespace-nowrap dark:text-gray-300">Date</TableHead>
-                          <TableHead className="whitespace-nowrap dark:text-gray-300">Patient</TableHead>
-                          <TableHead className="whitespace-nowrap dark:text-gray-300">Reference</TableHead>
-                          <TableHead className="whitespace-nowrap dark:text-gray-300">Amount</TableHead>
-                          <TableHead className="whitespace-nowrap dark:text-gray-300">Method</TableHead>
-                          <TableHead className="whitespace-nowrap dark:text-gray-300">Transaction ID</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredPayments.map((payment) => (
-                          <React.Fragment key={`payment-${payment.id}`}>
-                            <TableRow 
-                              className={payment.type === 'combined' ? 'bg-blue-50 dark:bg-blue-900/20' : 'dark:bg-gray-800 dark:hover:bg-gray-700'}
-                            >
-                              <TableCell className="p-2 dark:text-gray-300">
-                                {payment.type === 'combined' && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => toggleRowExpansion(payment.id)}
-                                    className="h-7 w-7 dark:text-gray-300 dark:hover:bg-gray-700"
-                                  >
-                                    {expandedRows.has(payment.id) ? 
-                                      <ChevronUp className="h-4 w-4" /> : 
-                                      <ChevronDown className="h-4 w-4" />
-                                    }
-                                  </Button>
-                                )}
-                              </TableCell>
-                              <TableCell className="p-2 dark:text-gray-300">{formatDate(payment.date)}</TableCell>
-                              <TableCell className="p-2 dark:text-gray-300">{payment.patient_name}</TableCell>
-                              <TableCell className="p-2 dark:text-gray-300">{payment.reference}</TableCell>
-                              <TableCell className="p-2 font-medium dark:text-gray-100">{formatCurrency(payment.amount)}</TableCell>
-                              <TableCell className="p-2 capitalize dark:text-gray-300">{payment.payment_method}</TableCell>
-                              <TableCell className="p-2 text-gray-500 dark:text-gray-400">{payment.transaction_id || '-'}</TableCell>
-                            </TableRow>
-                            
-                            {/* Expanded details for combined payments */}
-                            {payment.type === 'combined' && expandedRows.has(payment.id) && 
-                              payment.related_items?.map((item, index) => (
-                                <TableRow key={`${payment.id}-item-${index}`} className="bg-gray-50 dark:bg-gray-700/50">
-                                  <TableCell className="p-2"></TableCell>
-                                  <TableCell className="p-2" colSpan={2}></TableCell>
-                                  <TableCell className="pl-8 text-sm text-gray-600 dark:text-gray-300 p-2">
-                                    {item.reference}
-                                  </TableCell>
-                                  <TableCell className="text-sm text-gray-600 dark:text-gray-300 p-2">
-                                    {formatCurrency(item.amount)}
-                                  </TableCell>
-                                  <TableCell className="p-2" colSpan={2}></TableCell>
-                                </TableRow>
-                              ))
-                            }
-                          </React.Fragment>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="text-center py-6 sm:py-10">
-                <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base">No payments found matching your filters</p>
-                <Button 
-                  variant="outline" 
-                  className="mt-4 text-sm h-8 sm:h-10 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setDateFilter('all');
-                    setTypeFilter('all');
-                  }}
-                >
-                  Clear Filters
-                </Button>
-              </div>
-            )}
+            <Select value={dateFilter} onValueChange={setDateFilter}>
+              <SelectTrigger className={`w-full sm:w-[180px] ${isNarrowMobile ? 'h-7 xs-text' : isSmallMediumMobile ? 'h-7 xsm-text xsm-filter-dropdown' : 'h-8 text-xs'} border-gray-300 focus:border-blue-500 bg-white/80 backdrop-blur-sm`}>
+                <SelectValue placeholder="Select date range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className={isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : ''}>All Time</SelectItem>
+                <SelectItem value="today" className={isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : ''}>Today</SelectItem>
+                <SelectItem value="week" className={isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : ''}>Last 7 Days</SelectItem>
+                <SelectItem value="month" className={isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : ''}>Last 30 Days</SelectItem>
+              </SelectContent>
+            </Select>
             
-            <div className="mt-4 text-right">
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className={`w-full sm:w-[180px] ${isNarrowMobile ? 'h-7 xs-text' : isSmallMediumMobile ? 'h-7 xsm-text xsm-filter-dropdown' : 'h-8 text-xs'} border-gray-300 focus:border-blue-500 bg-white/80 backdrop-blur-sm`}>
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className={isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : ''}>All Types</SelectItem>
+                <SelectItem value="appointment" className={isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : ''}>Appointments</SelectItem>
+                <SelectItem value="sale" className={isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : ''}>Pharmacy Sales</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {/* Payment history table */}
+          {loading ? (
+            <div className={`text-center py-10 ${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : ''} text-gray-600`}>
+              Loading payment history...
+            </div>
+          ) : filteredPayments.length > 0 ? (
+            <>
+              {/* Mobile view */}
+              <div className="md:hidden space-y-2 p-2 bg-gradient-to-br from-gray-50 to-blue-50/30">
+                {filteredPayments.map((payment) => (
+                  <PaymentCard 
+                    key={`mobile-${payment.type}-${payment.id}`} 
+                    payment={payment} 
+                  />
+                ))}
+              </div>
+            
+              {/* Desktop table view */}
+              <div className="hidden md:block rounded-md border overflow-hidden bg-gradient-to-br from-gray-50 to-blue-50/30">
+                <div className="overflow-x-auto">
+                  <Table className={`${isMediumMobile ? 'inventory-table-mobile' : 'mobile-table mobile-table-compact'} bg-white/80 backdrop-blur-sm`}>
+                    <TableHeader>
+                      <TableRow className="bg-gradient-to-r from-blue-500/10 to-teal-500/10">
+                        <TableHead className={`${isMediumMobile ? 'sm-text' : 'mobile-text-xs text-xs md:text-sm'} font-medium text-gray-700 mobile-table-cell`}>
+                          Date
+                        </TableHead>
+                        <TableHead className={`${isMediumMobile ? 'sm-text' : 'mobile-text-xs text-xs md:text-sm'} font-medium text-gray-700 mobile-table-cell`}>
+                          Patient
+                        </TableHead>
+                        <TableHead className={`${isMediumMobile ? 'sm-text' : 'mobile-text-xs text-xs md:text-sm'} font-medium text-gray-700 mobile-table-cell`}>
+                          Reference
+                        </TableHead>
+                        <TableHead className={`${isMediumMobile ? 'sm-text' : 'mobile-text-xs text-xs md:text-sm'} font-medium text-gray-700 mobile-table-cell`}>
+                          Amount
+                        </TableHead>
+                        <TableHead className={`${isMediumMobile ? 'sm-text' : 'mobile-text-xs text-xs md:text-sm'} font-medium text-gray-700 mobile-table-cell`}>
+                          Method
+                        </TableHead>
+                        <TableHead className={`${isMediumMobile ? 'sm-text' : 'mobile-text-xs text-xs md:text-sm'} font-medium text-gray-700 mobile-table-cell`}>
+                          Transaction ID
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredPayments.map((payment) => (
+                        <React.Fragment key={`payment-${payment.id}`}>
+                          <TableRow 
+                            className={payment.type === 'combined' ? 'bg-blue-50' : 'hover:bg-blue-50/50 transition-colors'}
+                          >
+                            <TableCell className={`${isMediumMobile ? 'sm-text' : 'mobile-text-xs text-xs md:text-sm'} p-2`}>
+                              {formatDate(payment.date)}
+                            </TableCell>
+                            <TableCell className={`${isMediumMobile ? 'sm-text' : 'mobile-text-xs text-xs md:text-sm'} p-2`}>
+                              {payment.patient_name}
+                            </TableCell>
+                            <TableCell className={`${isMediumMobile ? 'sm-text' : 'mobile-text-xs text-xs md:text-sm'} p-2`}>
+                              {payment.reference}
+                            </TableCell>
+                            <TableCell className={`${isMediumMobile ? 'sm-text' : 'mobile-text-xs text-xs md:text-sm'} p-2 font-medium`}>
+                              {formatCurrency(payment.amount)}
+                            </TableCell>
+                            <TableCell className={`${isMediumMobile ? 'sm-text' : 'mobile-text-xs text-xs md:text-sm'} p-2 capitalize`}>
+                              {payment.payment_method}
+                            </TableCell>
+                            <TableCell className={`${isMediumMobile ? 'sm-text' : 'mobile-text-xs text-xs md:text-sm'} p-2 text-gray-500`}>
+                              {payment.transaction_id || '-'}
+                            </TableCell>
+                          </TableRow>
+                          
+                          {/* Expanded details for combined payments */}
+                          {payment.type === 'combined' && expandedRows.has(payment.id) && 
+                            payment.related_items?.map((item, index) => (
+                              <TableRow key={`${payment.id}-item-${index}`} className="bg-gray-50">
+                                <TableCell className="p-2" colSpan={3}></TableCell>
+                                <TableCell className={`pl-8 ${isMediumMobile ? 'sm-text' : 'mobile-text-xs text-xs md:text-sm'} text-gray-600 p-2`}>
+                                  {item.reference}
+                                </TableCell>
+                                <TableCell className={`${isMediumMobile ? 'sm-text' : 'mobile-text-xs text-xs md:text-sm'} text-gray-600 p-2`}>
+                                  {formatCurrency(item.amount)}
+                                </TableCell>
+                                <TableCell className="p-2"></TableCell>
+                              </TableRow>
+                            ))
+                          }
+                        </React.Fragment>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-6 sm:py-10">
+              <p className={`${isNarrowMobile ? 'xs-text' : isSmallMediumMobile ? 'xsm-text' : isMediumMobile ? 'sm-text' : 'text-sm sm:text-base'} text-gray-500`}>
+                No payments found matching your filters
+              </p>
               <Button 
-                onClick={loadPaymentHistory}
-                variant="outline"
-                className="text-sm h-8 sm:h-10 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                variant="outline" 
+                className={`mt-4 ${isNarrowMobile ? 'pharmacy-button-xs' : isSmallMediumMobile ? 'pharmacy-button-xsm' : isMediumMobile ? 'pharmacy-button-sm' : 'text-sm h-8 sm:h-10'} border-gray-300 hover:bg-blue-50`}
+                onClick={() => {
+                  setSearchQuery('');
+                  setDateFilter('all');
+                  setTypeFilter('all');
+                }}
               >
-                Refresh Data
+                Clear Filters
               </Button>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+          
+          <div className="mt-4 text-right">
+            <Button 
+              onClick={loadPaymentHistory}
+              variant="outline"
+              className={`${isNarrowMobile ? 'pharmacy-button-xs' : isSmallMediumMobile ? 'pharmacy-button-xsm' : isMediumMobile ? 'pharmacy-button-sm' : 'text-sm h-8 sm:h-10'} border-gray-300 hover:bg-blue-50`}
+            >
+              Refresh Data
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 } 

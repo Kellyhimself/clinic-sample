@@ -18,18 +18,18 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/app/lib/auth/AuthProvider';
+import { useAuth } from '@/app/lib/auth/client';
 
 
 export default function DashboardClient() {
-  const { tenantContext } = useAuth();
+  const { role } = useAuth();
   const [isNarrowMobile, setIsNarrowMobile] = useState(false);
   const [isSmallMediumMobile, setIsSmallMediumMobile] = useState(false);
   const [isMediumMobile, setIsMediumMobile] = useState(false);
   
-  const isAdminOrStaff = tenantContext?.role === 'admin' || tenantContext?.role === 'staff';
-  const isAdmin = tenantContext?.role === 'admin';
-  const isPharmacist = tenantContext?.role === 'pharmacist' || tenantContext?.role === 'admin';
+  const isAdminOrStaff = role === 'admin' || role === 'doctor' || role === 'cashier';
+  const isAdmin = role === 'admin';
+  const isPharmacist = role === 'pharmacist' || role === 'admin';
 
   // Check screen size on component mount and resize
   useEffect(() => {
@@ -49,10 +49,10 @@ export default function DashboardClient() {
   }, []);
 
   useEffect(() => {
-    if (tenantContext?.role) {
-      console.log('DashboardClient role:', tenantContext.role, 'isAdminOrStaff:', isAdminOrStaff);
+    if (role) {
+      console.log('DashboardClient role:', role, 'isAdminOrStaff:', isAdminOrStaff);
     }
-  }, [tenantContext?.role, isAdminOrStaff]);
+  }, [role, isAdminOrStaff]);
 
   return (
     <main className={`min-h-screen bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50 flex-1 overflow-y-auto dashboard-container ${isNarrowMobile ? 'xs-main-container' : ''}`}>
