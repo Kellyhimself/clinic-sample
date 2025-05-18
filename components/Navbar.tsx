@@ -1,59 +1,81 @@
 // components/Navbar.tsx
 'use client';
 
-import { Bell, UserCircle, LogOut, Menu, Plus, Home, ArrowLeft } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useAuthContext } from '@/app/providers/AuthProvider';
+import { useTenant } from '@/app/providers/TenantProvider';
 import { Button } from '@/components/ui/button';
-import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { fetchStockAlerts } from '@/lib/inventory';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Bell, Menu, Search, Settings, User, LogOut, Plus, Home, ArrowLeft, ChevronDown } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useRouter, usePathname } from 'next/navigation';
-import { useAuth } from '@/app/lib/auth/client';
+import Link from 'next/link';
+import { fetchStockAlerts } from '@/lib/inventory';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface NavbarProps {
-  screenSize: string;
-  onLogout: () => Promise<void>;
+  screenSize?: string;
+  onLogout?: () => void;
+  onMenuClick?: () => void;
+  isMenuOpen?: boolean;
+  isSidebarOpen?: boolean;
+  setIsSidebarOpen?: (value: boolean) => void;
+  isMobileView?: boolean;
 }
 
-export default function Navbar({ screenSize, onLogout }: NavbarProps) {
+export default function Navbar({ 
+  screenSize = 'md', 
+  onLogout,
+  onMenuClick,
+  isMenuOpen,
+  isSidebarOpen,
+  setIsSidebarOpen,
+  isMobileView
+}: NavbarProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, role } = useAuth();
-  
+  const { user } = useAuthContext();
+  const { role } = useTenant();
+  const [isScrolled, setIsScrolled] = useState(false);
   const [lowStockCount, setLowStockCount] = useState(0);
   const [expiringCount, setExpiringCount] = useState(0);
 
+  console.log('Navbar - User:', user);
+  console.log('Navbar - Role:', role);
+
   const isPharmacist = role === 'pharmacist';
   const isAdminOrStaff = ['admin', 'staff'].includes(role || '');
+  const showStockAlerts = isPharmacist || role === 'admin';
+  const totalAlerts = lowStockCount + expiringCount;
 
-  const handleSignOut = async () => {
-    await onLogout();
-  };
+  // Handle scroll effect
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 0);
+    };
 
-  const handleBack = () => {
-    // Check if we're in a form page
-    if (pathname.includes('/cashier') || pathname.includes('/pharmacy/new-sale') || pathname.includes('/appointments/book')) {
-      // Refresh the page to reset the form
-      window.location.reload();
-    } else {
-      // Regular back navigation
-      router.back();
-    }
-  };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
+  // Check stock alerts
   useEffect(() => {
     const checkStockAlerts = async () => {
       try {
         if (isPharmacist || role === 'admin') {
+          console.log('Checking stock alerts...');
           const result = await fetchStockAlerts();
+          console.log('Stock alerts result:', result);
+          
           if (result) {
             const { lowStock = [], expiring = [] } = result;
             setLowStockCount(lowStock.length);
@@ -75,18 +97,26 @@ export default function Navbar({ screenSize, onLogout }: NavbarProps) {
     return () => clearInterval(interval);
   }, [isPharmacist, role]);
 
-  const showStockAlerts = isPharmacist || role === 'admin';
-  const totalAlerts = lowStockCount + expiringCount;
-  
-  // Get the second name from the user's full name
-  const getSecondName = (fullName: string) => {
-    const names = fullName.split(' ');
-    return names.length > 1 ? names[1] : names[0];
+  const handleBack = () => {
+    console.log('Handling back navigation from:', pathname);
+    if (pathname.includes('/cashier') || pathname.includes('/pharmacy/new-sale') || pathname.includes('/appointments/book')) {
+      window.location.reload();
+    } else {
+      router.back();
+    }
   };
-  
-  const displayName = user?.user_metadata?.full_name 
-    ? getSecondName(user.user_metadata.full_name)
-    : 'User';
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(part => part[0])
+      .join('')
+      .toUpperCase();
+  };
+
+  const userInitials = user?.user_metadata?.full_name
+    ? getInitials(user.user_metadata.full_name)
+    : user?.email?.[0].toUpperCase() || 'U';
 
   // Determine navbar height and padding based on screen size
   const navbarHeight = screenSize === 'xs' ? 'h-12' : 'h-14';
@@ -94,7 +124,7 @@ export default function Navbar({ screenSize, onLogout }: NavbarProps) {
 
   return (
     <header className={cn(
-      "w-full flex items-center justify-between bg-gradient-to-r from-blue-100 via-teal-50 to-indigo-50 border-b border-blue-200 shadow-sm",
+      "fixed top-0 left-0 right-0 z-40 flex items-center justify-between bg-gradient-to-r from-blue-100 via-teal-50 to-indigo-50 border-b border-blue-200 shadow-sm",
       navbarHeight,
       navbarPadding
     )}>
@@ -103,11 +133,26 @@ export default function Navbar({ screenSize, onLogout }: NavbarProps) {
         "flex items-center gap-1",
         screenSize === 'xs' || screenSize === 'sm' ? 'my-1' : 'my-2'
       )}>
+        {isMobileView && !isSidebarOpen && setIsSidebarOpen && (
+          <Button
+            variant="ghost"
+            onClick={() => setIsSidebarOpen(true)}
+            className={cn(
+              "bg-blue-100 text-blue-600 hover:text-blue-700 hover:bg-blue-200 h-9 px-3 rounded-full flex items-center gap-1",
+              screenSize === 'xs' && "h-8 px-2"
+            )}
+          >
+            <div className="flex flex-col items-center gap-0.5">
+              <ChevronDown className={cn('w-4 h-4', screenSize === 'xs' && 'w-3 h-3')} />
+              <ChevronDown className={cn('w-4 h-4', screenSize === 'xs' && 'w-3 h-3')} />
+            </div>
+          </Button>
+        )}
         <div className="hidden sm:block">
           <p className={cn(
             "font-semibold text-blue-700",
             screenSize === 'md' ? "text-xs" : "text-sm"
-          )}>Welcome, {displayName}</p>
+          )}>Welcome, {user?.user_metadata?.full_name || 'User'}</p>
         </div>
       </div>
 
@@ -177,7 +222,7 @@ export default function Navbar({ screenSize, onLogout }: NavbarProps) {
             </Link>
           )}
 
-          <form action={handleSignOut}>
+          <form action={onLogout}>
             <Button
               variant="ghost"
               className="text-red-500 hover:text-red-600 hover:bg-red-50 flex items-center gap-1 text-sm font-medium h-9 rounded-full"
@@ -189,7 +234,7 @@ export default function Navbar({ screenSize, onLogout }: NavbarProps) {
         </div>
 
         {/* Mobile Dropdown */}
-        <DropdownMenu>
+        <DropdownMenu open={isMenuOpen} onOpenChange={onMenuClick}>
           <DropdownMenuTrigger asChild className="sm:hidden">
             <Button 
               variant="ghost" 
@@ -211,10 +256,12 @@ export default function Navbar({ screenSize, onLogout }: NavbarProps) {
               "mt-1 bg-white border border-blue-100 shadow-lg rounded-lg",
               screenSize === 'xs' ? "w-48" : "w-56"
             )}
+            onPointerDownOutside={onMenuClick}
+            onInteractOutside={onMenuClick}
           >
             {showStockAlerts && (
               <DropdownMenuItem asChild>
-                <Link href="/pharmacy/stock-alerts" className="flex items-center gap-2 py-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50">
+                <Link href="/pharmacy/stock-alerts" className="flex items-center gap-2 py-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={onMenuClick}>
                   <Bell className="h-3 w-3" />
                   <span className={cn(
                     "font-medium",
@@ -231,8 +278,8 @@ export default function Navbar({ screenSize, onLogout }: NavbarProps) {
                 </Link>
               </DropdownMenuItem>
             )}
-            <DropdownMenuItem className="flex items-center gap-2 py-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50">
-              <UserCircle className="h-3 w-3" />
+            <DropdownMenuItem className="flex items-center gap-2 py-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={onMenuClick}>
+              <User className="h-3 w-3" />
               <span className={cn(
                 "font-medium",
                 screenSize === 'xs' ? "text-xs" : "text-sm"
@@ -241,7 +288,7 @@ export default function Navbar({ screenSize, onLogout }: NavbarProps) {
             <DropdownMenuSeparator className="bg-blue-100" />
             {isAdminOrStaff && (
               <DropdownMenuItem asChild>
-                <Link href="/signup" className="flex items-center gap-2 py-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50">
+                <Link href="/signup" className="flex items-center gap-2 py-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={onMenuClick}>
                   <Plus className="h-3 w-3" />
                   <span className={cn(
                     "font-medium",
@@ -252,13 +299,14 @@ export default function Navbar({ screenSize, onLogout }: NavbarProps) {
             )}
             <DropdownMenuSeparator className="bg-blue-100" />
             <DropdownMenuItem asChild>
-              <form action={handleSignOut} className="w-full">
+              <form action={onLogout} className="w-full">
                 <Button
                   variant="ghost"
                   className={cn(
                     "w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50 flex items-center gap-2 font-medium",
                     screenSize === 'xs' ? "text-xs" : "text-sm"
                   )}
+                  onClick={onMenuClick}
                 >
                   <LogOut className="h-3 w-3" />
                   <span>Sign Out</span>

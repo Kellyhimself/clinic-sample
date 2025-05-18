@@ -7,6 +7,7 @@ export async function POST(req: Request) {
   try {
     const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
+    console.log('Session:', session);
 
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -17,12 +18,14 @@ export async function POST(req: Request) {
       .select('*')
       .eq('id', session.user.app_metadata.tenant_id)
       .single();
+    console.log('Tenant:', tenant);
 
     if (!tenant) {
       return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
     }
 
     const body = await req.json();
+    console.log('Request body:', body);
     const { plan, email } = body;
 
     if (!plan || !email) {
@@ -44,6 +47,7 @@ export async function POST(req: Request) {
         }
       });
     }
+    console.log('Customer:', customer);
 
     // Create transaction
     const transaction = await paystack.transaction.initialize({
@@ -63,6 +67,7 @@ export async function POST(req: Request) {
         ]
       }
     });
+    console.log('Transaction:', transaction);
 
     if (!transaction.status) {
       return NextResponse.json({ error: 'Failed to initialize payment' }, { status: 500 });
@@ -81,6 +86,7 @@ export async function POST(req: Request) {
       authorization_url: transaction.data.authorization_url
     });
   } catch (error) {
+    console.error('Error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 

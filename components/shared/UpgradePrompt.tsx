@@ -1,146 +1,110 @@
+'use client';
+
 import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
-import { Lock } from 'lucide-react';
-import { ReactNode, useState } from 'react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useAuthContext } from '@/app/providers/AuthProvider';
+import { useTenant } from '@/app/providers/TenantProvider';
 
 interface UpgradePromptProps {
-  children: ReactNode;
   requiredPlan: 'pro' | 'enterprise';
-  features?: string[];
+  variant?: 'tooltip' | 'dialog';
   className?: string;
-  variant?: 'button' | 'link' | 'card' | 'tooltip';
-  popoverPosition?: 'center' | 'top-right';
+  children: React.ReactNode;
+  features?: string[];
 }
 
 export function UpgradePrompt({ 
-  children, 
   requiredPlan, 
-  features = [], 
-  className = '',
-  variant = 'button',
-  popoverPosition = 'center',
+  variant = 'dialog', 
+  className, 
+  children,
+  features = []
 }: UpgradePromptProps) {
-  const router = useRouter();
-  const [showPrompt, setShowPrompt] = useState(false);
+  const { user } = useAuthContext();
+  const { tenantId } = useTenant();
 
-  const handleUpgrade = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    router.push('/settings/billing');
+  const handleUpgrade = () => {
+    // Redirect to billing page with upgrade parameters
+    window.location.href = `/settings/billing?plan=${requiredPlan}&tenant=${tenantId}`;
   };
 
-  const defaultFeatures = {
-    pro: [
-      'Advanced analytics and reporting',
-      'Custom branding options',
-      'Priority support'
-    ],
-    enterprise: [
-      'All Pro features',
-      'Custom integrations',
-      'Dedicated account manager',
-      'Advanced security features'
-    ]
-  };
-
-  const displayFeatures = features.length > 0 ? features : defaultFeatures[requiredPlan];
-
-  const renderPrompt = () => {
-    if (variant === 'tooltip') {
-      return (
-        <div 
-          className={`
-            absolute z-50 bg-gray-900 text-white text-xs px-2 py-1 rounded
-            transition-all duration-200 ease-in-out
-            ${showPrompt ? 'opacity-100' : 'opacity-0 pointer-events-none'}
-            ${popoverPosition === 'top-right' ? 'top-0 right-0 -translate-y-full mt-1' : 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2'}
-          `}
-          onMouseLeave={() => setShowPrompt(false)}
-        >
-          Available on {requiredPlan} plan
-        </div>
-      );
-    }
-
+  if (variant === 'tooltip') {
     return (
-      <div 
-        className={`
-          absolute z-50 bg-white/95 backdrop-blur-sm rounded-lg flex flex-col items-center justify-center p-4 transition-all duration-200 ease-in-out
-          ${showPrompt ? 'opacity-100' : 'opacity-0 pointer-events-none'}
-          ${popoverPosition === 'top-right' ? 'top-2 right-2 left-auto bottom-auto w-72 shadow-lg' : 'inset-0'}
-        `}
-        onMouseLeave={() => setShowPrompt(false)}
-      >
-        <Lock className="h-5 w-5 text-indigo-600 mb-2" />
-        <p className="text-sm font-medium text-indigo-900 mb-2">
-          {requiredPlan === 'pro' ? 'Pro' : 'Enterprise'} Plan Required
-        </p>
-        <p className="text-xs text-gray-600 text-center mb-4">
-          {displayFeatures.length > 0 ? 'Features:' : 'No additional features available'}
-        </p>
-        <div className="w-full space-y-2 mb-4">
-          {displayFeatures.map((feature, index) => (
-            <div key={index} className="flex items-center gap-2">
-              <svg className="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span className="text-xs text-indigo-800">{feature}</span>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className={cn('relative cursor-not-allowed', className)}>
+              {children}
             </div>
-          ))}
-        </div>
-        <Button 
-          onClick={handleUpgrade}
-          className="w-full bg-gradient-to-r from-indigo-500 to-indigo-600 text-white hover:from-indigo-600 hover:to-indigo-700"
-        >
-          Upgrade Now
-        </Button>
-      </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <div className="text-xs font-medium">
+              Upgrade to {requiredPlan} plan required
+            </div>
+            {features.length > 0 && (
+              <ul className="text-xs mt-1 space-y-1">
+                {features.map((feature, index) => (
+                  <li key={index}>{feature}</li>
+                ))}
+              </ul>
+            )}
+            <div className="text-xs mt-1">Click to upgrade your plan</div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     );
-  };
+  }
 
-  const renderContent = () => {
-    const commonProps = {
-      className: `relative ${className}`,
-      onMouseEnter: () => setShowPrompt(true),
-      onMouseLeave: () => setShowPrompt(false)
-    };
-
-    switch (variant) {
-      case 'button':
-      case 'link':
-        return (
-          <div {...commonProps}>
-            <div className="opacity-50 cursor-not-allowed">
-              {children}
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <div className={cn('cursor-pointer group relative', className)}>
+          {children}
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-[2px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="text-center p-4">
+              <div className="text-sm font-medium text-gray-800">Available on {requiredPlan} plan</div>
+              {features.length > 0 && (
+                <ul className="text-xs mt-2 space-y-1 text-gray-600">
+                  {features.map((feature, index) => (
+                    <li key={index}>{feature}</li>
+                  ))}
+                </ul>
+              )}
             </div>
-            {renderPrompt()}
           </div>
-        );
-      
-      case 'tooltip':
-        return (
-          <div {...commonProps}>
-            <div className="opacity-50 cursor-not-allowed">
-              {children}
-            </div>
-            {renderPrompt()}
-          </div>
-        );
-      
-      case 'card':
-        return (
-          <div {...commonProps}>
-            <div className="opacity-50 cursor-not-allowed">
-              {children}
-            </div>
-            {renderPrompt()}
-          </div>
-        );
-      
-      default:
-        return null;
-    }
-  };
-
-  return renderContent();
+        </div>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Upgrade Required</DialogTitle>
+          <DialogDescription>
+            {features.length > 0 ? (
+              <div className="space-y-2">
+                <div>This feature is available on the {requiredPlan} plan. Upgrade your subscription to access:</div>
+                <ul className="list-disc pl-4 space-y-1">
+                  {features.map((feature, index) => (
+                    <li key={index}>{feature}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <div>This feature is available on the {requiredPlan} plan. Upgrade your subscription to access this feature.</div>
+            )}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button onClick={handleUpgrade}>
+            Upgrade Now
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 } 

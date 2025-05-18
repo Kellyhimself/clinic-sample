@@ -3,14 +3,20 @@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { UsageLimit, getLimitMessage } from "@/app/lib/config/usageLimits";
+import { useUsageLimits } from "@/app/lib/hooks/useUsageLimits";
+import { useMemo } from "react";
 
 interface UsageLimitAlertProps {
-  limit: UsageLimit;
+  limitType: string;
   className?: string;
 }
 
-export function UsageLimitAlert({ limit, className }: UsageLimitAlertProps) {
-  if (limit.isWithinLimit) {
+export function UsageLimitAlert({ limitType, className }: UsageLimitAlertProps) {
+  const { limits, loading, error } = useUsageLimits();
+  
+  const limit = useMemo(() => limits?.[limitType], [limits, limitType]);
+  
+  if (loading || error || !limit || limit.isWithinLimit) {
     return null;
   }
 

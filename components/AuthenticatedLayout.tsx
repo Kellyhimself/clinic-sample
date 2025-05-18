@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/button';
 import { X, RefreshCw, ChevronDown, LogIn } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
-import { supabase, useAuth } from '@/app/lib/auth/client';
+import { supabase } from '@/app/lib/auth/client';
+import { useAuthContext } from '@/app/providers/AuthProvider';
+import { useTenant } from '@/app/providers/TenantProvider';
 
 interface AuthenticatedLayoutProps {
   children: React.ReactNode;
@@ -18,7 +20,9 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
   const [isMobileView, setIsMobileView] = useState(false);
   const [screenSize, setScreenSize] = useState('');
   const [isScrolled, setIsScrolled] = useState(false);
-  const { user, loading } = useAuth();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { user, loading } = useAuthContext();
+  const { tenantId } = useTenant();
   const router = useRouter();
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
@@ -114,6 +118,10 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
         setIsRetrying(false);
       }
     });
+  };
+
+  const handleMenuClick = () => {
+    setIsMenuOpen(prev => !prev);
   };
 
   // If loading or error, show appropriate state
@@ -252,40 +260,23 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
       <div className="flex flex-col flex-1 transition-all duration-300 ease-in-out h-full">
         <Navbar 
           screenSize={screenSize} 
-          onLogout={handleLogout} 
+          onLogout={handleLogout}
+          onMenuClick={handleMenuClick}
+          isMenuOpen={isMenuOpen}
+          isSidebarOpen={isSidebarOpen}
+          setIsSidebarOpen={setIsSidebarOpen}
+          isMobileView={isMobileView}
         />
         <main
           className={cn(
             'bg-transparent flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide',
-            screenSize === 'xs' ? 'p-2' : screenSize === 'sm' ? 'p-3' : screenSize === 'md' ? 'p-4' : 'p-4 sm:p-6'
+            screenSize === 'xs' ? 'p-2 pt-14' : 
+            screenSize === 'sm' ? 'p-3 pt-16' : 
+            screenSize === 'md' ? 'p-4 pt-16' : 
+            'p-4 sm:p-6 pt-16'
           )}
         >
-          {isMobileView && !isSidebarOpen && (
-            <Button
-              variant="ghost"
-              className={cn(
-                'bg-blue-100 text-blue-600 hover:bg-blue-200 hover:text-blue-700 rounded-none shadow-md',
-                screenSize === 'sm' && 'ml-2',
-                screenSize === 'xs' && 'mb-2',
-                isScrolled
-                  ? 'fixed top-4 left-4 z-50 bg-blue-100 shadow-lg transition-all duration-300'
-                  : screenSize === 'sm' || screenSize === 'md'
-                  ? 'absolute top-[3.6rem] left-3 z-40'
-                  : 'mb-4'
-              )}
-              onClick={() => setIsSidebarOpen(true)}
-            >
-              <div className="flex flex-col items-center gap-0.5">
-                <ChevronDown className={cn('w-4 h-4', screenSize === 'xs' && 'w-3 h-3')} />
-                <ChevronDown className={cn('w-4 h-4', screenSize === 'xs' && 'w-3 h-3')} />
-              </div>
-            </Button>
-          )}
-          <div
-            className={cn(
-              (screenSize === 'sm' || screenSize === 'md') && isMobileView && !isSidebarOpen ? 'pt-10' : ''
-            )}
-          >
+          <div>
             {children}
           </div>
         </main>

@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
-import QueryProvider from "@/components/providers/QueryProvider";
 import { viewport } from "./viewport-meta";
 import Script from "next/script";
 import AnimatedBackground from '@/components/AnimatedBackground';
@@ -37,9 +36,9 @@ export { viewport };
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: {
+  children: React.ReactNode
+}) {
   return (
     <html lang="en" className="h-full">
       <head>
@@ -50,12 +49,8 @@ export default function RootLayout({
       >
         <Script src="https://js.paystack.co/v1/inline.js" strategy="afterInteractive" />
         <AnimatedBackground />
-        <QueryProvider>
-          <div className="min-h-full">
-            {children}
-          </div>
-          <Toaster position="top-right" />
-        </QueryProvider>
+          {children}
+        <Toaster position="top-right" />
       </body>
     </html>
   );

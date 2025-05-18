@@ -1,16 +1,22 @@
-import { useSubscription } from './useSubscription';
+import { useAuthContext } from '@/app/providers/AuthProvider';
+import { useTenant } from '@/app/providers/TenantProvider';
 import { getFeatureDetails } from '../utils/featureCheck';
 
 export function useFeatures() {
-  const { subscription } = useSubscription();
+  const { user } = useAuthContext();
+  const { tenantId } = useTenant();
 
   const isFeatureEnabled = (featureId: string) => {
-    const feature = getFeatureDetails(featureId, subscription?.plan || 'free');
+    // Get subscription from user metadata or tenant data
+    const subscription = user?.user_metadata?.subscription || { plan: 'free' };
+    const feature = getFeatureDetails(featureId, subscription.plan);
     return feature?.enabled === true;
   };
 
   return {
-    isFeatureEnabled
+    isFeatureEnabled,
+    userId: user?.id,
+    tenantId
   };
 } 
  

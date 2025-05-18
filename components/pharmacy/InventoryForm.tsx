@@ -92,7 +92,7 @@ interface FormData {
 export default function InventoryForm({ initialData }: InventoryFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { checkUsage, limits } = useUsageLimits();
+  const { limits, loading: limitsLoading, checkUsage } = useUsageLimits();
   const [currentStep, setCurrentStep] = useState<'basic' | 'details' | 'review'>('basic');
   const [formData, setFormData] = useState<FormData>({
     name: initialData?.name || '',
@@ -121,20 +121,15 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
     setCurrentStep('basic');
   };
 
-  // Check inventory limit on component mount
-  useEffect(() => {
-    checkUsage('inventory');
-  }, [checkUsage]);
-
   const handleSubmit = async () => {
     setIsSubmitting(true);
 
     try {
-      // Check limit again before submitting
-      const limit = await checkUsage('inventory');
-      if (!limit.isWithinLimit) {
+      // Check limit before submitting
+      const inventoryLimit = await checkUsage('inventory');
+      if (!inventoryLimit.isWithinLimit) {
         toast.error('Inventory limit reached', {
-          description: `You have reached your inventory limit of ${limit.limit} items. Please upgrade your plan to add more items.`
+          description: `You have reached your inventory limit of ${inventoryLimit.limit} items. Please upgrade your plan to add more items.`
         });
         return;
       }
@@ -387,14 +382,10 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
             {/* Left Column - Form Steps */}
             <div className="lg:col-span-3 space-y-4">
-              {limits.inventory && !limits.inventory.isWithinLimit && (
+              {!limitsLoading && limits?.inventory && !limits.inventory.isWithinLimit && (
                 <UsageLimitAlert
-                  limit={{
-                    type: 'inventory',
-                    current: limits.inventory.current,
-                    limit: limits.inventory.limit,
-                    isWithinLimit: limits.inventory.isWithinLimit
-                  }}
+                  limit={limits.inventory}
+                  className="mb-4"
                 />
               )}
               {renderStepContent()}

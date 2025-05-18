@@ -2,7 +2,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '@/app/lib/auth/client';
+import { useAuthContext } from '@/app/providers/AuthProvider';
+import { useTenant } from '@/app/providers/TenantProvider';
 import { useSubscription } from '@/app/lib/hooks/useSubscription';
 import { PharmacySalesManager } from '@/components/pharmacy/PharmacySalesManager';
 import PharmacyAnalyticsDashboard from '@/components/pharmacy/PharmacyAnalyticsDashboard';
@@ -44,21 +45,25 @@ function SalesManagementSkeleton() {
 }
 
 export default function PharmacySalesManagementPage() {
-  const { user, tenantId } = useAuth();
-  const { subscription, loading: subscriptionLoading } = useSubscription();
+  const { user } = useAuthContext();
+  const { tenantId } = useTenant();
+  const { subscription } = useSubscription();
   const [sales, setSales] = useState<Sale[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAnalyticsEnabled, setIsAnalyticsEnabled] = useState(false);
   const [activeTab, setActiveTab] = useState('sales');
 
+  // Set analytics feature flag based on subscription
   useEffect(() => {
-    const feature = getFeatureDetails('pharmacy_analytics', subscription?.plan || 'free');
-    setIsAnalyticsEnabled(feature?.enabled === true);
+    if (subscription?.plan) {
+      const feature = getFeatureDetails('pharmacy_analytics', subscription.plan);
+      setIsAnalyticsEnabled(feature?.enabled === true);
+    }
   }, [subscription?.plan]);
 
   const loadData = useCallback(async () => {
-    if (!user || !tenantId || !subscription?.plan) return;
+    if (!tenantId) return;
 
     try {
       setIsLoading(true);
@@ -76,15 +81,16 @@ export default function PharmacySalesManagementPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [user, tenantId, subscription?.plan]);
+  }, [tenantId]);
 
+  // Load data when tenant ID is available
   useEffect(() => {
-    if (!subscriptionLoading && subscription?.plan) {
+    if (tenantId) {
       loadData();
     }
-  }, [subscriptionLoading, subscription?.plan, loadData]);
+  }, [tenantId, loadData]);
 
-  if (subscriptionLoading || isLoading) {
+  if (isLoading) {
     return <SalesManagementSkeleton />;
   }
 

@@ -29,12 +29,16 @@ import {
   LineChart,
   HeartPulse,
   Stethoscope,
-  PlusCircle
+  PlusCircle,
+  LogOut
 } from 'lucide-react';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { fetchStockAlerts } from '@/lib/inventory';
 import { getAllPendingPayments } from '@/lib/cashier';
-import { useAuth } from '@/app/lib/auth/client';
+import { useAuthContext } from '@/app/providers/AuthProvider';
+import { useTenant } from '@/app/providers/TenantProvider';
+import { supabase } from '@/app/lib/auth/client';
+import { useRouter } from 'next/navigation';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface SubNavItem { 
@@ -60,7 +64,9 @@ interface SidebarProps {
 
 export default function Sidebar({ closeSidebar }: SidebarProps) {
   const pathname = usePathname();
-  const { role } = useAuth();
+  const router = useRouter();
+  const { user } = useAuthContext();
+  const { role } = useTenant();
   const [hasStockAlerts, setHasStockAlerts] = useState(false);
   const [lowStockCount, setLowStockCount] = useState(0);
   const [expiringCount, setExpiringCount] = useState(0);
@@ -157,6 +163,16 @@ export default function Sidebar({ closeSidebar }: SidebarProps) {
       setPendingPaymentsCount(0);
     }
   }, [pathname]);
+
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      router.push('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
 
   const baseNavItems: NavItem[] = [
     { label: 'Dashboard', href: '/dashboard', icon: <Home size={18} /> },
@@ -460,19 +476,15 @@ export default function Sidebar({ closeSidebar }: SidebarProps) {
   }, [closeSidebar]);
 
   return (
-    <div className="h-screen flex flex-col" ref={sidebarRef}>
+    <div className="fixed top-0 left-0 bottom-0 w-64 bg-white border-r border-blue-100 shadow-sm z-40 flex flex-col" ref={sidebarRef}>
       {/* Header with logo */}
-      <div className="flex items-center justify-between mb-4 py-2">
+      <div className="flex items-center justify-between mb-4 py-2 px-4">
         <h1 className="text-xl font-bold text-blue-700 bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent">@Veylor360</h1>
       </div>
-      
+
       {/* Scrollable navigation */}
       <ScrollArea className="flex-1">
         <nav className="space-y-2">
-          <div className="text-sm text-blue-700 mb-2 px-2 font-medium">
-            Role: <span className="font-semibold bg-blue-100 px-2 py-0.5 rounded-full">{role}</span>
-          </div>
-          
           {navItems.map((item) => (
             hasAccess(item) && (
               <div key={item.label}>
@@ -562,12 +574,12 @@ export default function Sidebar({ closeSidebar }: SidebarProps) {
                   >
                     <span className="mr-2">{item.icon}</span>
                     <span className="font-medium text-sm">{item.label}</span>
-                  </Link>
+                    </Link>
                 )}
               </div>
             )
-          ))}
-        </nav>
+        ))}
+      </nav>
       </ScrollArea>
     </div>
   );
