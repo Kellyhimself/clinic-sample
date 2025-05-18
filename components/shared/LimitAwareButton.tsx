@@ -1,7 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { useUsageLimits, LimitType } from '@/app/lib/hooks/useUsageLimits';
 import { UpgradePrompt } from '@/components/shared/UpgradePrompt';
-import { ReactNode } from 'react';
+import { ReactNode, useMemo } from 'react';
+import { Loader2 } from 'lucide-react';
 
 interface LimitAwareButtonProps {
   children: ReactNode;
@@ -26,18 +27,35 @@ export function LimitAwareButton({
   size = 'default',
   type = 'button',
   loading = false,
-  upgradePromptVariant = 'tooltip' // Default to tooltip for better UX on buttons
+  upgradePromptVariant = 'tooltip'
 }: LimitAwareButtonProps) {
-  const { limits, loading: limitsLoading } = useUsageLimits();
+  const { limits, loading: limitsLoading, error, retryCount, refetch } = useUsageLimits();
   
-  // Debug logs
-  console.log('LimitAwareButton Debug - limitType:', limitType);
-  console.log('LimitAwareButton Debug - All Limits:', limits);
-  console.log('LimitAwareButton Debug - This Limit:', limits?.[limitType]);
+  // Memoize the limit check to prevent unnecessary re-renders
+  const limit = useMemo(() => limits?.[limitType], [limits, limitType]);
+  const isLimitReached = useMemo(() => limit && !limit.isWithinLimit, [limit]);
   
-  // If we're still loading usage limits or explicitly loading
-  if (loading || limitsLoading) {
-    console.log('LimitAwareButton Debug - Loading state active');
+  // Handle loading states
+  const isLoading = loading || limitsLoading;
+  
+  // Handle error state
+  if (error && retryCount >= 3) {
+    return (
+      <Button
+        variant={variant}
+        size={size}
+        type={type}
+        disabled={true}
+        className={className}
+        onClick={() => refetch()}
+      >
+        Error loading limits. Click to retry.
+      </Button>
+    );
+  }
+
+  // Show loading state
+  if (isLoading) {
     return (
       <Button
         variant={variant}
@@ -46,22 +64,14 @@ export function LimitAwareButton({
         disabled={true}
         className={className}
       >
+        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
         Loading...
       </Button>
     );
   }
 
-  // Check if we've hit the usage limit
-  const limit = limits?.[limitType];
-  const isLimitReached = limit && !limit.isWithinLimit;
-  
-  console.log('LimitAwareButton Debug - Is limit reached:', isLimitReached);
-  
   // If limit is reached, show upgrade prompt
   if (isLimitReached) {
-    console.log('LimitAwareButton Debug - Showing upgrade prompt, button disabled');
-    
-    // Pass information about the limit into the features array for better context
     const limitFeatures = [
       `Your current plan allows ${limit.limit} ${limitType}`,
       `You've used ${limit.current} out of ${limit.limit}`,
@@ -88,34 +98,17 @@ export function LimitAwareButton({
     );
   }
 
-  // If we have limits data and we're not at the limit, show the normal button
-  if (limits) {
-    console.log('LimitAwareButton Debug - Normal button, limits within bounds');
-    return (
-      <Button
-        variant={variant}
-        size={size}
-        type={type}
-        disabled={disabled}
-        onClick={onClick}
-        className={className}
-      >
-        {children}
-      </Button>
-    );
-  }
-
-  // Fallback to loading state if we don't have limits data yet
-  console.log('LimitAwareButton Debug - No limits data, showing loading state');
+  // Normal button state
   return (
     <Button
       variant={variant}
       size={size}
       type={type}
-      disabled={true}
+      disabled={disabled}
+      onClick={onClick}
       className={className}
     >
-      Loading...
+      {children}
     </Button>
   );
 } 

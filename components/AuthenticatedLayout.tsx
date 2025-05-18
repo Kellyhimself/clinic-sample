@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
-import { X, RefreshCw, ChevronDown } from 'lucide-react';
+import { X, RefreshCw, ChevronDown, LogIn } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { supabase, useAuth } from '@/app/lib/auth/client';
@@ -119,55 +119,114 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
   // If loading or error, show appropriate state
   if (loading || isRetrying) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      <div className="h-full flex flex-col items-center justify-center gap-6 p-4">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
+          <h2 className="text-xl font-semibold text-gray-900">Loading Your Dashboard</h2>
+          <p className="text-gray-600 max-w-md">
+            We're preparing your personalized workspace. This usually takes just a few seconds.
+          </p>
+        </div>
         {retryCount > 0 && (
-          <div className="text-center">
-            <p className="text-gray-600 mb-2">Having trouble loading the page?</p>
-            <Button 
-              onClick={handleRetry}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Retry
-            </Button>
+          <div className="text-center space-y-4">
+            <p className="text-gray-600">
+              {retryCount === 1 ? "Still loading..." : 
+               retryCount === 2 ? "Taking longer than usual..." : 
+               "Having trouble connecting..."}
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button 
+                onClick={handleRetry}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Try Again
+              </Button>
+              <Button 
+                onClick={() => router.push('/login')}
+                variant="default"
+                className="flex items-center gap-2"
+              >
+                <LogIn className="w-4 h-4" />
+                Sign In Again
+              </Button>
+            </div>
           </div>
         )}
       </div>
     );
   }
 
-  if (!user ) {
+  if (!user) {
     // Only redirect to login if we've exhausted retries
     if (retryCount >= 3) {
-      router.push('/login');
-      return null;
+      return (
+        <div className="h-full flex flex-col items-center justify-center gap-6 p-4">
+          <div className="text-center space-y-4 max-w-md">
+            <h2 className="text-xl font-semibold text-gray-900">Session Expired</h2>
+            <p className="text-gray-600">
+              Your session has expired or you've been signed out. Please sign in again to continue.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button 
+                onClick={handleRetry}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Try Again
+              </Button>
+              <Button 
+                onClick={() => router.push('/login')}
+                variant="default"
+                className="flex items-center gap-2"
+              >
+                <LogIn className="w-4 h-4" />
+                Sign In
+              </Button>
+            </div>
+          </div>
+        </div>
+      );
     }
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
-        <div className="text-center">
-          <p className="text-gray-600 mb-2">Just a moment</p>
-          <Button 
-            onClick={handleRetry}
-            variant="outline"
-            className="flex items-center gap-2"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Retry
-          </Button>
+      <div className="h-full flex flex-col items-center justify-center gap-6 p-4">
+        <div className="text-center space-y-4 max-w-md">
+          <h2 className="text-xl font-semibold text-gray-900">Verifying Your Session</h2>
+          <p className="text-gray-600">
+            We're checking your login status. This helps keep your account secure.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button 
+              onClick={handleRetry}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Retry Verification
+            </Button>
+            <Button 
+              onClick={() => router.push('/login')}
+              variant="default"
+              className="flex items-center gap-2"
+            >
+              <LogIn className="w-4 h-4" />
+              Sign In Again
+            </Button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-full">
       {/* Sidebar container */}
       <div
         className={cn(
           'bg-gradient-to-b from-blue-100/80 to-teal-100/80 backdrop-blur-sm shadow-lg border-r border-blue-200',
-          'transition-all duration-300 ease-in-out h-screen',
+          'transition-all duration-300 ease-in-out h-full',
           isMobileView ? 'fixed top-0 left-0 z-50 w-64' : 'relative w-64',
           isMobileView && !isSidebarOpen && 'transform -translate-x-full',
           screenSize === 'xs' && 'w-56'
@@ -190,14 +249,14 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
       </div>
 
       {/* Main content */}
-      <div className="flex flex-col flex-1 transition-all duration-300 ease-in-out">
+      <div className="flex flex-col flex-1 transition-all duration-300 ease-in-out h-full">
         <Navbar 
           screenSize={screenSize} 
           onLogout={handleLogout} 
         />
         <main
           className={cn(
-            'bg-transparent flex-1 overflow-y-auto',
+            'bg-transparent flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide',
             screenSize === 'xs' ? 'p-2' : screenSize === 'sm' ? 'p-3' : screenSize === 'md' ? 'p-4' : 'p-4 sm:p-6'
           )}
         >

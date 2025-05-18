@@ -120,11 +120,8 @@ export async function fetchSales(
   page: number = 1,
   pageSize: number = 10
 ): Promise<{ data: Sale[]; error: string | null }> {
- 
   try {
     const supabase = await createClient();
-   
-
     const { data: { user }, error: userError } = await supabase.auth.getUser();
    
     if (!user) {
@@ -132,46 +129,60 @@ export async function fetchSales(
       return { data: [], error: 'Not authenticated' };
     }
 
+    // Get profile and tenant info in a single query
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('role, tenant_id')
+      .select('role, tenant_id, tenants!inner(id)')
       .eq('id', user.id)
       .single();
 
-
-    if (profileError) {
+    if (profileError || !profile?.tenant_id) {
       console.error('Error fetching profile:', profileError);
-      return { data: [], error: 'Failed to fetch user profile' };
+      return { data: [], error: 'Failed to fetch user profile or tenant' };
     }
 
-    if (!profile || !['admin', 'pharmacist', 'cashier'].includes(profile.role)) {
-      console.error('Unauthorized role:', profile?.role);
+    if (!['admin', 'pharmacist', 'cashier'].includes(profile.role)) {
+      console.error('Unauthorized role:', profile.role);
       return { data: [], error: 'Unauthorized: Only admins, pharmacists and cashiers can fetch sales' };
     }
 
-    if (!profile.tenant_id) {
-      console.error('No tenant ID found for user:', user.id);
-      return { data: [], error: 'No tenant ID found for user' };
+    // Set tenant context with retry
+    let retries = 3;
+    let lastError = null;
+    
+    while (retries > 0) {
+      try {
+        const { error: setContextError } = await supabase
+          .rpc('set_tenant_context', { p_tenant_id: profile.tenant_id });
+
+        if (!setContextError) {
+          // Verify tenant context was set correctly
+          const { data: tenantId, error: getTenantError } = await supabase
+            .rpc('get_tenant_id');
+
+          if (!getTenantError && tenantId === profile.tenant_id) {
+            break; // Successfully set and verified tenant context
+          }
+        }
+        
+        lastError = setContextError;
+        retries--;
+        if (retries > 0) {
+          await new Promise(resolve => setTimeout(resolve, 100)); // Wait 100ms before retry
+        }
+      } catch (err) {
+        lastError = err;
+        retries--;
+        if (retries > 0) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
     }
 
-    // Set tenant context
-  
-    const { error: setContextError } = await supabase
-      .rpc('set_tenant_context', { p_tenant_id: profile.tenant_id });
-
-    if (setContextError) {
+    if (retries === 0) {
+      console.error('Failed to set tenant context after retries:', lastError);
       return { data: [], error: 'Failed to set tenant context' };
     }
-
-    // Get tenant ID from context to verify it was set correctly
-    const { data: tenantId, error: getTenantError } = await supabase
-      .rpc('get_tenant_id');
-
-    if (getTenantError || !tenantId) {
-      return { data: [], error: 'Failed to get tenant ID from context' };
-    }
-
-   
 
     // Calculate date range based on timeframe
     let startDate = null;
@@ -200,8 +211,6 @@ export async function fetchSales(
           break;
       }
     }
-
-    
 
     // Build the query with left joins
     let query = supabase
@@ -251,31 +260,29 @@ export async function fetchSales(
 
     // Apply search term if provided
     if (searchTerm) {
-      query = query.or(`patient.full_name.ilike.%${searchTerm}%`);
+      query = query.or(`
+        patient.full_name.ilike.%${searchTerm}%,
+        items.medication.name.ilike.%${searchTerm}%,
+        payment_method.ilike.%${searchTerm}%,
+        items.batch.batch_number.ilike.%${searchTerm}%
+      `);
     }
 
     // Apply pagination
-    const offset = (page - 1) * pageSize;
-    query = query.range(offset, offset + pageSize - 1);
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    query = query.range(from, to);
 
-  
-    const { data: sales, error: salesError } = await query;
+    const { data, error: queryError } = await query;
 
-    if (salesError) {
-       return { data: [], error: salesError.message };
+    if (queryError) {
+      console.error('Error fetching sales:', queryError);
+      return { data: [], error: 'Failed to fetch sales data' };
     }
 
-  
-
-    if (!sales || sales.length === 0) {
-       return { data: [], error: null };
-    }
-
-    
-    return { data: sales, error: null };
+    return { data: data || [], error: null };
   } catch (error) {
-    console.error('=== fetchSales ERROR ===');
-    console.error('Error in fetchSales:', error);
+    console.error('Unexpected error in fetchSales:', error);
     return { data: [], error: 'An unexpected error occurred' };
   }
 }

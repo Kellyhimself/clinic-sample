@@ -1,145 +1,139 @@
 // app/pharmacy/sales/page.tsx
 'use client';
 
-import PharmacySalesManager from '@/components/pharmacy/PharmacySalesManager';
-import PharmacyAnalyticsDashboard from '@/components/pharmacy/PharmacyAnalyticsDashboard';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '@/app/lib/auth/client';
 import { useSubscription } from '@/app/lib/hooks/useSubscription';
-import { fetchSales } from '@/lib/sales';
-import { Sale } from '@/lib/sales';
+import { PharmacySalesManager } from '@/components/pharmacy/PharmacySalesManager';
+import PharmacyAnalyticsDashboard from '@/components/pharmacy/PharmacyAnalyticsDashboard';
+import { fetchSales, Sale } from '@/lib/sales';
+import { ErrorBoundary } from 'react-error-boundary';
 import { getFeatureDetails } from '@/app/lib/utils/featureCheck';
 import Head from 'next/head';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export const dynamic = 'force-dynamic';
 
-// Skeleton loader component
+function ErrorFallback({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) {
+  return (
+    <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+      <h2 className="text-red-800 font-semibold">Something went wrong</h2>
+      <p className="text-red-600">{error.message}</p>
+      <button
+        onClick={resetErrorBoundary}
+        className="mt-2 px-4 py-2 bg-red-100 text-red-800 rounded hover:bg-red-200"
+      >
+        Try again
+      </button>
+    </div>
+  );
+}
+
 function SalesManagementSkeleton() {
   return (
-    <div className="space-y-4 animate-pulse">
-      {/* Tabs Skeleton */}
-      <div className="flex space-x-2">
-        <div className="h-10 w-24 bg-gray-200 rounded-md"></div>
-        <div className="h-10 w-24 bg-gray-200 rounded-md"></div>
+    <div className="space-y-4">
+      <div className="h-8 bg-gray-200 rounded animate-pulse w-1/4" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-32 bg-gray-200 rounded animate-pulse" />
+        ))}
       </div>
-
-      {/* Content Skeleton */}
-      <div className="space-y-4">
-        {/* Header Skeleton */}
-        <div className="flex justify-between items-center">
-          <div className="h-8 w-64 bg-gray-200 rounded-md"></div>
-          <div className="h-9 w-24 bg-gray-200 rounded-md"></div>
-        </div>
-
-        {/* Navigation Links Skeleton */}
-        <div className="bg-gray-50 rounded-lg p-4">
-          <div className="h-4 w-32 bg-gray-200 rounded mb-2"></div>
-          <div className="flex gap-2">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-8 w-32 bg-gray-200 rounded"></div>
-            ))}
-          </div>
-        </div>
-
-        {/* Main Content Skeleton */}
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          {/* Filter Bar Skeleton */}
-          <div className="h-8 w-full bg-gray-200 rounded mb-4"></div>
-
-          {/* Metrics Cards Skeleton */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-24 bg-gray-100 rounded-lg"></div>
-            ))}
-          </div>
-
-          {/* Sales Table Skeleton */}
-          <div className="space-y-2">
-            <div className="h-8 w-full bg-gray-200 rounded"></div>
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-16 bg-gray-100 rounded"></div>
-            ))}
-          </div>
-        </div>
-      </div>
+      <div className="h-96 bg-gray-200 rounded animate-pulse" />
     </div>
   );
 }
 
 export default function PharmacySalesManagementPage() {
-  const { subscription } = useSubscription();
+  const { user, tenantId } = useAuth();
+  const { subscription, loading: subscriptionLoading } = useSubscription();
   const [sales, setSales] = useState<Sale[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('sales');
-  const [isAnalyticsEnabled, setIsAnalyticsEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isAnalyticsEnabled, setIsAnalyticsEnabled] = useState(false);
+  const [activeTab, setActiveTab] = useState('sales');
 
-  // Memoize the feature check
   useEffect(() => {
     const feature = getFeatureDetails('pharmacy_analytics', subscription?.plan || 'free');
     setIsAnalyticsEnabled(feature?.enabled === true);
   }, [subscription?.plan]);
 
-  // Memoize the loadData function
   const loadData = useCallback(async () => {
-    if (!subscription?.plan) return;
-    
+    if (!user || !tenantId || !subscription?.plan) return;
+
     try {
       setIsLoading(true);
+      setError(null);
+      const { data, error: fetchError } = await fetchSales('', 'all', 1, 100);
       
-      // Fetch sales data
-      const { data, error } = await fetchSales();
-      
-      if (error) {
-        setError(error);
-      } else {
-        setSales(data || []);
+      if (fetchError) {
+        throw new Error(fetchError);
       }
-    } catch {
-      setError('Failed to load data');
+
+      setSales(data);
+    } catch (err) {
+      console.error('Error loading sales data:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load sales data');
     } finally {
       setIsLoading(false);
     }
-  }, [subscription?.plan]);
+  }, [user, tenantId, subscription?.plan]);
 
-  // Load data only when necessary
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (!subscriptionLoading && subscription?.plan) {
+      loadData();
+    }
+  }, [subscriptionLoading, subscription?.plan, loadData]);
 
-  if (error) {
-    return <div>Error loading sales data</div>;
-  }
-
-  if (isLoading) {
+  if (subscriptionLoading || isLoading) {
     return <SalesManagementSkeleton />;
   }
 
+  if (error) {
+    return (
+      <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+        <h2 className="text-red-800 font-semibold">Error loading sales data</h2>
+        <p className="text-red-600">{error}</p>
+        <button
+          onClick={loadData}
+          className="mt-2 px-4 py-2 bg-red-100 text-red-800 rounded hover:bg-red-200"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <>
-      <Head>
-        <title>Pharmacy Sales Management</title>
-        <meta name="description" content="Manage medication sales and pharmacy transactions" />
-      </Head>
-      <div className="space-y-4">
+    <ErrorBoundary FallbackComponent={ErrorFallback} onReset={loadData}>
+      <div className="space-y-6">
+        <Head>
+          <title>Pharmacy Sales Management</title>
+        </Head>
+
         <Tabs defaultValue="sales" value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="sales">Sales</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
           </TabsList>
+          
           <TabsContent value="sales">
-            <PharmacySalesManager 
+            <PharmacySalesManager
               initialSales={sales}
+              isLoading={isLoading}
+              error={error}
+              medicationSales={[]}
             />
           </TabsContent>
+          
           <TabsContent value="analytics">
-            <PharmacyAnalyticsDashboard 
+            <PharmacyAnalyticsDashboard
               isFeatureEnabled={isAnalyticsEnabled}
               sales={sales}
+              medicationSales={[]}
             />
           </TabsContent>
         </Tabs>
       </div>
-    </>
+    </ErrorBoundary>
   );
 }

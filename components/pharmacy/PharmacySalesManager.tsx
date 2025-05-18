@@ -7,6 +7,14 @@ import { format } from 'date-fns';
 import { BarChart, Activity, DollarSign, Clock, ChevronRight, Package } from 'lucide-react';
 import NewSaleFormWrapper from '@/app/(auth)/pharmacy/pharmacy-sales-management/new-sale/NewSaleFormWrapper';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { formatCurrency } from '@/app/lib/utils';
+import { Loader2 } from 'lucide-react';
+import { Sale } from '@/app/lib/sales';
+import { PharmacyAnalyticsDashboard } from './PharmacyAnalyticsDashboard';
 
 // Import shared components
 import SalesMetricCard from '@/components/shared/sales/SalesMetricCard';
@@ -49,8 +57,21 @@ interface PharmacySale {
   transaction_id?: string | null;
 }
 
+interface MedicationSale {
+  medication: {
+    name: string;
+    dosage_form: string;
+    strength: string;
+  };
+  quantity: number;
+  total_sales: number;
+}
+
 interface PharmacySalesManagerProps {
-  initialSales: PharmacySale[];
+  initialSales: Sale[];
+  isLoading?: boolean;
+  error?: string | null;
+  medicationSales?: MedicationSale[];
 }
 
 // Helper function to calculate total
@@ -100,23 +121,29 @@ const salesColumns = [
   }
 ];
 
-export default function PharmacySalesManager({ initialSales }: PharmacySalesManagerProps) {
+export function PharmacySalesManager({ 
+  initialSales, 
+  isLoading: externalLoading = false,
+  error = null,
+  medicationSales = []
+}: PharmacySalesManagerProps) {
   const router = useRouter();
-
-  const [isLoading, setIsLoading] = useState(true);
-  const [sales, setSales] = useState<PharmacySale[]>(initialSales);
+  const [sales, setSales] = useState<Sale[]>(initialSales);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeType>('all');
+  const [timeframe, setTimeframe] = useState('all');
+  const [internalLoading, setInternalLoading] = useState(false);
   const [showNewSaleForm, setShowNewSaleForm] = useState(false);
   const [isNarrowMobile, setIsNarrowMobile] = useState(false);
   const [isSmallMediumMobile, setIsSmallMediumMobile] = useState(false);
   const [isMediumMobile, setIsMediumMobile] = useState(false);
 
+  const isLoading = externalLoading || internalLoading;
+
   // Memoize filtered sales data
   const filteredSales = useMemo(() => {
     if (!sales.length) return [];
     
-    const { startDate, endDate } = getDateRangeFromTimeframe(selectedTimeframe);
+    const { startDate, endDate } = getDateRangeFromTimeframe(timeframe);
     let filteredData = [...sales];
       
       if (startDate && endDate) {
@@ -139,7 +166,7 @@ export default function PharmacySalesManager({ initialSales }: PharmacySalesMana
       }
       
     return filteredData;
-  }, [sales, searchTerm, selectedTimeframe]);
+  }, [sales, searchTerm, timeframe]);
 
   // Memoize the resize handler with proper debouncing
   const debouncedResize = useCallback(() => {
@@ -277,10 +304,10 @@ export default function PharmacySalesManager({ initialSales }: PharmacySalesMana
   useEffect(() => {
     if (initialSales && initialSales.length > 0) {
       setSales(initialSales);
-      setIsLoading(false);
+      setInternalLoading(false);
     } else {
       setSales([]);
-      setIsLoading(false);
+      setInternalLoading(false);
     }
   }, [initialSales]);
 
@@ -317,6 +344,15 @@ export default function PharmacySalesManager({ initialSales }: PharmacySalesMana
             ))}
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+        <h2 className="text-red-800 font-semibold">Error loading sales data</h2>
+        <p className="text-red-600">{error}</p>
       </div>
     );
   }
@@ -376,8 +412,8 @@ export default function PharmacySalesManager({ initialSales }: PharmacySalesMana
           <SalesFilterBar
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
-            timeframe={selectedTimeframe}
-            onTimeframeChange={setSelectedTimeframe}
+            timeframe={timeframe}
+            onTimeframeChange={setTimeframe}
             aria-label="Sales filter controls"
             customClasses={{
               searchInput: isNarrowMobile ? 'xs-filter-item' : isSmallMediumMobile ? 'xsm-filter-item' : isMediumMobile ? 'sm-search-box' : '',

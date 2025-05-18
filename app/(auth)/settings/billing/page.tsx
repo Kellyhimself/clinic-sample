@@ -116,7 +116,7 @@ const plans: Record<string, Plan> = {
 
 export default function BillingPage() {
   const { tenantId, user } = useAuth();
-  const { subscription, loading: subscriptionLoading } = useSubscription();
+  const { subscription, loading: subscriptionLoading, error: subscriptionError, retryCount: subscriptionRetryCount, refetch: refetchSubscription } = useSubscription();
   const [loading, setLoading] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
@@ -124,6 +124,7 @@ export default function BillingPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [isLoadingInvoices, setIsLoadingInvoices] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (tenantId) {
@@ -147,16 +148,18 @@ export default function BillingPage() {
       
       // Refresh subscription data
       if (tenantId) {
+        refetchSubscription();
         fetchInvoices();
       }
     }
-  }, []);
+  }, [tenantId, refetchSubscription]);
 
   const fetchInvoices = async () => {
     if (!tenantId) return;
 
     try {
       setIsLoadingInvoices(true);
+      setError(null);
       const { data, error } = await getInvoices(tenantId);
 
       if (error) {
@@ -165,7 +168,6 @@ export default function BillingPage() {
       }
 
       if (data) {
-        console.log('Invoices data received:', data);
         const formattedInvoices: Invoice[] = data.map(invoice => ({
           id: invoice.id,
           tenant_id: tenantId,
@@ -194,13 +196,11 @@ export default function BillingPage() {
           created_at: invoice.created_at || null,
           updated_at: invoice.updated_at || null
         }));
-        console.log('Setting formatted invoices:', formattedInvoices);
         setInvoices(formattedInvoices);
-      } else {
-        console.log('No invoice data received');
       }
     } catch (error) {
       console.error('Error in fetchInvoices:', error);
+      setError('Failed to fetch payment history');
       toast.error('Failed to fetch payment history');
     } finally {
       setIsLoadingInvoices(false);
@@ -234,6 +234,7 @@ export default function BillingPage() {
     
     try {
       setLoading(true);
+      setError(null);
       setShowPaymentDialog(false);
       setIsRedirecting(true);
 
@@ -253,8 +254,6 @@ export default function BillingPage() {
           environment: isDevelopment ? 'test' : 'production'
         }
       };
-
-      console.log('Initializing transaction with:', transactionData);
 
       const response = await fetch('/api/paystack/initialize', {
         method: 'POST',
@@ -288,12 +287,34 @@ export default function BillingPage() {
           headers: error.response?.headers
         });
       }
+      setError('Failed to initialize payment. Please try again.');
       toast.error('Failed to initialize payment. Please try again.');
       setIsRedirecting(false);
     } finally {
       setLoading(false);
     }
   };
+
+  // Show error state if subscription fetch failed after retries
+  if (subscriptionError && subscriptionRetryCount >= 3) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50">
+        <div className="w-full max-w-md space-y-8 p-8">
+          <div className="bg-white p-8 rounded-lg shadow-lg text-center">
+            <h2 className="text-xl font-semibold text-red-600 mb-4">
+              Error loading subscription data
+            </h2>
+            <p className="text-gray-600 mb-4">
+              {subscriptionError.message}
+            </p>
+            <Button onClick={() => refetchSubscription()}>
+              Retry
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading || subscriptionLoading || isRedirecting) {
     return (

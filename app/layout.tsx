@@ -41,17 +41,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="h-full">
       <head>
         <meta name="viewport" content={`width=${viewportMeta.width}, initial-scale=${viewportMeta.initialScale}, minimum-scale=${viewportMeta.minimumScale}, maximum-scale=${viewportMeta.maximumScale}, viewport-fit=${viewportMeta.viewportFit}, user-scalable=${viewportMeta.userScalable ? 'yes' : 'no'}`} />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased h-full overflow-hidden`}
       >
         <Script src="https://js.paystack.co/v1/inline.js" strategy="afterInteractive" />
         <AnimatedBackground />
         <QueryProvider>
-          <div className="min-h-screen max-w-full">
+          <div className="h-full">
             {children}
           </div>
           <Toaster position="top-right" />
