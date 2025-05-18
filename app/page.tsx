@@ -27,22 +27,9 @@ export default async function HomePage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-      {/* Hero Section with Video Background */}
-      <section className="relative h-screen flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0 z-0">
-          <video
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="w-full h-full object-cover"
-          >
-            <source src="/videos/clinic-hero.mp4" type="video/mp4" />
-          </video>
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-900/80 to-teal-900/80" />
-        </div>
-        
+    <main className="min-h-screen bg-gradient-to-b from-gray-50 to-white overflow-x-hidden">
+      {/* Hero Section */}
+      <section className="relative h-screen flex items-center justify-center bg-gradient-to-r from-blue-900 to-teal-900">
         <div className="relative z-10 container mx-auto px-4 text-center text-white">
           <h1 className="text-4xl md:text-6xl font-bold mb-6 animate-fade-in">
             Transform Your Healthcare Practice
@@ -59,7 +46,7 @@ export default async function HomePage() {
             </Link>
             <Link href="https://wa.me/254748306871">
               <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10">
-                <MessageCircle className="mr-2" /> Free WhatsApp Onboarding
+                <MessageCircle className="mr-2" /> ..Prefer WhatsApp ?
               </Button>
             </Link>
             <Link href="/login">
@@ -149,17 +136,40 @@ export default async function HomePage() {
                 </div>
               </div>
             </div>
-            <div className="relative">
-              <div className="aspect-video rounded-xl overflow-hidden shadow-2xl">
-                <video
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  className="w-full h-full object-cover"
+            <div className="relative w-full max-w-5xl mx-auto lg:max-h-[600px]">
+              <div className="absolute -top-12 left-0 right-0 text-center z-10">
+                <div className="inline-flex items-center gap-2 bg-white/90 backdrop-blur-sm py-3 px-6 rounded-full shadow-lg border border-gray-100">
+                  <span className="text-blue-600 font-bold">💡 Watch in HD</span>
+                  <span className="text-gray-600">|</span>
+                  <span className="text-gray-700 font-medium">Click the video to view in full screen</span>
+                </div>
+              </div>
+              <div className="relative w-full group" style={{ paddingBottom: '40.5%' }}> {/* 1366:554 aspect ratio (approximately 2.47:1) */}
+                <a 
+                  href="/videos/tutorial.mp4" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="absolute inset-0 w-full h-full cursor-pointer"
                 >
-                  <source src="/videos/platform-demo.mp4" type="video/mp4" />
-                </video>
+                  <div className="absolute inset-0 bg-black/5 group-hover:bg-black/0 transition-colors duration-300 rounded-xl"></div>
+                  <video
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="absolute inset-0 w-full h-full object-cover rounded-xl shadow-2xl transition-transform duration-300 group-hover:scale-[1.02]"
+                  >
+                    <source src="/videos/tutorial.mp4" type="video/mp4" />
+                  </video>
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="bg-white/90 backdrop-blur-sm p-4 rounded-full shadow-lg">
+                      <svg className="w-8 h-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                  </div>
+                </a>
               </div>
             </div>
           </div>
@@ -241,7 +251,7 @@ export default async function HomePage() {
             </Link>
             <Link href="https://wa.me/254748306871">
               <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10">
-                <MessageCircle className="mr-2" /> Free WhatsApp Onboarding
+                <MessageCircle className="mr-2" /> ..Prefer WhatsApp ?
               </Button>
             </Link>
           </div>

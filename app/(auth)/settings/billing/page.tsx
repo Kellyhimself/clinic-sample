@@ -88,7 +88,7 @@ const plans: Record<string, Plan> = {
   },
   pro: {
     name: 'Pro',
-    price: 1999,
+    price: 999,
     features: [
       'Everything in Free',
       'Unlimited patient records',
@@ -101,7 +101,7 @@ const plans: Record<string, Plan> = {
   },
   enterprise: {
     name: 'Enterprise',
-    price: 9999,
+    price: 2999,
     features: [
       'Everything in Pro',
       'Multiple locations',

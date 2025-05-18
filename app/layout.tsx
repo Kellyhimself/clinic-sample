@@ -46,12 +46,12 @@ export default function RootLayout({
         <meta name="viewport" content={`width=${viewportMeta.width}, initial-scale=${viewportMeta.initialScale}, minimum-scale=${viewportMeta.minimumScale}, maximum-scale=${viewportMeta.maximumScale}, viewport-fit=${viewportMeta.viewportFit}, user-scalable=${viewportMeta.userScalable ? 'yes' : 'no'}`} />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased h-full overflow-hidden`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased h-full overflow-x-hidden overflow-y-auto`}
       >
         <Script src="https://js.paystack.co/v1/inline.js" strategy="afterInteractive" />
         <AnimatedBackground />
         <QueryProvider>
-          <div className="h-full">
+          <div className="min-h-full">
             {children}
           </div>
           <Toaster position="top-right" />
