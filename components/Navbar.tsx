@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Bell, Menu, Search, Settings, User, LogOut, Plus, Home, ArrowLeft, ChevronDown } from 'lucide-react';
+import { Bell, Menu, Search, Settings, User, LogOut, Plus, Home, ArrowLeft, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useRouter, usePathname } from 'next/navigation';
@@ -133,21 +133,23 @@ export default function Navbar({
         "flex items-center gap-1",
         screenSize === 'xs' || screenSize === 'sm' ? 'my-1' : 'my-2'
       )}>
-        {isMobileView && !isSidebarOpen && setIsSidebarOpen && (
-          <Button
-            variant="ghost"
-            onClick={() => setIsSidebarOpen(true)}
-            className={cn(
-              "bg-blue-100 text-blue-600 hover:text-blue-700 hover:bg-blue-200 h-9 px-3 rounded-full flex items-center gap-1",
-              screenSize === 'xs' && "h-8 px-2"
-            )}
-          >
-            <div className="flex flex-col items-center gap-0.5">
-              <ChevronDown className={cn('w-4 h-4', screenSize === 'xs' && 'w-3 h-3')} />
-              <ChevronDown className={cn('w-4 h-4', screenSize === 'xs' && 'w-3 h-3')} />
-            </div>
-          </Button>
-        )}
+        <Button
+          variant="ghost"
+          onClick={() => setIsSidebarOpen?.(!isSidebarOpen)}
+          className={cn(
+            "bg-blue-100 text-blue-600 hover:text-blue-700 hover:bg-blue-200 h-9 px-3 rounded-full flex items-center gap-1",
+            screenSize === 'xs' && "h-8 px-2"
+          )}
+        >
+          {isSidebarOpen ? (
+            <PanelLeftClose className={cn('w-4 h-4', screenSize === 'xs' && 'w-3 h-3')} />
+          ) : (
+            <PanelLeftOpen className={cn('w-4 h-4', screenSize === 'xs' && 'w-3 h-3')} />
+          )}
+          <span className="text-sm font-medium hidden sm:inline">
+            {isSidebarOpen ? 'Close Menu' : 'Open Menu'}
+          </span>
+        </Button>
         <div className="hidden sm:block">
           <p className={cn(
             "font-semibold text-blue-700",
@@ -222,15 +224,14 @@ export default function Navbar({
             </Link>
           )}
 
-          <form action={onLogout}>
-            <Button
-              variant="ghost"
-              className="text-red-500 hover:text-red-600 hover:bg-red-50 flex items-center gap-1 text-sm font-medium h-9 rounded-full"
-            >
-              <LogOut className="h-3 w-3" />
-              <span>Sign Out</span>
-            </Button>
-          </form>
+          <Button
+            variant="ghost"
+            onClick={onLogout}
+            className="text-red-500 hover:text-red-600 hover:bg-red-50 flex items-center gap-1 text-sm font-medium h-9 rounded-full"
+          >
+            <LogOut className="h-3 w-3" />
+            <span>Sign Out</span>
+          </Button>
         </div>
 
         {/* Mobile Dropdown */}
@@ -298,20 +299,18 @@ export default function Navbar({
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator className="bg-blue-100" />
-            <DropdownMenuItem asChild>
-              <form action={onLogout} className="w-full">
-                <Button
-                  variant="ghost"
-                  className={cn(
-                    "w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50 flex items-center gap-2 font-medium",
-                    screenSize === 'xs' ? "text-xs" : "text-sm"
-                  )}
-                  onClick={onMenuClick}
-                >
-                  <LogOut className="h-3 w-3" />
-                  <span>Sign Out</span>
-                </Button>
-              </form>
+            <DropdownMenuItem 
+              className={cn(
+                "w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50 flex items-center gap-2 font-medium",
+                screenSize === 'xs' ? "text-xs" : "text-sm"
+              )}
+              onClick={() => {
+                onMenuClick?.();
+                onLogout?.();
+              }}
+            >
+              <LogOut className="h-3 w-3" />
+              <span>Sign Out</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

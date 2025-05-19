@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
-import { X, RefreshCw, ChevronDown, LogIn } from 'lucide-react';
+import { RefreshCw, ChevronDown, LogIn } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/app/lib/auth/client';
@@ -45,11 +45,6 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
       }
 
       setIsMobileView(mobileView);
-      if (!mobileView) {
-        setIsSidebarOpen(true);
-      } else {
-        setIsSidebarOpen(false);
-      }
     };
 
     handleResize();
@@ -252,29 +247,26 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
         className={cn(
           'bg-gradient-to-b from-blue-100/80 to-teal-100/80 backdrop-blur-sm shadow-lg border-r border-blue-200',
           'transition-all duration-300 ease-in-out h-full',
-          isMobileView ? 'fixed top-0 left-0 z-50 w-64' : 'relative w-64',
-          isMobileView && !isSidebarOpen && 'transform -translate-x-full',
-          screenSize === 'xs' && 'w-56'
+          isMobileView ? 'fixed top-0 left-0 z-50' : 'relative',
+          !isSidebarOpen && 'w-0 pointer-events-none',
+          isSidebarOpen && (isMobileView ? 'w-64' : 'w-64'),
+          screenSize === 'xs' && isSidebarOpen && 'w-56'
         )}
       >
-        <Sidebar closeSidebar={closeSidebar} />
-        {isMobileView && isSidebarOpen && (
-          <Button
-            variant="ghost"
-            className={cn(
-              'absolute top-4 right-4 md:hidden text-blue-600 hover:text-blue-700 hover:bg-blue-200 bg-blue-100 rounded-none',
-              screenSize === 'xs' && 'top-2 right-2',
-              screenSize === 'sm' && 'top-3 right-3'
-            )}
-            onClick={() => setIsSidebarOpen(false)}
-          >
-            <X className={cn('w-4 h-4', screenSize === 'xs' && 'w-3 h-3')} />
-          </Button>
-        )}
+        <div className={cn(
+          'h-full transition-all duration-300 ease-in-out',
+          !isSidebarOpen && 'opacity-0 pointer-events-none',
+          isSidebarOpen && 'opacity-100'
+        )}>
+          <Sidebar closeSidebar={closeSidebar} />
+        </div>
       </div>
 
       {/* Main content */}
-      <div className="flex flex-col flex-1 transition-all duration-300 ease-in-out h-full">
+      <div className={cn(
+        "flex flex-col flex-1 transition-all duration-300 ease-in-out h-full",
+        !isSidebarOpen && "w-full"
+      )}>
         <Navbar 
           screenSize={screenSize} 
           onLogout={handleLogout}

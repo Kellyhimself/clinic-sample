@@ -295,19 +295,42 @@ export default function BillingPage() {
     }
   };
 
+  if (loading || subscriptionLoading || isRedirecting) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50 p-4">
+        <div className="w-full max-w-md space-y-8">
+          <div className="bg-white p-6 sm:p-8 rounded-lg shadow-lg text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-indigo-600" />
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
+              {isRedirecting ? 'Just a moment while you are being redirected to the payment portal...' : 'Loading...'}
+            </h2>
+            {subscriptionLoading && subscriptionRetryCount > 0 && (
+              <p className="text-sm text-gray-600 mt-2">
+                Attempting to load subscription data... (Attempt {subscriptionRetryCount}/3)
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Show error state if subscription fetch failed after retries
   if (subscriptionError && subscriptionRetryCount >= 3) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50">
-        <div className="w-full max-w-md space-y-8 p-8">
-          <div className="bg-white p-8 rounded-lg shadow-lg text-center">
-            <h2 className="text-xl font-semibold text-red-600 mb-4">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50 p-4">
+        <div className="w-full max-w-md space-y-8">
+          <div className="bg-white p-6 sm:p-8 rounded-lg shadow-lg text-center">
+            <h2 className="text-lg sm:text-xl font-semibold text-red-600 mb-4">
               Error loading subscription data
             </h2>
-            <p className="text-gray-600 mb-4">
+            <p className="text-sm sm:text-base text-gray-600 mb-4">
               {subscriptionError.message}
             </p>
-            <Button onClick={() => refetchSubscription()}>
+            <Button 
+              onClick={() => refetchSubscription()}
+              className="w-full sm:w-auto"
+            >
               Retry
             </Button>
           </div>
@@ -316,24 +339,9 @@ export default function BillingPage() {
     );
   }
 
-  if (loading || subscriptionLoading || isRedirecting) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50">
-        <div className="w-full max-w-md space-y-8 p-8">
-          <div className="bg-white p-8 rounded-lg shadow-lg text-center">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-indigo-600" />
-            <h2 className="text-xl font-semibold text-gray-900">
-              {isRedirecting ? 'Just a moment while you are being redirected to the payment portal...' : 'Loading...'}
-            </h2>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-8">Billing & Subscription</h1>
+    <div className="container mx-auto py-4 sm:py-8 px-4 sm:px-6">
+      <h1 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8">Billing & Subscription</h1>
       
           {/* Current Plan Status */}
       {subscription && (
