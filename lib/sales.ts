@@ -1,5 +1,8 @@
-import { createClient } from '@/app/lib/supabase/client';
+'use server';
+
+import { createClient } from '@/app/lib/supabase/server';
 import { Database } from '@/types/supabase';
+import { getCache, setCache } from './server/salesCache';
 
 export interface TopSellingMedication {
   medication_id: string;  // UUID from database
@@ -34,85 +37,83 @@ export type Sale = Database['public']['Tables']['sales']['Row'] & {
   }>;
 };
 
+export interface SalesMetrics {
+  totalRevenue: number;
+  totalSales: number;
+  averageSaleAmount: number;
+  topSellingMedications: Array<{
+    medicationId: string;
+    name: string;
+    quantity: number;
+    revenue: number;
+  }>;
+  salesByPaymentMethod: Record<string, number>;
+  salesByTimeframe: Record<string, number>;
+}
+
 export async function fetchTopSellingMedications(): Promise<TopSellingMedication[]> {
   console.log('=== fetchTopSellingMedications START ===');
-  const supabase = createClient();
   
-  console.log('Getting user...');
-  const { data: { user } } = await supabase.auth.getUser();
- 
-  if (!user) {
-    console.log('No user found');
-    throw new Error('Not authenticated');
+  try {
+    const supabase = await createClient();
+    
+    // Get the current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      console.log('No user found');
+      throw new Error('Not authenticated');
+    }
+    
+    // Get the tenant context
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('tenant_id')
+      .eq('id', user.id)
+      .single();
+      
+    if (!profile?.tenant_id) {
+      console.log('No tenant found for user');
+      throw new Error('No tenant context found');
+    }
+    
+    console.log('Tenant context:', profile.tenant_id);
+    
+    // Fetch top selling medications with tenant context
+    const { data, error } = await supabase
+      .from('sale_items')
+      .select(`
+        medication_id,
+        medications (
+          id,
+          name
+        ),
+        quantity
+      `)
+      .eq('tenant_id', profile.tenant_id)
+      .order('quantity', { ascending: false })
+      .limit(10);
+      
+    if (error) {
+      console.error('Error fetching top selling medications:', error);
+      throw error;
+    }
+    
+    // Transform the data to match the TopSellingMedication interface
+    const topSelling = data.map(item => ({
+      medication_id: item.medication_id,
+      medication_name: item.medications?.name || 'Unknown',
+      total_quantity: item.quantity
+    }));
+    
+    console.log('=== fetchTopSellingMedications END ===');
+    return topSelling;
+    
+  } catch (error) {
+    console.error('Error in fetchTopSellingMedications:', error);
+    throw error;
   }
-  console.log('User found:', user.id);
-
-  console.log('Getting profile...');
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('role, tenant_id')
-    .eq('id', user.id)
-    .single();
-
-  if (profileError) {
-    console.error('Error fetching profile:', profileError);
-    throw new Error('Failed to fetch user profile');
-  }
-
-  if (!profile || !['admin', 'pharmacist'].includes(profile.role)) {
-    console.log('Unauthorized role:', profile?.role);
-    throw new Error('Unauthorized: Only admins and pharmacists can fetch sales data');
-  }
-
-  if (!profile.tenant_id) {
-    console.log('No tenant ID in profile');
-    throw new Error('No tenant ID found for user');
-  }
-  console.log('Profile found with tenant_id:', profile.tenant_id);
-
-  // Verify tenant exists
-  console.log('Verifying tenant exists...');
-  const { data: tenant, error: tenantError } = await supabase
-    .from('tenants')
-    .select('id')
-    .eq('id', profile.tenant_id)
-    .single();
-
-  if (tenantError) {
-    console.error('Error verifying tenant:', tenantError);
-    throw new Error('Failed to verify tenant');
-  }
-
-  if (!tenant) {
-    console.error('Tenant not found:', profile.tenant_id);
-    throw new Error('Tenant not found');
-  }
-  console.log('Tenant verified:', tenant.id);
-
-  // Use the new RPC function
-  console.log('Querying top selling medications...');
-  const { data: topSellingMeds, error: rpcError } = await supabase
-    .rpc('get_top_selling_medications', {
-      p_tenant_id: profile.tenant_id
-    });
-
-  if (rpcError) {
-    console.error('Error querying top selling medications:', rpcError);
-    throw rpcError;
-  }
-
-  console.log('Top selling medications found:', topSellingMeds?.length || 0);
-  console.log('Raw data:', topSellingMeds);
-
-  if (!topSellingMeds || topSellingMeds.length === 0) {
-    console.log('No top selling medications found for tenant');
-    return [];
-  }
-
-  // The data from the RPC function already matches our interface exactly
-  return topSellingMeds as TopSellingMedication[];
-} 
-
+}
 
 export async function fetchSales(
   searchTerm: string = '',
@@ -121,8 +122,12 @@ export async function fetchSales(
   pageSize: number = 10
 ): Promise<{ data: Sale[]; error: string | null }> {
   try {
+    const cacheKey = `sales-${searchTerm}-${timeframe}-${page}-${pageSize}`;
+    const cachedData = await getCache<Sale[]>(cacheKey);
+    if (cachedData) return { data: cachedData, error: null };
+
     const supabase = await createClient();
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
    
     if (!user) {
       console.error('No authenticated user found');
@@ -280,9 +285,123 @@ export async function fetchSales(
       return { data: [], error: 'Failed to fetch sales data' };
     }
 
-    return { data: data || [], error: null };
+    // Transform the data to match the Sale type
+    const transformedData: Sale[] = (data || []).map(sale => ({
+      ...sale,
+      patient: sale.patient ? {
+        full_name: sale.patient.full_name,
+        phone_number: sale.patient.phone_number
+      } : undefined,
+      items: sale.items.map(item => ({
+        ...item,
+        medication: {
+          id: item.medication.id,
+          name: item.medication.name,
+          dosage_form: item.medication.dosage_form,
+          strength: item.medication.strength
+        },
+        batch: {
+          batch_number: item.batch.batch_number,
+          expiry_date: item.batch.expiry_date
+        }
+      }))
+    }));
+
+    await setCache(cacheKey, transformedData);
+    return { data: transformedData, error: null };
   } catch (error) {
     console.error('Unexpected error in fetchSales:', error);
     return { data: [], error: 'An unexpected error occurred' };
+  }
+}
+
+export async function getTopSellingMedications(): Promise<TopSellingMedication[]> {
+  try {
+    const cacheKey = 'top-selling-medications';
+    const cachedData = await getCache<TopSellingMedication[]>(cacheKey);
+    if (cachedData) return cachedData;
+
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('Not authenticated');
+    }
+    
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('tenant_id')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile?.tenant_id) {
+      throw new Error('No tenant context found');
+    }
+    
+    const { error: setContextError } = await supabase
+      .rpc('set_tenant_context', { p_tenant_id: profile.tenant_id });
+
+    if (setContextError) {
+      throw new Error('Failed to set tenant context');
+    }
+
+    const { data, error } = await supabase
+      .rpc('get_simple_top_selling_medications');
+
+    if (error) {
+      throw error;
+    }
+    
+    if (!Array.isArray(data)) {
+      throw new Error('Invalid data format received from database');
+    }
+    
+    const transformedData = data.map(item => ({
+      medication_id: item.medication_id,
+      medication_name: item.medication_name,
+      total_quantity: Number(item.total_quantity)
+    }));
+    
+    await setCache(cacheKey, transformedData);
+    return transformedData;
+  } catch (error) {
+    console.error('Error in getTopSellingMedications:', error);
+    throw error;
+  }
+}
+
+export async function calculateSalesMetrics(
+  sales: Sale[],
+  timeframe: string = 'all'
+): Promise<SalesMetrics> {
+  try {
+    const cacheKey = `metrics-${sales.length}-${timeframe}`;
+    const cachedMetrics = await getCache<SalesMetrics>(cacheKey);
+    if (cachedMetrics) return cachedMetrics;
+
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc('get_sales_metrics', {
+      p_sales: sales,
+      p_timeframe: timeframe
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    const metrics: SalesMetrics = {
+      totalRevenue: data.total_revenue || 0,
+      totalSales: data.total_sales || 0,
+      averageSaleAmount: data.average_sale_amount || 0,
+      topSellingMedications: data.top_selling_medications || [],
+      salesByPaymentMethod: data.sales_by_payment_method || {},
+      salesByTimeframe: data.sales_by_timeframe || {}
+    };
+
+    await setCache(cacheKey, metrics);
+    return metrics;
+  } catch (error) {
+    console.error('Error in calculateSalesMetrics:', error);
+    throw error;
   }
 }

@@ -151,6 +151,8 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
                 <RefreshCw className="w-4 h-4" />
                 Try Again
               </Button>
+
+              
               <Button 
                 onClick={() => router.push('/login')}
                 variant="default"
@@ -174,7 +176,7 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
           <div className="text-center space-y-4 max-w-md">
             <h2 className="text-xl font-semibold text-gray-900">Session Expired</h2>
             <p className="text-gray-600">
-              Your session has expired or you've been signed out. Please sign in again to continue.
+              Your session has expired or you&apos;ve been signed out. Please sign in again to continue.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Button 

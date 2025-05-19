@@ -90,14 +90,12 @@ export default function PharmacyAnalyticsDashboard({
     setError(null);
     
     try {
-     
       // Fetch top selling medications
       const topSelling = await fetchTopSellingMedications();
      
       // Fetch profit margin data
       const profitMargins = await getMedicationProfitMargins();
      
-      
       // Update state with the fetched data
       setTopSellingMeds(topSelling);
       setProfitData(profitMargins);
@@ -116,14 +114,14 @@ export default function PharmacyAnalyticsDashboard({
           Pharmacy Analytics Dashboard
         </h2>
         
-      <UpgradePrompt
+        <UpgradePrompt
           requiredPlan="pro"
-        features={[
-          "Real-time sales analytics",
-          "Revenue tracking",
-          "Top-selling medications",
-          "Stock movement analysis"
-        ]}
+          features={[
+            "Real-time sales analytics",
+            "Revenue tracking",
+            "Top-selling medications",
+            "Stock movement analysis"
+          ]}
           variant="card"
           popoverPosition="top-right"
         >
@@ -318,7 +316,7 @@ export default function PharmacyAnalyticsDashboard({
                   <div className="space-y-2">
                     {topSellingMeds.slice(0, 5).map((med, index) => (
                       <div 
-                        key={med.medication_id}
+                        key={`${med.medication_id}-${index}`}
                         className={`pharmacy-list-item p-2 rounded-md bg-white ${isNarrowMobile ? 'xs-padding' : ''}`}
                       >
                         <div className="flex items-center gap-2">
@@ -365,25 +363,28 @@ export default function PharmacyAnalyticsDashboard({
                       .sort((a, b) => b.profit_margin - a.profit_margin)
                       .slice(0, 5)
                       .map((item, index) => (
-                          <div key={`${item.medication_id}-${item.batch_id}-${index}`} className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
+                        <div 
+                          key={`${item.medication_id}-${item.batch_id}-${index}`} 
+                          className="flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-2">
                             <span className={`flex items-center justify-center bg-indigo-100 text-indigo-700 ${isNarrowMobile ? 'h-5 w-5 xs-text' : isMediumMobile ? 'h-5 w-5 sm-text' : 'h-6 w-6 text-xs'} rounded-full font-medium`}>
-                                {index + 1}
-                              </span>
+                              {index + 1}
+                            </span>
                             <span className={`font-medium ${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''} text-gray-800`}>
-                                {item.medication_name}
-                              </span>
-                            </div>
-                            <div className="text-right">
-                              <span className={`${
+                              {item.medication_name}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className={`${
                               item.profit_margin > 20 ? 'text-emerald-600' : 
                               item.profit_margin < 10 ? 'text-red-600' : 
                               'text-amber-600'
-                              }`}>
-                                {item.profit_margin.toFixed(1)}%
-                              </span>
+                            }`}>
+                              {item.profit_margin.toFixed(1)}%
+                            </span>
                             <div className={`text-xs text-gray-500 ${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''}`}>
-                                {item.quantity} units
+                              {item.quantity} units
                             </div>
                           </div>
                         </div>
