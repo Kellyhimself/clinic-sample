@@ -2,6 +2,7 @@ import { createClient } from '../supabase/client';
 import { TenantContext } from './types';
 import { useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
+import { clearCache, invalidateCacheByTenant } from '@/lib/server/salesCache';
 
 export const supabase = createClient();
 
@@ -24,29 +25,36 @@ export function useAuth() {
           setUser(session.user);
           
           // Refresh tenant context
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('id, role, tenant_id')
-          .eq('id', session.user.id)
-          .single();
-
-        if (profile?.tenant_id) {
-          const { data: tenant } = await supabase
-            .from('tenants')
-            .select('id, name')
-            .eq('id', profile.tenant_id)
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('id, role, tenant_id')
+            .eq('id', session.user.id)
             .single();
 
-          if (tenant) {
-            const context: TenantContext = {
-              id: tenant.id,
-              name: tenant.name,
-              role: (profile.role as TenantContext['role']) || 'user',
-            };
-            setStoredTenantContext(context);
-            setTenantContext(context);
+          if (profile?.tenant_id) {
+            const { data: tenant } = await supabase
+              .from('tenants')
+              .select('id, name')
+              .eq('id', profile.tenant_id)
+              .single();
+
+            if (tenant) {
+              const context: TenantContext = {
+                id: tenant.id,
+                name: tenant.name,
+                role: (profile.role as TenantContext['role']) || 'user',
+              };
+              
+              // Invalidate cache for old tenant if switching
+              const oldContext = getStoredTenantContext();
+              if (oldContext && oldContext.id !== tenant.id) {
+                await invalidateCacheByTenant(oldContext.id);
+              }
+              
+              setStoredTenantContext(context);
+              setTenantContext(context);
+            }
           }
-        }
         }
       } catch (error) {
         console.error('Error refreshing session:', error);
@@ -76,6 +84,12 @@ export function useAuth() {
       if (event === 'SIGNED_IN' && session) {
         await refreshSession();
       } else if (event === 'SIGNED_OUT') {
+        // Clear cache and tenant context on sign out
+        const oldContext = getStoredTenantContext();
+        if (oldContext) {
+          await invalidateCacheByTenant(oldContext.id);
+        }
+        await clearCache();
         clearStoredTenantContext();
         setTenantContext(null);
       }

@@ -122,10 +122,6 @@ export async function fetchSales(
   pageSize: number = 10
 ): Promise<{ data: Sale[]; error: string | null }> {
   try {
-    const cacheKey = `sales-${searchTerm}-${timeframe}-${page}-${pageSize}`;
-    const cachedData = await getCache<Sale[]>(cacheKey);
-    if (cachedData) return { data: cachedData, error: null };
-
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
    
@@ -307,6 +303,8 @@ export async function fetchSales(
       }))
     }));
 
+    // Generate cache key with tenant ID
+    const cacheKey = `sales-${profile.tenant_id}-${searchTerm}-${timeframe}-${page}-${pageSize}`;
     await setCache(cacheKey, transformedData);
     return { data: transformedData, error: null };
   } catch (error) {
@@ -317,10 +315,6 @@ export async function fetchSales(
 
 export async function getTopSellingMedications(): Promise<TopSellingMedication[]> {
   try {
-    const cacheKey = 'top-selling-medications';
-    const cachedData = await getCache<TopSellingMedication[]>(cacheKey);
-    if (cachedData) return cachedData;
-
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     
@@ -337,7 +331,12 @@ export async function getTopSellingMedications(): Promise<TopSellingMedication[]
     if (!profile?.tenant_id) {
       throw new Error('No tenant context found');
     }
-    
+
+    // Generate cache key with tenant ID
+    const cacheKey = `top-selling-medications-${profile.tenant_id}`;
+    const cachedData = await getCache<TopSellingMedication[]>(cacheKey);
+    if (cachedData) return cachedData;
+
     const { error: setContextError } = await supabase
       .rpc('set_tenant_context', { p_tenant_id: profile.tenant_id });
 
@@ -375,11 +374,28 @@ export async function calculateSalesMetrics(
   timeframe: string = 'all'
 ): Promise<SalesMetrics> {
   try {
-    const cacheKey = `metrics-${sales.length}-${timeframe}`;
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('Not authenticated');
+    }
+    
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('tenant_id')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile?.tenant_id) {
+      throw new Error('No tenant context found');
+    }
+
+    // Generate cache key with tenant ID
+    const cacheKey = `metrics-${profile.tenant_id}-${sales.length}-${timeframe}`;
     const cachedMetrics = await getCache<SalesMetrics>(cacheKey);
     if (cachedMetrics) return cachedMetrics;
 
-    const supabase = await createClient();
     const { data, error } = await supabase.rpc('get_sales_metrics', {
       p_sales: sales,
       p_timeframe: timeframe
