@@ -154,7 +154,12 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
 
               
               <Button 
-                onClick={() => router.push('/login')}
+                onClick={async () => {
+                  if (user) {
+                    await supabase.auth.signOut();
+                  }
+                  router.push('/login');
+                }}
                 variant="default"
                 className="flex items-center gap-2"
               >
@@ -188,12 +193,17 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
                 Try Again
               </Button>
               <Button 
-                onClick={() => router.push('/login')}
+                onClick={async () => {
+                  if (user) {
+                    await supabase.auth.signOut();
+                  }
+                  router.push('/login');
+                }}
                 variant="default"
                 className="flex items-center gap-2"
               >
                 <LogIn className="w-4 h-4" />
-                Sign In
+                Sign In Again
               </Button>
             </div>
           </div>
@@ -217,7 +227,12 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
               Retry Verification
             </Button>
             <Button 
-              onClick={() => router.push('/login')}
+              onClick={async () => {
+                if (user) {
+                  await supabase.auth.signOut();
+                }
+                router.push('/login');
+              }}
               variant="default"
               className="flex items-center gap-2"
             >
@@ -278,7 +293,7 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
             'p-4 sm:p-6 pt-16'
           )}
         >
-          <div>
+          <div className="mt-14">
             {children}
           </div>
         </main>
