@@ -33,7 +33,6 @@ import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import type { Appointment } from '@/types/supabase';
 import { UsageLimitAlert } from '@/components/shared/UsageLimitAlert';
 import { usePreemptiveLimits } from '@/app/lib/hooks/usePreemptiveLimits';
-import { LimitAwareButton } from "@/components/shared/LimitAwareButton";
 
 // Import the CSS file for mobile responsiveness
 import './appointmentsTable.css';
@@ -327,15 +326,14 @@ export default function AppointmentsTable({
                         className="flex w-full items-center cursor-pointer"
                         asChild
                       >
-                        <LimitAwareButton
-                          limitType="appointments"
+                        <Button
                           variant="ghost"
                           size="sm"
                           className="w-full justify-start"
                         >
                           <Check className="mr-2 h-4 w-4 text-green-600" />
                           <span>Confirm</span>
-                        </LimitAwareButton>
+                        </Button>
                       </button>
                     </DropdownMenuItem>
                   </form>
@@ -347,15 +345,14 @@ export default function AppointmentsTable({
                         className="flex w-full items-center cursor-pointer"
                         asChild
                       >
-                        <LimitAwareButton
-                          limitType="appointments"
+                        <Button
                           variant="ghost"
                           size="sm"
                           className="w-full justify-start"
                         >
                           <X className="mr-2 h-4 w-4 text-red-600" />
                           <span>Cancel</span>
-                        </LimitAwareButton>
+                        </Button>
                       </button>
                     </DropdownMenuItem>
                   </form>

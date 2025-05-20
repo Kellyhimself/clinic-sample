@@ -308,16 +308,8 @@ export default function BookAppointmentForm({ services, doctors, tenantId }: Boo
                     type="submit"
                     className="w-full"
                     disabled={isSubmitting || !isLimitValid('appointments')}
-                    asChild
                   >
-                    <LimitAwareButton
-                      limitType="appointments"
-                      variant="default"
-                      size="default"
-                      disabled={isSubmitting || !isLimitValid('appointments')}
-                    >
-                      {isSubmitting ? "Booking..." : "Book Appointment"}
-                    </LimitAwareButton>
+                    {isSubmitting ? 'Booking...' : 'Book Appointment'}
                   </Button>
                 )}
               </div>

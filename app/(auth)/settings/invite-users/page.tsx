@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { LimitAwareButton } from '@/components/shared/LimitAwareButton';
 import { useAuthContext } from '@/app/providers/AuthProvider';
 import { useTenant } from '@/app/providers/TenantProvider';
 
@@ -180,15 +179,14 @@ export default function InviteUsersPage() {
               </div>
             )}
           </div>
-          <LimitAwareButton
-            type="button"
-            limitType="users"
-            loading={loading}
+          <Button 
+            type="submit" 
+            disabled={loading}
             className="w-full"
             onClick={handleSubmit}
           >
             {loading ? 'Sending Invitation...' : 'Send Invitation'}
-          </LimitAwareButton>
+          </Button>
         </form>
       </div>
     </div>
