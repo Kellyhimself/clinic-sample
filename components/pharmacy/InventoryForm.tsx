@@ -1,13 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { UsageLimitAlert } from '@/components/shared/UsageLimitAlert';
-import { usePreemptiveLimits } from '@/app/lib/hooks/usePreemptiveLimits';
 import { LimitAwareButton } from '@/components/shared/LimitAwareButton';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ChevronDown } from 'lucide-react';
@@ -92,7 +90,6 @@ interface FormData {
 export default function InventoryForm({ initialData }: InventoryFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { limits, loading: limitsLoading, isLimitValid } = usePreemptiveLimits();
   const [currentStep, setCurrentStep] = useState<'basic' | 'details' | 'review'>('basic');
   const [formData, setFormData] = useState<FormData>({
     name: initialData?.name || '',
@@ -125,15 +122,6 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
     setIsSubmitting(true);
 
     try {
-      // Check limit before submitting
-      const inventoryLimit = await isLimitValid('inventory');
-      if (!inventoryLimit.isWithinLimit) {
-        toast.error('Inventory limit reached', {
-          description: `You have reached your inventory limit of ${inventoryLimit.limit} items. Please upgrade your plan to add more items.`
-        });
-        return;
-      }
-
       await manageInventory({
         ...formData,
         medication_id: initialData?.id,
@@ -149,14 +137,8 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
         resetForm();
       }
     } catch (error) {
-      if (error instanceof Error && error.message.includes('Inventory limit reached')) {
-        toast.error('Inventory limit reached', {
-          description: error.message
-        });
-      } else {
-        toast.error('Failed to save medication');
-        console.error('Error saving medication:', error);
-      }
+      toast.error('Failed to save medication');
+      console.error('Error saving medication:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -370,4 +352,52 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
                         ['basic', 'details', 'review'].indexOf(currentStep) > index 
                           ? 'bg-gradient-to-r from-green-500 to-green-600' 
                           : 'bg-gray-200'
-                      }`
+                      }`}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Form Content */}
+          <div className="mt-4">
+            {renderStepContent()}
+          </div>
+
+          {/* Navigation Buttons */}
+          <div className="mt-6 flex justify-between">
+            {currentStep !== 'basic' && (
+              <Button
+                variant="outline"
+                onClick={() => setCurrentStep(currentStep === 'review' ? 'details' : 'basic')}
+                className="bg-white"
+              >
+                Previous
+              </Button>
+            )}
+            <div className="flex-1" />
+            {currentStep !== 'review' ? (
+              <Button
+                onClick={() => setCurrentStep(currentStep === 'basic' ? 'details' : 'review')}
+                className="bg-gradient-to-r from-blue-500 to-blue-600 text-white"
+              >
+                Next
+              </Button>
+            ) : (
+              <LimitAwareButton
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                limitType="inventory"
+                loading={isSubmitting}
+                className="bg-gradient-to-r from-blue-500 to-blue-600 text-white"
+              >
+                {isSubmitting ? 'Saving...' : initialData ? 'Update Medication' : 'Add Medication'}
+              </LimitAwareButton>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
