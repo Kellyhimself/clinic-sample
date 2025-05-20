@@ -229,20 +229,6 @@ export default function NewSaleForm({
       return;
     }
 
-    console.log('🔍 Checking transaction limits before submission');
-    // Check limits preemptively
-    if (!isLimitValid('transactions')) {
-      console.log('❌ Transaction limit exceeded:', {
-        limits,
-        currentStep,
-        isQuickSale,
-        items
-      });
-      setLimitWarning("You have reached your transaction limit. Please upgrade your plan to continue.");
-      return;
-    }
-
-    console.log('✅ Transaction limit check passed');
     setIsProcessing(true);
     setError(null);
 
@@ -748,16 +734,15 @@ Thank you for your business!
                       >
                         Back
                       </Button>
-                      <LimitAwareButton
+                      <Button
                         type="button"
                         onClick={() => handleSubmit(new Event('submit') as unknown as React.FormEvent)}
-                        disabled={isProcessing || limitsLoading}
-                        limitType="transactions"
+                        disabled={isProcessing}
                         variant="default"
-                        loading={isProcessing || limitsLoading}
+                        className="bg-gradient-to-r from-blue-500 to-blue-600 text-white"
                       >
                         {isProcessing ? 'Processing...' : isQuickSale ? 'Complete Sale' : 'Submit Sale'}
-                      </LimitAwareButton>
+                      </Button>
                     </div>
                   </div>
                 )}

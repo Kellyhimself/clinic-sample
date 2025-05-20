@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { LimitAwareButton } from '@/components/shared/LimitAwareButton';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -229,15 +229,13 @@ export default function GuestPatientForm({ onSuccess, onProgress }: GuestPatient
         />
       </div>
 
-      <LimitAwareButton 
+      <Button 
         type="submit" 
         className={formButtonStyles.primary}
         disabled={isSubmitting}
-        limitType="patients"
-        loading={isSubmitting}
       >
         {isSubmitting ? formLoadingStates.creating : 'Create Guest Patient'}
-      </LimitAwareButton>
+      </Button>
     </form>
   );
 } 

@@ -4,12 +4,11 @@ import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, ChevronDown, LogIn } from 'lucide-react';
+import { RefreshCw, LogIn } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/app/lib/auth/client';
 import { useAuthContext } from '@/app/providers/AuthProvider';
-import { useTenant } from '@/app/providers/TenantProvider';
 
 interface AuthenticatedLayoutProps {
   children: React.ReactNode;
@@ -19,10 +18,8 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMobileView, setIsMobileView] = useState(false);
   const [screenSize, setScreenSize] = useState('');
-  const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, loading } = useAuthContext();
-  const { tenantId } = useTenant();
   const router = useRouter();
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
@@ -50,16 +47,6 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Track scroll position for menu button style
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 60);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   // Handle session recovery
@@ -127,7 +114,7 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
           <h2 className="text-xl font-semibold text-gray-900">Loading Your Dashboard</h2>
           <p className="text-gray-600 max-w-md">
-            We're preparing your personalized workspace. This usually takes just a few seconds.
+            We&apos;re preparing your personalized workspace. This usually takes just a few seconds.
           </p>
         </div>
         {retryCount > 0 && (
@@ -146,8 +133,6 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
                 <RefreshCw className="w-4 h-4" />
                 Try Again
               </Button>
-
-              
               <Button 
                 onClick={async () => {
                   if (user) {
@@ -210,7 +195,7 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
         <div className="text-center space-y-4 max-w-md">
           <h2 className="text-xl font-semibold text-gray-900">Verifying Your Session</h2>
           <p className="text-gray-600">
-            We're checking your login status. This helps keep your account secure.
+            We&apos;re checking your login status. This helps keep your account secure.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Button 

@@ -6,7 +6,6 @@ import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { LimitAwareButton } from '@/components/shared/LimitAwareButton';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ChevronDown } from 'lucide-react';
 import { manageInventory } from '@/lib/inventory';
@@ -151,20 +150,26 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <h2 className="text-lg font-semibold text-gray-800">Basic Information</h2>
+              <span className="text-xs text-gray-500">* Required fields</span>
             </div>
             <div className="space-y-4">
               <div className="space-y-1">
-                <Label className="text-xs text-gray-700">Medication Name *</Label>
+                <Label className="text-xs text-gray-700">
+                  Medication Name <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
+                  placeholder="Enter medication name"
                   required
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-gray-700">Category *</Label>
+                <Label className="text-xs text-gray-700">
+                  Category <span className="text-red-500">*</span>
+                </Label>
                 <Select
                   value={formData.category}
                   onValueChange={(value) => setFormData({ ...formData, category: value })}
@@ -182,7 +187,9 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-gray-700">Dosage Form *</Label>
+                <Label className="text-xs text-gray-700">
+                  Dosage Form <span className="text-red-500">*</span>
+                </Label>
                 <Select
                   value={formData.dosage_form}
                   onValueChange={(value) => setFormData({ ...formData, dosage_form: value })}
@@ -208,52 +215,68 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <h2 className="text-lg font-semibold text-gray-800">Additional Details</h2>
+              <span className="text-xs text-gray-500">Optional fields</span>
             </div>
             <div className="space-y-4">
               <div className="space-y-1">
-                <Label className="text-xs text-gray-700">Strength *</Label>
+                <Label className="text-xs text-gray-700">
+                  Strength <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   id="strength"
                   value={formData.strength}
                   onChange={(e) => setFormData({ ...formData, strength: e.target.value })}
                   className="w-full h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
+                  placeholder="e.g., 500mg, 10ml"
                   required
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-gray-700">Manufacturer</Label>
+                <Label className="text-xs text-gray-700">
+                  Manufacturer <span className="text-gray-400">(Optional)</span>
+                </Label>
                 <Input
                   id="manufacturer"
                   value={formData.manufacturer}
                   onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
                   className="w-full h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
+                  placeholder="Enter manufacturer name"
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-gray-700">Barcode</Label>
+                <Label className="text-xs text-gray-700">
+                  Barcode <span className="text-gray-400">(Optional)</span>
+                </Label>
                 <Input
                   id="barcode"
                   value={formData.barcode}
                   onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
                   className="w-full h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
+                  placeholder="Enter barcode number"
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-gray-700">Shelf Location</Label>
+                <Label className="text-xs text-gray-700">
+                  Shelf Location <span className="text-gray-400">(Optional)</span>
+                </Label>
                 <Input
                   id="shelf_location"
                   value={formData.shelf_location}
                   onChange={(e) => setFormData({ ...formData, shelf_location: e.target.value })}
                   className="w-full h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
+                  placeholder="Enter shelf location"
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-gray-700">Supplier ID</Label>
+                <Label className="text-xs text-gray-700">
+                  Supplier ID <span className="text-gray-400">(Optional)</span>
+                </Label>
                 <Input
                   id="supplier_id"
                   value={formData.supplier_id}
                   onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })}
                   className="w-full h-8 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
+                  placeholder="Enter supplier ID"
                 />
               </div>
             </div>
@@ -268,37 +291,40 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
             </div>
             <div className="space-y-4">
               <div className="p-4 border rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
-                <h3 className="font-medium mb-2 text-gray-800">Basic Information</h3>
+                <h3 className="font-medium mb-2 text-gray-800">Required Information</h3>
                 <div className="text-sm space-y-1 text-gray-600">
                   <p><span className="font-medium text-gray-800">Name:</span> {formData.name}</p>
                   <p><span className="font-medium text-gray-800">Category:</span> {formData.category}</p>
                   <p><span className="font-medium text-gray-800">Dosage Form:</span> {formData.dosage_form}</p>
+                  <p><span className="font-medium text-gray-800">Strength:</span> {formData.strength}</p>
                 </div>
               </div>
 
               <Collapsible>
                 <CollapsibleTrigger className="w-full flex items-center justify-between p-4 border rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
-                  <h3 className="font-medium text-gray-800">Additional Details</h3>
+                  <h3 className="font-medium text-gray-800">Optional Details</h3>
                   <ChevronDown className="h-4 w-4" />
                 </CollapsibleTrigger>
                 <CollapsibleContent className="p-4 border-t">
                   <div className="text-sm space-y-1 text-gray-600">
-                    <p><span className="font-medium text-gray-800">Strength:</span> {formData.strength}</p>
-                    <p><span className="font-medium text-gray-800">Manufacturer:</span> {formData.manufacturer || 'N/A'}</p>
-                    <p><span className="font-medium text-gray-800">Barcode:</span> {formData.barcode || 'N/A'}</p>
-                    <p><span className="font-medium text-gray-800">Shelf Location:</span> {formData.shelf_location || 'N/A'}</p>
-                    <p><span className="font-medium text-gray-800">Supplier ID:</span> {formData.supplier_id || 'N/A'}</p>
+                    <p><span className="font-medium text-gray-800">Manufacturer:</span> {formData.manufacturer || 'Not specified'}</p>
+                    <p><span className="font-medium text-gray-800">Barcode:</span> {formData.barcode || 'Not specified'}</p>
+                    <p><span className="font-medium text-gray-800">Shelf Location:</span> {formData.shelf_location || 'Not specified'}</p>
+                    <p><span className="font-medium text-gray-800">Supplier ID:</span> {formData.supplier_id || 'Not specified'}</p>
                   </div>
                 </CollapsibleContent>
               </Collapsible>
 
               <div className="space-y-1">
-                <Label className="text-xs text-gray-700">Description</Label>
+                <Label className="text-xs text-gray-700">
+                  Description <span className="text-gray-400">(Optional)</span>
+                </Label>
                 <Textarea
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="w-full bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
+                  placeholder="Enter any additional details about the medication"
                 />
               </div>
             </div>
@@ -385,15 +411,13 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
                 Next
               </Button>
             ) : (
-              <LimitAwareButton
+              <Button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                limitType="inventory"
-                loading={isSubmitting}
                 className="bg-gradient-to-r from-blue-500 to-blue-600 text-white"
               >
                 {isSubmitting ? 'Saving...' : initialData ? 'Update Medication' : 'Add Medication'}
-              </LimitAwareButton>
+              </Button>
             )}
           </div>
         </div>

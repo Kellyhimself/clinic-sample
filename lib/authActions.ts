@@ -1665,16 +1665,6 @@ export async function createSale(saleData: {
       throw new Error('Failed to get tenant ID');
     }
 
-    // Check transaction limits
-    console.log('Checking transaction limits...');
-    const { allowed, current, limit } = await checkUsageLimit(tenantId, 'max_transactions_per_month');
-    console.log('Transaction limit check result:', { allowed, current, limit });
-
-    if (!allowed) {
-      console.error('Transaction limit reached:', { current, limit });
-      throw new Error(`Transaction limit reached (${current}/${limit}). Please upgrade your plan to continue making sales.`);
-    }
-
     // Only validate patient if patient_id is provided
     if (saleData.patient_id) {
       console.log('Validating patient:', saleData.patient_id);

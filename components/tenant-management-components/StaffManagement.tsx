@@ -20,11 +20,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { usePreemptiveLimits } from '@/app/lib/hooks/usePreemptiveLimits';
 import { useSubscription } from '@/app/lib/hooks/useSubscription';
 import { getFeatureDetails } from '@/app/lib/utils/featureCheck';
-import { UsageLimitAlert } from '@/components/shared/UsageLimitAlert';
-import { UpgradePrompt } from '@/components/shared/UpgradePrompt';
 import { useAuthContext } from '@/app/providers/AuthProvider';
 import { useTenant } from '@/app/providers/TenantProvider';
 import { createClient } from '@/app/lib/supabase/client';
@@ -60,8 +57,6 @@ export default function StaffManagement({ tenantId: propTenantId }: StaffManagem
     email: '',
     role: 'staff'
   });
-  const { isLimitValid } = usePreemptiveLimits();
-  const [usageLimit, setUsageLimit] = useState<{ allowed: boolean; current: number; limit: number } | null>(null);
   const { subscription } = useSubscription();
   const [isFeatureEnabled, setIsFeatureEnabled] = useState(true);
   const [isAdvancedEnabled, setIsAdvancedEnabled] = useState(false);
@@ -82,7 +77,6 @@ export default function StaffManagement({ tenantId: propTenantId }: StaffManagem
     }
 
     fetchStaffAndInvitations();
-    checkUserLimit();
     const feature = getFeatureDetails('staff_management', subscription?.plan || 'free');
     setIsFeatureEnabled(feature?.enabled === true);
 
@@ -93,40 +87,7 @@ export default function StaffManagement({ tenantId: propTenantId }: StaffManagem
     // Check enterprise staff feature
     const enterpriseFeature = getFeatureDetails('enterprise_staff', subscription?.plan || 'free');
     setIsEnterpriseEnabled(enterpriseFeature?.enabled === true);
-    
-    // Log feature details for debugging
-    console.log('Feature details:', {
-      feature,
-      enabled: feature?.enabled,
-      requiredPlan: feature?.requiredPlan,
-      currentPlan: subscription?.plan
-    });
   }, [tenantId, subscription, supabase]);
-
-  const checkUserLimit = async () => {
-    try {
-      const limit = await isLimitValid('users');
-      const feature = getFeatureDetails('unlimited_users');
-      const isProOrEnterprise = feature?.requiredPlan === 'pro' || feature?.requiredPlan === 'enterprise';
-      
-      if (isProOrEnterprise) {
-        setUsageLimit({
-          allowed: true,
-          current: limit.current,
-          limit: -1 // -1 indicates unlimited
-        });
-        return;
-      }
-
-      setUsageLimit({
-        allowed: limit.remaining > 0,
-        current: limit.current,
-        limit: limit.limit
-      });
-    } catch (error) {
-      console.error('Error checking usage limit:', error);
-    }
-  };
 
   const fetchStaffAndInvitations = async () => {
     if (!supabase) {
@@ -166,12 +127,6 @@ export default function StaffManagement({ tenantId: propTenantId }: StaffManagem
 
   const handleInviteStaff = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (usageLimit && !usageLimit.allowed) {
-      toast.error('User limit reached. Please upgrade your plan to add more users.');
-      return;
-    }
-
     setInviting(true);
 
     try {
@@ -212,7 +167,6 @@ export default function StaffManagement({ tenantId: propTenantId }: StaffManagem
       toast.success(`Invitation sent to ${newInvitation.email}`);
       setNewInvitation({ email: '', role: 'staff' });
       fetchStaffAndInvitations();
-      checkUserLimit(); // Refresh usage limit after inviting
     } catch (error) {
       console.error('Error inviting staff:', error);
       toast.error('Failed to send invitation');
@@ -261,7 +215,6 @@ export default function StaffManagement({ tenantId: propTenantId }: StaffManagem
 
       toast.success('Invitation revoked');
       fetchStaffAndInvitations();
-      checkUserLimit(); // Refresh usage limit after revoking
     } catch (error) {
       console.error('Error revoking invitation:', error);
       toast.error('Failed to revoke invitation');
@@ -270,19 +223,6 @@ export default function StaffManagement({ tenantId: propTenantId }: StaffManagem
 
   return (
     <div className="space-y-6">
-      {/* Usage Limit Alert */}
-      {usageLimit && !usageLimit.allowed && (
-        <UsageLimitAlert
-          limit={{
-            type: 'users',
-            current: usageLimit.current,
-            limit: usageLimit.limit,
-            isWithinLimit: usageLimit.allowed
-          }}
-          className="mb-4"
-        />
-      )}
-
       {/* Invite New Staff Form */}
       <div className="bg-white p-6 rounded-lg shadow">
         <h2 className="text-lg font-semibold mb-4">Invite New Staff</h2>
@@ -296,7 +236,6 @@ export default function StaffManagement({ tenantId: propTenantId }: StaffManagem
               onChange={(e) => setNewInvitation(prev => ({ ...prev, email: e.target.value }))}
               required
               placeholder="staff@example.com"
-              disabled={usageLimit && !usageLimit.allowed}
             />
           </div>
           <div>
@@ -304,7 +243,6 @@ export default function StaffManagement({ tenantId: propTenantId }: StaffManagem
             <Select
               value={newInvitation.role}
               onValueChange={(value) => setNewInvitation(prev => ({ ...prev, role: value }))}
-              disabled={usageLimit && !usageLimit.allowed}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select role" />
@@ -318,7 +256,7 @@ export default function StaffManagement({ tenantId: propTenantId }: StaffManagem
           </div>
           <Button 
             type="submit" 
-            disabled={inviting || (usageLimit && !usageLimit.allowed)}
+            disabled={inviting}
           >
             {inviting ? 'Sending Invitation...' : 'Send Invitation'}
           </Button>
@@ -350,7 +288,6 @@ export default function StaffManagement({ tenantId: propTenantId }: StaffManagem
                         variant="outline"
                         size="sm"
                         onClick={() => handleResendInvitation(invitation.id)}
-                        disabled={usageLimit && !usageLimit.allowed}
                       >
                         Resend
                       </Button>

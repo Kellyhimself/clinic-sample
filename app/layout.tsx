@@ -5,6 +5,8 @@ import { Toaster } from "sonner";
 import { viewport } from "./viewport-meta";
 import Script from "next/script";
 import AnimatedBackground from '@/components/AnimatedBackground';
+import { AuthProvider } from '@/app/providers/AuthProvider';
+import { TenantProvider } from '@/app/providers/TenantProvider';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -49,7 +51,11 @@ export default function RootLayout({
       >
         <Script src="https://js.paystack.co/v1/inline.js" strategy="afterInteractive" />
         <AnimatedBackground />
-          {children}
+        <AuthProvider>
+          <TenantProvider>
+            {children}
+          </TenantProvider>
+        </AuthProvider>
         <Toaster position="top-right" />
       </body>
     </html>
