@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useUsageLimits } from '@/app/lib/hooks/useUsageLimits';
+import { usePreemptiveLimits } from '@/app/lib/hooks/usePreemptiveLimits';
 import { useSubscription } from '@/app/lib/hooks/useSubscription';
 import { getFeatureDetails } from '@/app/lib/utils/featureCheck';
 import { UsageLimitAlert } from '@/components/shared/UsageLimitAlert';
@@ -60,7 +60,7 @@ export default function StaffManagement({ tenantId: propTenantId }: StaffManagem
     email: '',
     role: 'staff'
   });
-  const { checkUsage } = useUsageLimits();
+  const { isLimitValid } = usePreemptiveLimits();
   const [usageLimit, setUsageLimit] = useState<{ allowed: boolean; current: number; limit: number } | null>(null);
   const { subscription } = useSubscription();
   const [isFeatureEnabled, setIsFeatureEnabled] = useState(true);
@@ -105,7 +105,7 @@ export default function StaffManagement({ tenantId: propTenantId }: StaffManagem
 
   const checkUserLimit = async () => {
     try {
-      const limit = await checkUsage('users');
+      const limit = await isLimitValid('users');
       const feature = getFeatureDetails('unlimited_users');
       const isProOrEnterprise = feature?.requiredPlan === 'pro' || feature?.requiredPlan === 'enterprise';
       

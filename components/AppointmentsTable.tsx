@@ -32,7 +32,7 @@ import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import type { Appointment } from '@/types/supabase';
 import { UsageLimitAlert } from '@/components/shared/UsageLimitAlert';
-import { useUsageLimits } from '@/app/lib/hooks/useUsageLimits';
+import { usePreemptiveLimits } from '@/app/lib/hooks/usePreemptiveLimits';
 import { LimitAwareButton } from "@/components/shared/LimitAwareButton";
 
 // Import the CSS file for mobile responsiveness
@@ -78,7 +78,7 @@ export default function AppointmentsTable({
   const [isNarrowMobile, setIsNarrowMobile] = useState(false);
   const [isMediumMobile, setIsMediumMobile] = useState(false);
 
-  const { getLimit, shouldShowAlert } = useUsageLimits(tenantId);
+  const { limits, isLimitValid } = usePreemptiveLimits();
 
   // Check if mobile view with adjusted breakpoints
   useEffect(() => {
@@ -563,13 +563,13 @@ export default function AppointmentsTable({
         </CardHeader>
         <div className="p-2 sm:p-4 md:p-6">
           {/* Add usage limit alert */}
-          {shouldShowAlert('appointments') && !dismissedAlerts.has('appointments') && (
+          {isLimitValid('appointments') && !dismissedAlerts.has('appointments') && (
             <UsageLimitAlert
               featureId="appointments"
               tenantId={tenantId}
-              currentUsage={getLimit('appointments')?.current || 0}
-              limit={getLimit('appointments')?.limit || 0}
-              type={getLimit('appointments')?.type || 'warning'}
+              currentUsage={limits('appointments')?.current || 0}
+              limit={limits('appointments')?.limit || 0}
+              type={limits('appointments')?.type || 'warning'}
               onDismiss={() => setDismissedAlerts(prev => new Set([...prev, 'appointments']))}
             />
           )}

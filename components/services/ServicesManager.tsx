@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { getFeatureDetails } from '@/app/lib/utils/featureCheck';
 import { FeatureGuard } from '@/components/FeatureGuard';
 import { UsageLimitAlert } from '@/components/shared/UsageLimitAlert';
-import { useUsageLimits } from '@/lib/hooks/useUsageLimits';
+import { usePreemptiveLimits } from '@/app/lib/hooks/usePreemptiveLimits';
 
 // Import shared components
 import SalesMetricCard from '@/components/shared/sales/SalesMetricCard';
@@ -87,7 +87,9 @@ export default function ServicesManager({ tenantId }: ServicesManagerProps) {
   });
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
 
-  const { getLimit, shouldShowAlert } = useUsageLimits(tenantId);
+  const { limits, loading: limitsLoading, isLimitValid } = usePreemptiveLimits();
+
+  const canAddService = isLimitValid('services');
 
   // Check screen size on component mount and resize
   useEffect(() => {
@@ -478,13 +480,13 @@ export default function ServicesManager({ tenantId }: ServicesManagerProps) {
 
       <div id="services-content" className="services-card bg-gradient-to-br from-blue-50 to-teal-50 border border-blue-200">
         {/* Add usage limit alert */}
-        {shouldShowAlert('services') && !dismissedAlerts.has('services') && (
+        {isLimitValid('services') && !dismissedAlerts.has('services') && (
           <UsageLimitAlert
             featureId="services"
             tenantId={tenantId}
-            currentUsage={getLimit('services')?.current || 0}
-            limit={getLimit('services')?.limit || 0}
-            type={getLimit('services')?.type || 'warning'}
+            currentUsage={limits('services')?.current || 0}
+            limit={limits('services')?.limit || 0}
+            type={limits('services')?.type || 'warning'}
             onDismiss={() => setDismissedAlerts(prev => new Set([...prev, 'services']))}
           />
         )}

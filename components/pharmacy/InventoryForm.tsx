@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { UsageLimitAlert } from '@/components/shared/UsageLimitAlert';
-import { useUsageLimits } from '@/app/lib/hooks/useUsageLimits';
+import { usePreemptiveLimits } from '@/app/lib/hooks/usePreemptiveLimits';
 import { LimitAwareButton } from '@/components/shared/LimitAwareButton';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ChevronDown } from 'lucide-react';
@@ -92,7 +92,7 @@ interface FormData {
 export default function InventoryForm({ initialData }: InventoryFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { limits, loading: limitsLoading, checkUsage } = useUsageLimits();
+  const { limits, loading: limitsLoading, isLimitValid } = usePreemptiveLimits();
   const [currentStep, setCurrentStep] = useState<'basic' | 'details' | 'review'>('basic');
   const [formData, setFormData] = useState<FormData>({
     name: initialData?.name || '',
@@ -126,7 +126,7 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
 
     try {
       // Check limit before submitting
-      const inventoryLimit = await checkUsage('inventory');
+      const inventoryLimit = await isLimitValid('inventory');
       if (!inventoryLimit.isWithinLimit) {
         toast.error('Inventory limit reached', {
           description: `You have reached your inventory limit of ${inventoryLimit.limit} items. Please upgrade your plan to add more items.`
@@ -370,92 +370,4 @@ export default function InventoryForm({ initialData }: InventoryFormProps) {
                         ['basic', 'details', 'review'].indexOf(currentStep) > index 
                           ? 'bg-gradient-to-r from-green-500 to-green-600' 
                           : 'bg-gray-200'
-                      }`}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Main Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-            {/* Left Column - Form Steps */}
-            <div className="lg:col-span-3 space-y-4">
-              {!limitsLoading && limits?.inventory && !limits.inventory.isWithinLimit && (
-                <UsageLimitAlert
-                  limit={limits.inventory}
-                  className="mb-4"
-                />
-              )}
-              {renderStepContent()}
-            </div>
-
-            {/* Right Column - Summary and Buttons */}
-            <div className="lg:col-span-2 space-y-4">
-              <div className="space-y-2">
-                <h3 className="font-medium text-xs text-gray-800">Medication Summary</h3>
-                <div className="p-4 border rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
-                  <div className="space-y-2">
-                    <div className="text-sm text-gray-600">
-                      <span className="font-medium text-gray-800">Name:</span> {formData.name || 'Not set'}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      <span className="font-medium text-gray-800">Category:</span> {formData.category || 'Not set'}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      <span className="font-medium text-gray-800">Dosage Form:</span> {formData.dosage_form || 'Not set'}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      <span className="font-medium text-gray-800">Strength:</span> {formData.strength || 'Not set'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Navigation Buttons */}
-              <div className="flex flex-col space-y-2">
-                {currentStep !== 'basic' && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setCurrentStep(currentStep === 'review' ? 'details' : 'basic')}
-                    className="w-full border-gray-200 text-gray-700 hover:bg-gray-50"
-                  >
-                    Back
-                  </Button>
-                )}
-                {currentStep === 'review' ? (
-                  <LimitAwareButton
-                    type="submit"
-                    onClick={handleSubmit}
-                    className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700"
-                    disabled={isSubmitting}
-                    limitType="inventory"
-                    loading={isSubmitting}
-                  >
-                    {isSubmitting ? 'Saving...' : initialData ? 'Update Medication' : 'Add Medication'}
-                  </LimitAwareButton>
-                ) : (
-                  <Button
-                    type="button"
-                    onClick={() => setCurrentStep(
-                      currentStep === 'basic' ? 'details' : 'review'
-                    )}
-                    disabled={
-                      (currentStep === 'basic' && (!formData.name || !formData.category || !formData.dosage_form)) ||
-                      (currentStep === 'details' && !formData.strength)
-                    }
-                    className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700"
-                  >
-                    Next
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-} 
+                      }`

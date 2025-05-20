@@ -15,11 +15,11 @@ import { Label } from "@/components/ui/label";
 import { handleBooking } from "@/lib/authActions";
 import { useRouter } from "next/navigation";
 import { LimitAwareButton } from "@/components/shared/LimitAwareButton";
-import { useUsageLimits } from "@/app/lib/hooks/useUsageLimits";
 import { useSubscription } from '@/app/lib/hooks/useSubscription';
 import { getFeatureDetails } from '@/app/lib/utils/featureCheck';
 import { UsageLimitAlert } from "@/components/shared/UsageLimitAlert";
 import { UpgradePrompt } from '@/components/shared/UpgradePrompt';
+import { usePreemptiveLimits } from "@/app/lib/hooks/usePreemptiveLimits";
 
 interface BookAppointmentFormProps {
   services: Array<{
@@ -44,41 +44,11 @@ export default function BookAppointmentForm({ services, doctors, tenantId }: Boo
     success: boolean;
     message: string;
   } | null>(null);
-  const { checkUsage } = useUsageLimits();
-  const [usageLimit, setUsageLimit] = useState<{ allowed: boolean; current: number; limit: number } | null>(null);
+  const { isLimitValid } = usePreemptiveLimits();
   const { subscription } = useSubscription();
   const [isFeatureEnabled, setIsFeatureEnabled] = useState(true);
   const [isAdvancedEnabled, setIsAdvancedEnabled] = useState(false);
   const [isEnterpriseEnabled, setIsEnterpriseEnabled] = useState(false);
-
-  useEffect(() => {
-    const checkLimit = async () => {
-      try {
-        const limit = await checkUsage('appointments');
-        const feature = getFeatureDetails('unlimited_appointments');
-        const isProOrEnterprise = feature?.requiredPlan === 'pro' || feature?.requiredPlan === 'enterprise';
-        
-        if (isProOrEnterprise) {
-          setUsageLimit({
-            allowed: true,
-            current: limit.current,
-            limit: -1
-          });
-          return;
-        }
-
-        setUsageLimit({
-          allowed: limit.remaining > 0,
-          current: limit.current,
-          limit: limit.limit
-        });
-      } catch (error) {
-        console.error('Error checking usage limit:', error);
-      }
-    };
-
-    checkLimit();
-  }, [checkUsage]);
 
   useEffect(() => {
     const feature = getFeatureDetails('appointment_booking', subscription?.plan || 'free');
@@ -194,13 +164,12 @@ export default function BookAppointmentForm({ services, doctors, tenantId }: Boo
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50 p-2">
       <div className="w-full max-w-[1400px] mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
-        {usageLimit && !usageLimit.allowed && (
+        {isLimitValid('appointments') && (
           <UsageLimitAlert
             limit={{
               type: 'appointments',
-              current: usageLimit.current,
-              limit: usageLimit.limit,
-              isWithinLimit: usageLimit.allowed
+              current: 0,
+              limit: -1
             }}
             className="m-4"
           />
@@ -328,7 +297,7 @@ export default function BookAppointmentForm({ services, doctors, tenantId }: Boo
                 {step < 2 ? (
                   <Button
                     onClick={() => setStep(step + 1)}
-                    disabled={!formData.doctorId || (!formData.serviceId && !formData.customService) || (usageLimit && !usageLimit.allowed)}
+                    disabled={!formData.doctorId || (!formData.serviceId && !formData.customService) || !isLimitValid('appointments')}
                     size="sm"
                     className="h-8 bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700"
                   >
@@ -338,14 +307,14 @@ export default function BookAppointmentForm({ services, doctors, tenantId }: Boo
                   <Button
                     type="submit"
                     className="w-full"
-                    disabled={isSubmitting || (usageLimit && !usageLimit.allowed)}
+                    disabled={isSubmitting || !isLimitValid('appointments')}
                     asChild
                   >
                     <LimitAwareButton
                       limitType="appointments"
                       variant="default"
                       size="default"
-                      disabled={isSubmitting || (usageLimit && !usageLimit.allowed)}
+                      disabled={isSubmitting || !isLimitValid('appointments')}
                     >
                       {isSubmitting ? "Booking..." : "Book Appointment"}
                     </LimitAwareButton>

@@ -5,12 +5,12 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/app/lib/auth/client';
-import { useUsageLimits } from '@/app/lib/hooks/useUsageLimits';
+import { usePreemptiveLimits } from '@/app/lib/hooks/usePreemptiveLimits';
 import PharmacyReportsDashboard from '@/components/pharmacy/PharmacyReportsDashboard';
 
 export default function PharmacyReportsPage() {
   const { user } = useAuth();
-  const { usageLimits } = useUsageLimits();
+  const { limits, loading: limitsLoading } = usePreemptiveLimits();
   const [activeTab, setActiveTab] = useState('overview');
 
   if (!user) {

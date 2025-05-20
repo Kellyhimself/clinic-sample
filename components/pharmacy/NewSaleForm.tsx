@@ -27,10 +27,9 @@ import {
 import { processCashPayment, processMpesaPayment } from "@/lib/cashier";
 import ReceiptDialog from '@/components/shared/sales/ReceiptDialog';
 import { LimitAwareButton } from '@/components/shared/LimitAwareButton';
-import { useUsageLimits } from '@/app/lib/hooks/useUsageLimits';
+import { usePreemptiveLimits } from '@/app/lib/hooks/usePreemptiveLimits';
 import { useAuthContext } from '@/app/providers/AuthProvider';
 import { useTenant } from '@/app/providers/TenantProvider';
-import { usePreemptiveLimits } from '@/app/lib/hooks/usePreemptiveLimits';
 
 
 interface SaleItem {
@@ -80,7 +79,6 @@ export default function NewSaleForm({
   const [showReceipt, setShowReceipt] = useState(false);
   const [receiptContent, setReceiptContent] = useState<string | null>(null);
   const [isCheckingLimits, setIsCheckingLimits] = useState(false);
-  const {loading: usageLimitsLoading } = useUsageLimits();
 
   // Add new state for optimistic updates
   const [isProcessing, setIsProcessing] = useState(false);
