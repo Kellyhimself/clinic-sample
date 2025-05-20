@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { LimitAwareButton } from '@/components/shared/LimitAwareButton';
+import { useAuthContext } from '@/app/providers/AuthProvider';
+import { useTenant } from '@/app/providers/TenantProvider';
 
 const roles = [
   { value: 'admin', label: 'Administrator' },
@@ -21,6 +23,8 @@ const roles = [
 export default function InviteUsersPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const { user } = useAuthContext();
+  const { tenantId } = useTenant();
   const [formData, setFormData] = useState({
     email: '',
     full_name: '',
@@ -43,6 +47,7 @@ export default function InviteUsersPage() {
         body: JSON.stringify({
           email: formData.email,
           role: formData.role,
+          tenantId,
           metadata: {
             full_name: formData.full_name,
             license_number: formData.license_number,

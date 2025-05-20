@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { createClient } from '@/app/lib/supabase/client';
 import { Tenant } from '@/types/supabase';
+import { useAuthContext } from '@/app/providers/AuthProvider';
+import { useTenant } from '@/app/providers/TenantProvider';
+import { createClient } from '@/app/lib/supabase/client';
 
 interface TenantListProps {
   initialTenants: Tenant[];
@@ -13,9 +15,18 @@ export default function TenantList({ initialTenants }: TenantListProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
   
-  const supabase = createClient();
+  const { supabase: authSupabase } = useAuthContext();
+  const { tenantId } = useTenant();
+  
+  // Fallback to direct client creation if auth context is not available
+  const supabase = authSupabase || createClient();
   
   const updateTenant = async (tenant: Tenant) => {
+    if (!supabase) {
+      alert('Database client not initialized');
+      return;
+    }
+
     setIsLoading(true);
     try {
       const { error } = await supabase
@@ -51,6 +62,11 @@ export default function TenantList({ initialTenants }: TenantListProps) {
   };
   
   const toggleTenantStatus = async (id: string, currentStatus: boolean) => {
+    if (!supabase) {
+      alert('Database client not initialized');
+      return;
+    }
+
     setIsLoading(true);
     try {
       const { error } = await supabase

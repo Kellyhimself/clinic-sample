@@ -21,10 +21,11 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { fetchStockAlerts } from '@/lib/inventory';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { createClient } from '@/app/lib/supabase/client';
+import { toast } from 'sonner';
 
 interface NavbarProps {
   screenSize?: string;
-  onLogout?: () => void;
   onMenuClick?: () => void;
   isMenuOpen?: boolean;
   isSidebarOpen?: boolean;
@@ -34,7 +35,6 @@ interface NavbarProps {
 
 export default function Navbar({ 
   screenSize = 'md', 
-  onLogout,
   onMenuClick,
   isMenuOpen,
   isSidebarOpen,
@@ -48,6 +48,7 @@ export default function Navbar({
   const [isScrolled, setIsScrolled] = useState(false);
   const [lowStockCount, setLowStockCount] = useState(0);
   const [expiringCount, setExpiringCount] = useState(0);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   console.log('Navbar - User:', user);
   console.log('Navbar - Role:', role);
@@ -103,6 +104,32 @@ export default function Navbar({
       window.location.reload();
     } else {
       router.back();
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      setIsSigningOut(true);
+      const supabase = createClient();
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Clear any local storage or state if needed
+      localStorage.removeItem('tenant_id');
+      
+      // Show success message
+      toast.success('Signed out successfully');
+      
+      // Redirect to login page
+      router.push('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      toast.error('Failed to sign out. Please try again.');
+    } finally {
+      setIsSigningOut(false);
     }
   };
 
@@ -226,11 +253,12 @@ export default function Navbar({
 
           <Button
             variant="ghost"
-            onClick={onLogout}
+            onClick={handleSignOut}
+            disabled={isSigningOut}
             className="text-red-500 hover:text-red-600 hover:bg-red-50 flex items-center gap-1 text-sm font-medium h-9 rounded-full"
           >
             <LogOut className="h-3 w-3" />
-            <span>Sign Out</span>
+            <span>{isSigningOut ? 'Signing Out...' : 'Sign Out'}</span>
           </Button>
         </div>
 
@@ -306,11 +334,12 @@ export default function Navbar({
               )}
               onClick={() => {
                 onMenuClick?.();
-                onLogout?.();
+                handleSignOut();
               }}
+              disabled={isSigningOut}
             >
               <LogOut className="h-3 w-3" />
-              <span>Sign Out</span>
+              <span>{isSigningOut ? 'Signing Out...' : 'Sign Out'}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

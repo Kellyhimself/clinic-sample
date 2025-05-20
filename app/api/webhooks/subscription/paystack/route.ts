@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { verifyPaystackWebhook } from '@/lib/paystack';
 import { createAdminClient } from '@/app/lib/supabase/admin';
+import { SUBSCRIPTION_LIMITS, type PlanType } from '@/app/lib/config/features/subscriptionFeatures';
 
 interface CustomField {
   display_name: string;
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
       // Extract plan from custom_fields in metadata
       const customFields = payment.metadata?.custom_fields || [];
       const planField = customFields.find((field: CustomField) => field.variable_name === 'plan_id');
-      const plan = planField?.value || 'pro'; // Default to 'pro' if not found
+      const plan = (planField?.value || 'pro') as PlanType; // Default to 'pro' if not found
 
       const tenant_id = payment.metadata?.tenant_id;
       if (!tenant_id) {
@@ -47,7 +48,7 @@ export async function POST(req: Request) {
         .from('subscription_invoices')
         .insert({
           tenant_id,
-          amount: payment.amount / 100, // Convert from kobo to naira
+          amount: payment.amount / 100,
           currency: payment.currency,
           status: 'paid',
           payment_method: payment.channel,
@@ -60,6 +61,7 @@ export async function POST(req: Request) {
         });
 
       if (invoiceError) {
+        console.error('Invoice creation error:', invoiceError);
         return NextResponse.json({ error: 'Failed to create invoice' }, { status: 500 });
       }
 
@@ -78,41 +80,44 @@ export async function POST(req: Request) {
           is_active: true,
           payment_failures: 0
         })
-        .eq('id', tenant_id)
-        .select();
+        .eq('id', tenant_id);
 
       if (tenantError) {
+        console.error('Tenant update error:', tenantError);
         return NextResponse.json({ error: 'Failed to update tenant' }, { status: 500 });
       }
 
-      // Create subscription limit if it doesn't exist
-      const { data: existingLimit } = await supabase
+      // Get the plan limits from configuration
+      const planLimits = SUBSCRIPTION_LIMITS[plan];
+
+      // Convert features array to object
+      const featuresObject = planLimits.features.reduce((acc, feature) => {
+        acc[feature] = true;
+        return acc;
+      }, {} as Record<string, boolean>);
+
+      // Update or create subscription limits using upsert
+      const { error: limitError } = await supabase
         .from('subscription_limits')
-        .select()
-        .eq('tenant_id', tenant_id)
-        .single();
+        .upsert({
+          tenant_id: tenant_id,
+          plan_type: plan,
+          max_patients: planLimits.max_patients,
+          max_appointments_per_month: planLimits.max_appointments_per_month,
+          max_inventory_items: planLimits.max_inventory_items,
+          max_users: planLimits.max_users,
+          max_transactions_per_month: planLimits.max_transactions_per_month,
+          features: featuresObject,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'tenant_id',
+          ignoreDuplicates: false
+        });
 
-      if (!existingLimit) {
-        const { error: limitError } = await supabase
-          .from('subscription_limits')
-          .insert({
-            tenant_id,
-            plan_type: plan,
-            max_patients: plan === 'pro' ? 1000 : 100,
-            max_appointments_per_month: plan === 'pro' ? 500 : 50,
-            max_inventory_items: plan === 'pro' ? 2000 : 200,
-            max_users: plan === 'pro' ? 10 : 3,
-            max_transactions_per_month: plan === 'pro' ? 1000 : 100,
-            features: {
-              advanced_reporting: plan === 'pro',
-              custom_branding: plan === 'pro',
-              priority_support: plan === 'pro'
-            }
-          });
-
-        if (limitError) {
-          return NextResponse.json({ error: 'Failed to create subscription limit' }, { status: 500 });
-        }
+      if (limitError) {
+        console.error('Subscription limits update error:', limitError);
+        return NextResponse.json({ error: 'Failed to update subscription limits' }, { status: 500 });
       }
 
       return NextResponse.json({ success: true });
@@ -120,6 +125,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ received: true });
   } catch (error) {
+    console.error('Error processing webhook:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-} 
+}

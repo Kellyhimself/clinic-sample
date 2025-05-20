@@ -28,6 +28,9 @@ import { processCashPayment, processMpesaPayment } from "@/lib/cashier";
 import ReceiptDialog from '@/components/shared/sales/ReceiptDialog';
 import { LimitAwareButton } from '@/components/shared/LimitAwareButton';
 import { useUsageLimits } from '@/app/lib/hooks/useUsageLimits';
+import { useAuthContext } from '@/app/providers/AuthProvider';
+import { useTenant } from '@/app/providers/TenantProvider';
+import { usePreemptiveLimits } from '@/app/lib/hooks/usePreemptiveLimits';
 
 
 interface SaleItem {
@@ -55,6 +58,9 @@ export default function NewSaleForm({
   initialPatients = [], 
   initialMedications = [],
 }: NewSaleFormProps) {
+  const { user, loading: authLoading } = useAuthContext();
+  const { tenantId, role } = useTenant();
+  const { isLimitValid, loading: limitsLoading, forceUpdate, limits } = usePreemptiveLimits();
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [items, setItems] = useState<SaleItem[]>([]);
@@ -74,7 +80,11 @@ export default function NewSaleForm({
   const [showReceipt, setShowReceipt] = useState(false);
   const [receiptContent, setReceiptContent] = useState<string | null>(null);
   const [isCheckingLimits, setIsCheckingLimits] = useState(false);
-  const {loading: limitsLoading } = useUsageLimits();
+  const {loading: usageLimitsLoading } = useUsageLimits();
+
+  // Add new state for optimistic updates
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [limitWarning, setLimitWarning] = useState<string | null>(null);
 
   // Filter patients based on search query
   useEffect(() => {
@@ -215,26 +225,55 @@ export default function NewSaleForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
+    if (!user || !tenantId) {
+      console.log('⚠️ No user or tenant ID found');
+      toast.error("Please sign in to create a sale");
+      return;
+    }
+
+    console.log('🔍 Checking transaction limits before submission');
+    // Check limits preemptively
+    if (!isLimitValid('transactions')) {
+      console.log('❌ Transaction limit exceeded:', {
+        limits,
+        currentStep,
+        isQuickSale,
+        items
+      });
+      setLimitWarning("You have reached your transaction limit. Please upgrade your plan to continue.");
+      return;
+    }
+
+    console.log('✅ Transaction limit check passed');
+    setIsProcessing(true);
     setError(null);
 
     try {
       // Calculate totals
       const medicationTotal = items.reduce((sum, item) => sum + item.total_price, 0);
-      const appointmentTotal = 0; // Quick sales don't include appointments
+      const appointmentTotal = 0;
       const grandTotal = medicationTotal + appointmentTotal;
+
+      console.log('💰 Sale totals:', {
+        medicationTotal,
+        appointmentTotal,
+        grandTotal,
+        itemsCount: items.length
+      });
 
       let patientId = selectedPatient?.id;
 
-      // For quick sales, get or create the quick sale patient
       if (isQuickSale) {
+        console.log('🚀 Processing quick sale');
         const quickSaleResult = await getOrCreateQuickSalePatient();
         
         if (!quickSaleResult.success || !quickSaleResult.patient) {
+          console.error('❌ Quick sale patient creation failed:', quickSaleResult);
           throw new Error('Failed to get or create quick sale patient');
         }
 
         patientId = quickSaleResult.patient.id;
+        console.log('✅ Quick sale patient created:', { patientId });
       }
 
       // Prepare sale data
@@ -248,28 +287,35 @@ export default function NewSaleForm({
           total_price: item.total_price
         })),
         payment_method: paymentMethod,
-        payment_status: 'unpaid', // Always start as unpaid
+        payment_status: 'unpaid',
         total_amount: grandTotal
       };
+
+      console.log('📦 Creating sale with data:', saleData);
 
       // Create the sale
       const result = await createSale(saleData);
       
       if (result.success) {
+        console.log('✅ Sale created successfully:', result.data);
+        // Force update limits after successful sale
+        forceUpdate();
+        
         setCurrentSaleId(result.data.id);
         
         if (isQuickSale) {
-          // For quick sales, process payment immediately
+          console.log('💳 Processing quick sale payment');
           const formData = new FormData();
           formData.append('id', result.data.id);
           formData.append('type', 'sale');
           formData.append('amount', grandTotal.toString());
 
           if (paymentMethod === 'cash') {
+            console.log('💵 Processing cash payment');
             formData.append('receiptNumber', `CASH-${Date.now()}`);
             await processCashPayment(formData);
             
-            // Generate receipt using the same format as cashier page
+            // Generate receipt
             const receipt = `
 ==========================================
            PHARMACY RECEIPT
@@ -298,31 +344,38 @@ Thank you for your business!
             setShowReceipt(true);
             toast.success("Quick sale completed successfully");
           } else if (paymentMethod === 'mpesa') {
-            // For M-PESA, we need to show a phone number input
+            console.log('📱 Initiating M-PESA payment');
             setShowMpesaDialog(true);
-            return; // Don't complete the sale yet
+            return;
           }
         } else {
-          // For regular sales, just show success message
+          console.log('✅ Regular sale submitted');
           toast.success("Sale submitted successfully. Payment can be processed at the cashier.");
         }
 
         // Reset form
+        console.log('🔄 Resetting form state');
         setItems([]);
         setSelectedPatient(null);
         setIsQuickSale(false);
         setCurrentStep('patient');
         setPaymentMethod('cash');
         setCurrentSaleId(null);
+        setLimitWarning(null);
       }
     } catch (err) {
+      console.error('❌ Error in sale submission:', err);
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
-      setIsSubmitting(false);
+      setIsProcessing(false);
     }
   };
 
   const handleMpesaPayment = async (phoneNumber: string) => {
+    if (!user || !tenantId) {
+      toast.error("Please sign in to process payment");
+      return;
+    }
     if (!currentSaleId) {
       setError('No active sale found');
       return;
@@ -395,6 +448,24 @@ Thank you for your business!
   };
 
   const { pharmacyTotal } = calculateTotals();
+
+  if (authLoading) {
+    return (
+      <div className="flex justify-center items-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  if (!user || !tenantId) {
+    return (
+      <div className="p-4 border-dashed border-red-200">
+        <div className="flex items-center gap-2 text-red-600">
+          <p>Please sign in to access this page</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-teal-50 to-gray-50 p-2">
@@ -682,12 +753,12 @@ Thank you for your business!
                       <LimitAwareButton
                         type="button"
                         onClick={() => handleSubmit(new Event('submit') as unknown as React.FormEvent)}
-                        disabled={isSubmitting || isCheckingLimits || limitsLoading}
+                        disabled={isProcessing || limitsLoading}
                         limitType="transactions"
                         variant="default"
-                        loading={isCheckingLimits || limitsLoading}
+                        loading={isProcessing || limitsLoading}
                       >
-                        {isSubmitting ? 'Processing...' : isQuickSale ? 'Complete Sale' : 'Submit Sale'}
+                        {isProcessing ? 'Processing...' : isQuickSale ? 'Complete Sale' : 'Submit Sale'}
                       </LimitAwareButton>
                     </div>
                   </div>
@@ -826,6 +897,19 @@ Thank you for your business!
           document.body.removeChild(a);
         }}
       />
+
+      {/* Add limit warning */}
+      {limitWarning && (
+        <div className="fixed bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <p>{limitWarning}</p>
+          <button 
+            className="text-sm underline"
+            onClick={() => setLimitWarning(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="text-red-500 text-sm mt-2">

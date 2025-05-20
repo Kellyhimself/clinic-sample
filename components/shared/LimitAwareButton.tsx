@@ -1,8 +1,9 @@
 import { Button } from '@/components/ui/button';
-import { useUsageLimits, LimitType } from '@/app/lib/hooks/useUsageLimits';
+import { usePreemptiveLimits } from '@/app/lib/hooks/usePreemptiveLimits';
 import { UpgradePrompt } from '@/components/shared/UpgradePrompt';
-import { ReactNode, useMemo } from 'react';
+import { ReactNode, useMemo, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { LimitType } from '@/app/lib/config/usageLimits';
 
 interface LimitAwareButtonProps {
   children: ReactNode;
@@ -15,6 +16,7 @@ interface LimitAwareButtonProps {
   type?: 'button' | 'submit' | 'reset';
   loading?: boolean;
   upgradePromptVariant?: 'button' | 'link' | 'card' | 'tooltip';
+  skipLoadingState?: boolean;
 }
 
 export function LimitAwareButton({
@@ -27,19 +29,21 @@ export function LimitAwareButton({
   size = 'default',
   type = 'button',
   loading = false,
-  upgradePromptVariant = 'tooltip'
+  upgradePromptVariant = 'tooltip',
+  skipLoadingState = false
 }: LimitAwareButtonProps) {
-  const { limits, loading: limitsLoading, error, retryCount, refetch } = useUsageLimits();
+  const { limits, loading: limitsLoading, error, isLimitValid, refetch } = usePreemptiveLimits();
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   
   // Memoize the limit check to prevent unnecessary re-renders
   const limit = useMemo(() => limits?.[limitType], [limits, limitType]);
   const isLimitReached = useMemo(() => limit && !limit.isWithinLimit, [limit]);
   
-  // Handle loading states
-  const isLoading = loading || limitsLoading;
+  // Handle loading states - skip if requested
+  const isLoading = skipLoadingState ? false : (loading || limitsLoading);
   
   // Handle error state
-  if (error && retryCount >= 3) {
+  if (error) {
     return (
       <Button
         variant={variant}
@@ -54,7 +58,7 @@ export function LimitAwareButton({
     );
   }
 
-  // Show loading state
+  // Show loading state only if not skipped
   if (isLoading) {
     return (
       <Button
@@ -84,6 +88,8 @@ export function LimitAwareButton({
         variant={upgradePromptVariant}
         className={className}
         features={limitFeatures}
+        open={showUpgradePrompt}
+        onOpenChange={setShowUpgradePrompt}
       >
         <Button
           variant={variant}
@@ -91,6 +97,7 @@ export function LimitAwareButton({
           type={type}
           disabled={true}
           className={className}
+          onClick={() => setShowUpgradePrompt(true)}
         >
           {children}
         </Button>

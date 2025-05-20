@@ -196,7 +196,7 @@ export const SUBSCRIPTION_LIMITS = {
     max_appointments_per_month: 100,
     max_inventory_items: 50,
     max_users: 1,
-    max_transactions_per_month: 100,
+    max_transactions_per_month: 50,
     features: ['appointments', 'inventory', 'basic_reporting', 'basic_billing']
   },
   pro: {

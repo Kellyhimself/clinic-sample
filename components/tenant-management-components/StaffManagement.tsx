@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClientSupabaseClient } from '@/lib/supabase-client';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +25,9 @@ import { useSubscription } from '@/app/lib/hooks/useSubscription';
 import { getFeatureDetails } from '@/app/lib/utils/featureCheck';
 import { UsageLimitAlert } from '@/components/shared/UsageLimitAlert';
 import { UpgradePrompt } from '@/components/shared/UpgradePrompt';
+import { useAuthContext } from '@/app/providers/AuthProvider';
+import { useTenant } from '@/app/providers/TenantProvider';
+import { createClient } from '@/app/lib/supabase/client';
 
 interface StaffMember {
   id: string;
@@ -49,7 +51,7 @@ interface StaffManagementProps {
   tenantId?: string;
 }
 
-export default function StaffManagement({ tenantId }: StaffManagementProps) {
+export default function StaffManagement({ tenantId: propTenantId }: StaffManagementProps) {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [invitations, setInvitations] = useState<StaffInvitation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,10 +67,20 @@ export default function StaffManagement({ tenantId }: StaffManagementProps) {
   const [isAdvancedEnabled, setIsAdvancedEnabled] = useState(false);
   const [isEnterpriseEnabled, setIsEnterpriseEnabled] = useState(false);
 
-  const supabase = createClientSupabaseClient();
+  const { supabase: authSupabase } = useAuthContext();
+  const { tenantId: contextTenantId } = useTenant();
+  const tenantId = propTenantId || contextTenantId;
+  
+  // Fallback to direct client creation if auth context is not available
+  const supabase = authSupabase || createClient();
 
   // Fetch staff and invitations
   useEffect(() => {
+    if (!supabase) {
+      toast.error('Database client not initialized');
+      return;
+    }
+
     fetchStaffAndInvitations();
     checkUserLimit();
     const feature = getFeatureDetails('staff_management', subscription?.plan || 'free');
@@ -89,7 +101,7 @@ export default function StaffManagement({ tenantId }: StaffManagementProps) {
       requiredPlan: feature?.requiredPlan,
       currentPlan: subscription?.plan
     });
-  }, [tenantId, subscription]);
+  }, [tenantId, subscription, supabase]);
 
   const checkUserLimit = async () => {
     try {
@@ -117,6 +129,11 @@ export default function StaffManagement({ tenantId }: StaffManagementProps) {
   };
 
   const fetchStaffAndInvitations = async () => {
+    if (!supabase) {
+      toast.error('Database client not initialized');
+      return;
+    }
+
     try {
       setLoading(true);
       

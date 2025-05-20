@@ -1,6 +1,6 @@
 export type PlanType = 'free' | 'pro' | 'enterprise';
 
-export type LimitType = 'patients' | 'appointments' | 'inventory' | 'users' | 'sales' | 'transactions';
+export type LimitType = 'patients' | 'appointments' | 'inventory' | 'users' | 'transactions';
 
 export interface UsageLimit {
   type: LimitType;
@@ -15,15 +15,13 @@ export const PLAN_LIMITS: Record<PlanType, Record<LimitType, number>> = {
     appointments: 100,
     inventory: 50,
     users: 1,
-    sales: 100,
-    transactions: 100
+    transactions: 50
   },
   pro: {
     patients: -1, // unlimited
     appointments: -1,
     inventory: -1,
     users: 5,
-    sales: -1,
     transactions: -1
   },
   enterprise: {
@@ -31,7 +29,6 @@ export const PLAN_LIMITS: Record<PlanType, Record<LimitType, number>> = {
     appointments: -1,
     inventory: -1,
     users: -1,
-    sales: -1,
     transactions: -1
   }
 };

@@ -136,13 +136,13 @@ export async function POST(request: Request) {
     console.log('Invitation created successfully:', invitationData);
 
     // Get tenant details for the email
-    const { data: tenant, error: tenantError } = await supabase
+    const { data: tenantDetails, error: tenantDetailsError } = await supabase
       .from('tenants')
       .select('name')
       .eq('id', targetTenantId)
       .single();
 
-    if (tenantError || !tenant) {
+    if (tenantDetailsError || !tenantDetails) {
       return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
     }
 
@@ -157,7 +157,7 @@ export async function POST(request: Request) {
     await sendInvitationEmail({
       to: email,
       invitationLink,
-      tenantName: tenant.name,
+      tenantName: tenantDetails.name,
       role,
       invitedBy: profile.full_name
     });

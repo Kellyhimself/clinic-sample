@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { createClient } from '@/app/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { PostgrestError } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 import { SUBSCRIPTION_LIMITS, type PlanType } from '@/app/lib/config/features/subscriptionFeatures';
 import type { Database } from '@/types/supabase';
+import { useAuthContext } from '@/app/providers/AuthProvider';
+import { useTenant } from '@/app/providers/TenantProvider';
+import { createClient } from '@/app/lib/supabase/client';
 
 type SubscriptionLimits = Database['public']['Tables']['subscription_limits']['Insert'];
 
@@ -23,7 +25,11 @@ export default function TenantCreateForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const supabase = createClient();
+  const { supabase: authSupabase } = useAuthContext();
+  const { tenantId } = useTenant();
+  
+  // Fallback to direct client creation if auth context is not available
+  const supabase = authSupabase || createClient();
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -37,6 +43,13 @@ export default function TenantCreateForm() {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+    
+    if (!supabase) {
+      setError('Database client not initialized');
+      toast.error('Failed to initialize database connection');
+      setIsLoading(false);
+      return;
+    }
     
     try {
       // Create the tenant
