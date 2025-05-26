@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart, Activity, Package2, DollarSign, TrendingUp, AlertTriangle } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 
 import SalesFilterBar, { TimeframeType } from '@/components/shared/sales/SalesFilterBar';
 import SalesMetricCard from '@/components/shared/sales/SalesMetricCard';
@@ -37,12 +38,29 @@ export default function PharmacyAnalyticsDashboard({
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
   
-  const [topSellingMeds, setTopSellingMeds] = useState<TopSellingMedication[]>([]);
-  const [profitData, setProfitData] = useState<MedicationProfitMargin[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [isNarrowMobile, setIsNarrowMobile] = useState(false);
   const [isMediumMobile, setIsMediumMobile] = useState(false);
+  
+  // Use TanStack Query for data fetching
+  const { 
+    data: topSellingMeds = [], 
+    isLoading: isLoadingTopSelling,
+    error: topSellingError 
+  } = useQuery({
+    queryKey: ['topSellingMedications', timeframe],
+    queryFn: () => fetchTopSellingMedications(),
+    enabled: isFeatureEnabled
+  });
+
+  const { 
+    data: profitData = [], 
+    isLoading: isLoadingProfit,
+    error: profitError 
+  } = useQuery({
+    queryKey: ['medicationProfitMargins', timeframe],
+    queryFn: () => getMedicationProfitMargins(),
+    enabled: isFeatureEnabled
+  });
   
   // Check screen size on component mount and resize
   useEffect(() => {
@@ -77,35 +95,6 @@ export default function PharmacyAnalyticsDashboard({
 
   const totalProfit = totalRevenue - totalCost;
   const averageMargin = totalCost > 0 ? ((totalRevenue - totalCost) / totalCost) * 100 : 0;
-  
-  useEffect(() => {
-    if (!isFeatureEnabled) {
-      return;
-    }
-    fetchAnalyticsData();
-  }, [timeframe, searchTerm, isFeatureEnabled]);
-  
-  const fetchAnalyticsData = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // Fetch top selling medications
-      const topSelling = await fetchTopSellingMedications();
-     
-      // Fetch profit margin data
-      const profitMargins = await getMedicationProfitMargins();
-     
-      // Update state with the fetched data
-      setTopSellingMeds(topSelling);
-      setProfitData(profitMargins);
-    } catch (error) {
-      console.error('Error fetching analytics data:', error);
-      setError('Failed to load analytics data');
-    } finally {
-      setLoading(false);
-    }
-  };
   
   if (!isFeatureEnabled) {
     return (
@@ -188,17 +177,20 @@ export default function PharmacyAnalyticsDashboard({
     );
   }
   
+  const error = topSellingError || profitError;
   if (error) {
     return (
       <div className="p-4">
         <h2 className="text-xl font-bold text-gray-800 mb-2">Pharmacy Analytics</h2>
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md" role="alert">
           <p className="font-medium">Error:</p>
-          <p>{error}</p>
+          <p>{error instanceof Error ? error.message : 'Failed to load analytics data'}</p>
         </div>
       </div>
     );
   }
+  
+  const isLoading = isLoadingTopSelling || isLoadingProfit;
   
   return (
     <div className="pharmacy-analytics-container">
@@ -304,7 +296,7 @@ export default function PharmacyAnalyticsDashboard({
                 </CardDescription>
               </CardHeader>
               <CardContent className={isNarrowMobile ? 'xs-padding' : isMediumMobile ? 'sm-padding' : ''}>
-                {loading ? (
+                {isLoading ? (
                   <div className={`text-center py-4 ${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''} text-gray-600`}>
                     Loading...
                   </div>
@@ -349,7 +341,7 @@ export default function PharmacyAnalyticsDashboard({
                 </CardDescription>
               </CardHeader>
               <CardContent className={isNarrowMobile ? 'xs-padding' : isMediumMobile ? 'sm-padding' : ''}>
-                {loading ? (
+                {isLoading ? (
                   <div className={`text-center py-4 ${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''} text-gray-600`}>
                     Loading...
                   </div>
@@ -425,7 +417,7 @@ export default function PharmacyAnalyticsDashboard({
               </CardHeader>
               <CardContent className={isNarrowMobile ? 'xs-padding' : isMediumMobile ? 'sm-padding' : ''}>
                 <div className={`pharmacy-chart-placeholder rounded-md bg-gray-50 flex items-center justify-center ${isNarrowMobile ? 'h-36' : isMediumMobile ? 'h-40' : 'h-48'}`}>
-                  {loading ? (
+                  {isLoading ? (
                     <div className={`${isNarrowMobile ? 'xs-text' : isMediumMobile ? 'sm-text' : ''} text-gray-600`}>
                       Loading chart data...
                     </div>
@@ -491,7 +483,7 @@ export default function PharmacyAnalyticsDashboard({
               <CardDescription className="text-gray-600">Ranked by quantity sold</CardDescription>
             </CardHeader>
             <CardContent>
-              {loading ? (
+              {isLoading ? (
                 <div className="text-center py-4 text-gray-600">Loading...</div>
               ) : topSellingMeds.length === 0 ? (
                 <div className="text-center py-4 text-gray-500">No data available</div>
@@ -530,7 +522,7 @@ export default function PharmacyAnalyticsDashboard({
               <CardDescription className="text-gray-600">Revenue, cost, and profit breakdown by medication</CardDescription>
             </CardHeader>
             <CardContent>
-              {loading ? (
+              {isLoading ? (
                 <div className="text-center py-4 text-gray-600">Loading...</div>
               ) : profitData.length === 0 ? (
                 <div className="text-center py-4 text-gray-500">No data available</div>

@@ -1,11 +1,8 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-
 import AuthenticatedLayout from '@/components/AuthenticatedLayout';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { AuthProvider } from '@/app/providers/AuthProvider';
-import { TenantProvider } from '@/app/providers/TenantProvider';
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -15,14 +12,10 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
     return <ErrorBoundary>{children}</ErrorBoundary>;
   }
 
-  // For all protected routes, wrap with providers and AuthenticatedLayout
+  // For all protected routes, wrap with AuthenticatedLayout
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <TenantProvider>
-          <AuthenticatedLayout>{children}</AuthenticatedLayout>
-        </TenantProvider>
-      </AuthProvider>
+      <AuthenticatedLayout>{children}</AuthenticatedLayout>
     </ErrorBoundary>
   );
 }

@@ -1,44 +1,26 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import NewSaleForm from '@/components/pharmacy/NewSaleForm';
-import type { Patient, Medication } from '@/types/supabase';
-import { fetchPatients, fetchMedications } from '@/lib/newSale';
-import { LimitAwareButton } from '@/components/shared/LimitAwareButton';
 import { useAuthContext } from '@/app/providers/AuthProvider';
 import { useTenant } from '@/app/providers/TenantProvider';
+import NewSaleForm from '@/components/pharmacy/NewSaleForm';
+import { useMedications, usePatients } from '@/lib/hooks/usePharmacyQueries';
 
 export default function NewSaleFormWrapper() {
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [medications, setMedications] = useState<Medication[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { user, loading: authLoading } = useAuthContext();
-  const { tenantId, role } = useTenant();
+  const { tenantId } = useTenant();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (authLoading || !user || !tenantId) return;
+  // Use TanStack Query hooks
+  const { 
+    data: patients = [], 
+    isLoading: isLoadingPatients,
+    error: patientsError 
+  } = usePatients();
 
-      try {
-        const [patientsData, medicationsData] = await Promise.all([
-          fetchPatients(),
-          fetchMedications()
-        ]);
-        
-        setPatients(patientsData);
-        setMedications(medicationsData);
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching data:', err);
-        setError(err instanceof Error ? err.message : 'Failed to fetch data');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    void fetchData();
-  }, [user, tenantId, authLoading]);
+  const { 
+    data: medications = [], 
+    isLoading: isLoadingMedications,
+    error: medicationsError 
+  } = useMedications();
 
   if (authLoading) {
     return (
@@ -58,7 +40,7 @@ export default function NewSaleFormWrapper() {
     );
   }
 
-  if (isLoading) {
+  if (isLoadingPatients || isLoadingMedications) {
     return (
       <div className="flex justify-center items-center p-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -66,11 +48,12 @@ export default function NewSaleFormWrapper() {
     );
   }
 
-  if (error) {
+  if (patientsError || medicationsError) {
+    const error = patientsError || medicationsError;
     return (
       <div className="p-4 border-dashed border-red-200">
         <div className="flex items-center gap-2 text-red-600">
-          <p>{error}</p>
+          <p>{error instanceof Error ? error.message : 'Failed to fetch data'}</p>
         </div>
       </div>
     );

@@ -12,7 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createSale } from "@/lib/newSale";
 import { getOrCreateQuickSalePatient } from "@/lib/patients";
 import type { Patient, Medication } from "@/types/supabase";
 import { ShoppingCart } from "lucide-react";
@@ -26,11 +25,13 @@ import {
 } from "@/components/ui/dialog";
 import { processCashPayment, processMpesaPayment } from "@/lib/cashier";
 import ReceiptDialog from '@/components/shared/sales/ReceiptDialog';
-import { LimitAwareButton } from '@/components/shared/LimitAwareButton';
-import { usePreemptiveLimits } from '@/app/lib/hooks/usePreemptiveLimits';
 import { useAuthContext } from '@/app/providers/AuthProvider';
 import { useTenant } from '@/app/providers/TenantProvider';
-
+import { useCreateSale, useUpdateSaleStatus } from '@/lib/hooks/usePharmacyQueries';
+import {
+  LimitAwareButton
+} from '@/components/shared/LimitAwareButton';
+import { usePreemptiveLimits } from '@/app/lib/hooks/usePreemptiveLimits';
 
 interface SaleItem {
   medication_id: string;
@@ -59,6 +60,8 @@ export default function NewSaleForm({
 }: NewSaleFormProps) {
   const { user, loading: authLoading } = useAuthContext();
   const { tenantId, role } = useTenant();
+  const createSaleMutation = useCreateSale();
+  const updateSaleStatusMutation = useUpdateSaleStatus();
   const { isLimitValid, loading: limitsLoading, forceUpdate, limits } = usePreemptiveLimits();
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -277,13 +280,11 @@ export default function NewSaleForm({
 
       console.log('📦 Creating sale with data:', saleData);
 
-      // Create the sale
-      const result = await createSale(saleData);
+      // Create the sale using mutation
+      const result = await createSaleMutation.mutateAsync(saleData);
       
       if (result.success) {
         console.log('✅ Sale created successfully:', result.data);
-        // Force update limits after successful sale
-        forceUpdate();
         
         setCurrentSaleId(result.data.id);
         
@@ -298,6 +299,12 @@ export default function NewSaleForm({
             console.log('💵 Processing cash payment');
             formData.append('receiptNumber', `CASH-${Date.now()}`);
             await processCashPayment(formData);
+            
+            // Update sale status
+            await updateSaleStatusMutation.mutateAsync({
+              id: result.data.id,
+              updateData: { payment_status: 'paid', payment_method: 'cash' }
+            });
             
             // Generate receipt
             const receipt = `
@@ -375,6 +382,12 @@ Thank you for your business!
       const { success } = await processMpesaPayment(formData);
       
       if (success) {
+        // Update sale status
+        await updateSaleStatusMutation.mutateAsync({
+          id: currentSaleId,
+          updateData: { payment_status: 'pending', payment_method: 'mpesa' }
+        });
+        
         toast.success("M-PESA payment initiated. Please check your phone.");
         
         // Generate receipt using the same format as cashier page
