@@ -2,6 +2,7 @@
 
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { getDateRangeFromTimeframe } from '@/lib/utils/dateUtils';
 
 export type TimeframeType = 'all' | 'today' | 'week' | 'month';
 
@@ -75,37 +76,4 @@ export default function SalesFilterBar({
   );
 }
 
-// Helper function to calculate date ranges based on timeframe
-export function getDateRangeFromTimeframe(timeframe: TimeframeType): { startDate: string; endDate: string } {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  const todayStr = today.toISOString().split('T')[0];
-  
-  switch (timeframe) {
-    case 'today':
-      return { startDate: todayStr, endDate: todayStr };
-    
-    case 'week': {
-      const weekAgo = new Date(today);
-      weekAgo.setDate(today.getDate() - 7);
-      return { 
-        startDate: weekAgo.toISOString().split('T')[0], 
-        endDate: todayStr 
-      };
-    }
-    
-    case 'month': {
-      const monthAgo = new Date(today);
-      monthAgo.setDate(today.getDate() - 30);
-      return { 
-        startDate: monthAgo.toISOString().split('T')[0], 
-        endDate: todayStr 
-      };
-    }
-    
-    case 'all':
-    default:
-      return { startDate: '', endDate: '' };
-  }
-} 
+export { getDateRangeFromTimeframe }; 

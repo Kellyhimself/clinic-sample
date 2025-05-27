@@ -1388,7 +1388,7 @@ export type Database = {
           {
             foreignKeyName: "subscription_limits_tenant_id_fkey"
             columns: ["tenant_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -1655,7 +1655,6 @@ export type Database = {
           total_cost: number
           profit_margin: number
           reorder_suggested: boolean
-          debug_info: Json
         }[]
       }
       check_expiry: {
@@ -1730,6 +1729,10 @@ export type Database = {
       }
       get_patient_by_id: {
         Args: { p_id: string }
+        Returns: Json
+      }
+      get_sales_metrics: {
+        Args: { p_sales: Json; p_timeframe?: string }
         Returns: Json
       }
       get_tenant_id: {

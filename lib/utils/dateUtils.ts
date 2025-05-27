@@ -1,58 +1,41 @@
 import { TimeframeType } from '@/components/shared/sales/SalesFilterBar';
 
-export function getDateRangeFromTimeframe(timeframe: TimeframeType): { startDate: Date | null; endDate: Date | null } {
-  const now = new Date();
-  let startDate: Date | null = null;
-  let endDate: Date | null = now;
-
+export function getDateRangeFromTimeframe(timeframe: TimeframeType): { startDate: string; endDate: string } {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const todayStr = today.toISOString();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString();
+  
   switch (timeframe) {
     case 'today':
-      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      break;
+      return { 
+        startDate: todayStr, 
+        endDate: tomorrowStr 
+      };
     
-    case 'yesterday':
-      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-      endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      break;
+    case 'week': {
+      const weekAgo = new Date(today);
+      weekAgo.setDate(today.getDate() - 7);
+      return { 
+        startDate: weekAgo.toISOString(), 
+        endDate: tomorrowStr 
+      };
+    }
     
-    case 'this_week':
-      // Get the start of the week (Sunday)
-      const day = now.getDay();
-      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day);
-      break;
-    
-    case 'last_week':
-      const lastWeekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay() - 7);
-      const lastWeekEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
-      startDate = lastWeekStart;
-      endDate = lastWeekEnd;
-      break;
-    
-    case 'this_month':
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      break;
-    
-    case 'last_month':
-      startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      endDate = new Date(now.getFullYear(), now.getMonth(), 0);
-      break;
-    
-    case 'this_year':
-      startDate = new Date(now.getFullYear(), 0, 1);
-      break;
-    
-    case 'last_year':
-      startDate = new Date(now.getFullYear() - 1, 0, 1);
-      endDate = new Date(now.getFullYear() - 1, 11, 31);
-      break;
+    case 'month': {
+      const monthAgo = new Date(today);
+      monthAgo.setDate(today.getDate() - 30);
+      return { 
+        startDate: monthAgo.toISOString(), 
+        endDate: tomorrowStr 
+      };
+    }
     
     case 'all':
     default:
-      // For 'all', we don't set any date range
-      startDate = null;
-      endDate = null;
-      break;
+      return { startDate: '', endDate: '' };
   }
-
-  return { startDate, endDate };
 } 

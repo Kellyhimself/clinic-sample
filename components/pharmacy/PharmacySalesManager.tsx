@@ -146,24 +146,24 @@ export function PharmacySalesManager({
     const { startDate, endDate } = getDateRangeFromTimeframe(timeframe);
     let filteredData = [...sales];
       
-      if (startDate && endDate) {
-        filteredData = filteredData.filter(sale => {
-          const saleDate = new Date(sale.created_at || '').toISOString().split('T')[0];
-          return saleDate >= startDate && saleDate <= endDate;
-        });
-      }
+    if (startDate && endDate) {
+      filteredData = filteredData.filter(sale => {
+        const saleDate = new Date(sale.created_at || '');
+        return saleDate >= new Date(startDate) && saleDate < new Date(endDate);
+      });
+    }
       
-      if (searchTerm) {
-        const searchLower = searchTerm.toLowerCase();
-        filteredData = filteredData.filter(sale => {
-          return (
-            (sale.patient?.full_name?.toLowerCase().includes(searchLower)) ||
-            (sale.items?.some(item => item.medication?.name?.toLowerCase().includes(searchLower)) || false) ||
-            (sale.payment_method?.toLowerCase() || '').includes(searchLower) ||
-            (sale.items?.some((item) => item.batch?.batch_number?.toLowerCase().includes(searchLower)) || false)
-          );
-        });
-      }
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      filteredData = filteredData.filter(sale => {
+        return (
+          (sale.patient?.full_name?.toLowerCase().includes(searchLower)) ||
+          (sale.items?.some(item => item.medication?.name?.toLowerCase().includes(searchLower)) || false) ||
+          (sale.payment_method?.toLowerCase() || '').includes(searchLower) ||
+          (sale.items?.some((item) => item.batch?.batch_number?.toLowerCase().includes(searchLower)) || false)
+        );
+      });
+    }
       
     return filteredData;
   }, [sales, searchTerm, timeframe]);

@@ -2,12 +2,11 @@
 
 import { createClient } from '@/app/lib/supabase/server';
 import { Database } from '@/types/supabase';
-import { getCache, setCache } from './server/salesCache';
 
 export interface TopSellingMedication {
-  medication_id: string;  // UUID from database
-  medication_name: string;  // Text from database
-  total_quantity: number;  // BigInt from database, converted to number
+  medication_id: string;
+  medication_name: string | null;
+  total_quantity: number;
 }
 
 export type Sale = Database['public']['Tables']['sales']['Row'] & {
@@ -102,7 +101,7 @@ export async function fetchTopSellingMedications(): Promise<TopSellingMedication
     // Transform the data to match the TopSellingMedication interface
     const topSelling = data.map(item => ({
       medication_id: item.medication_id,
-      medication_name: item.medications?.name || 'Unknown',
+      medication_name: item.medications?.name || null,
       total_quantity: item.quantity
     }));
     
@@ -303,9 +302,6 @@ export async function fetchSales(
       }))
     }));
 
-    // Generate cache key with tenant ID
-    const cacheKey = `sales-${profile.tenant_id}-${searchTerm}-${timeframe}-${page}-${pageSize}`;
-    await setCache(cacheKey, transformedData);
     return { data: transformedData, error: null };
   } catch (error) {
     console.error('Unexpected error in fetchSales:', error);
@@ -332,20 +328,8 @@ export async function getTopSellingMedications(): Promise<TopSellingMedication[]
       throw new Error('No tenant context found');
     }
 
-    // Generate cache key with tenant ID
-    const cacheKey = `top-selling-medications-${profile.tenant_id}`;
-    const cachedData = await getCache<TopSellingMedication[]>(cacheKey);
-    if (cachedData) return cachedData;
-
-    const { error: setContextError } = await supabase
-      .rpc('set_tenant_context', { p_tenant_id: profile.tenant_id });
-
-    if (setContextError) {
-      throw new Error('Failed to set tenant context');
-    }
-
     const { data, error } = await supabase
-      .rpc('get_simple_top_selling_medications');
+      .rpc('get_top_selling_medications', { p_tenant_id: profile.tenant_id });
 
     if (error) {
       throw error;
@@ -355,14 +339,12 @@ export async function getTopSellingMedications(): Promise<TopSellingMedication[]
       throw new Error('Invalid data format received from database');
     }
     
-    const transformedData = data.map(item => ({
+    // Transform the data to handle varchar(255) type
+    return data.map(item => ({
       medication_id: item.medication_id,
-      medication_name: item.medication_name,
+      medication_name: item.medication_name || 'Unknown',  // Handle null values
       total_quantity: Number(item.total_quantity)
     }));
-    
-    await setCache(cacheKey, transformedData);
-    return transformedData;
   } catch (error) {
     console.error('Error in getTopSellingMedications:', error);
     throw error;
@@ -391,11 +373,6 @@ export async function calculateSalesMetrics(
       throw new Error('No tenant context found');
     }
 
-    // Generate cache key with tenant ID
-    const cacheKey = `metrics-${profile.tenant_id}-${sales.length}-${timeframe}`;
-    const cachedMetrics = await getCache<SalesMetrics>(cacheKey);
-    if (cachedMetrics) return cachedMetrics;
-
     const { data, error } = await supabase.rpc('get_sales_metrics', {
       p_sales: sales,
       p_timeframe: timeframe
@@ -414,7 +391,6 @@ export async function calculateSalesMetrics(
       salesByTimeframe: data.sales_by_timeframe || {}
     };
 
-    await setCache(cacheKey, metrics);
     return metrics;
   } catch (error) {
     console.error('Error in calculateSalesMetrics:', error);

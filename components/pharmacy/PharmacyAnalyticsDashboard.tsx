@@ -4,23 +4,18 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart, Activity, Package2, DollarSign, TrendingUp, AlertTriangle } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
 
 import SalesFilterBar, { TimeframeType } from '@/components/shared/sales/SalesFilterBar';
 import SalesMetricCard from '@/components/shared/sales/SalesMetricCard';
-import { UpgradePrompt } from '@/components/shared/UpgradePrompt';
-import { Sale, TopSellingMedication } from '@/lib/sales';
+import { Sale } from '@/lib/sales';
+import { getDateRangeFromTimeframe } from '@/lib/utils/dateUtils';
+import { useTopSellingMedications, useMedicationProfitMargins } from '@/lib/hooks/usePharmacyQueries';
 
 // Import responsive CSS
 import './pharmacyAnalytics.css';
 
-// Import server actions
-import { fetchTopSellingMedications } from '@/lib/sales';
-import { getMedicationProfitMargins, MedicationProfitMargin } from '@/lib/rpcActions';
-
 // Define interfaces for the RPC function responses
 interface PharmacyAnalyticsDashboardProps {
-  isFeatureEnabled: boolean;
   sales: Sale[];
   medicationSales: Array<{
     total_price: number;
@@ -30,7 +25,6 @@ interface PharmacyAnalyticsDashboardProps {
 }
 
 export default function PharmacyAnalyticsDashboard({ 
-  isFeatureEnabled, 
   sales,
   medicationSales 
 }: PharmacyAnalyticsDashboardProps) {
@@ -41,26 +35,18 @@ export default function PharmacyAnalyticsDashboard({
   const [isNarrowMobile, setIsNarrowMobile] = useState(false);
   const [isMediumMobile, setIsMediumMobile] = useState(false);
   
-  // Use TanStack Query for data fetching
+  // Use custom hooks for data fetching
   const { 
     data: topSellingMeds = [], 
     isLoading: isLoadingTopSelling,
     error: topSellingError 
-  } = useQuery({
-    queryKey: ['topSellingMedications', timeframe],
-    queryFn: () => fetchTopSellingMedications(),
-    enabled: isFeatureEnabled
-  });
+  } = useTopSellingMedications(timeframe);
 
   const { 
     data: profitData = [], 
     isLoading: isLoadingProfit,
     error: profitError 
-  } = useQuery({
-    queryKey: ['medicationProfitMargins', timeframe],
-    queryFn: () => getMedicationProfitMargins(),
-    enabled: isFeatureEnabled
-  });
+  } = useMedicationProfitMargins(timeframe);
   
   // Check screen size on component mount and resize
   useEffect(() => {
@@ -79,103 +65,50 @@ export default function PharmacyAnalyticsDashboard({
   }, []);
   
   // Calculate analytics from both regular sales and medication sales
+  const filteredSales = useMemo(() => {
+    if (!sales.length) return [];
+    
+    const { startDate, endDate } = getDateRangeFromTimeframe(timeframe);
+    let filteredData = [...sales];
+      
+    if (startDate && endDate) {
+      filteredData = filteredData.filter(sale => {
+        const saleDate = new Date(sale.created_at || '');
+        return saleDate >= new Date(startDate) && saleDate < new Date(endDate);
+      });
+    }
+      
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      filteredData = filteredData.filter(sale => {
+        return (
+          (sale.patient?.full_name?.toLowerCase().includes(searchLower)) ||
+          (sale.items?.some(item => item.medication?.name?.toLowerCase().includes(searchLower)) || false) ||
+          (sale.payment_method?.toLowerCase() || '').includes(searchLower) ||
+          (sale.items?.some((item) => item.batch?.batch_number?.toLowerCase().includes(searchLower)) || false)
+        );
+      });
+    }
+      
+    return filteredData;
+  }, [sales, searchTerm, timeframe]);
+
   const totalRevenue = useMemo(() => {
-    const regularSalesRevenue = Array.isArray(sales) ? sales.reduce((sum, sale) => sum + (sale.total_amount || 0), 0) : 0;
+    const regularSalesRevenue = Array.isArray(filteredSales) ? filteredSales.reduce((sum, sale) => sum + (sale.total_amount || 0), 0) : 0;
     const medicationSalesRevenue = Array.isArray(medicationSales) ? medicationSales.reduce((sum, sale) => sum + (sale.total_price || 0), 0) : 0;
     return regularSalesRevenue + medicationSalesRevenue;
-  }, [sales, medicationSales]);
+  }, [filteredSales, medicationSales]);
 
   const totalCost = useMemo(() => {
-    const regularSalesCost = Array.isArray(sales) ? sales.reduce((sum, sale) => 
+    const regularSalesCost = Array.isArray(filteredSales) ? filteredSales.reduce((sum, sale) => 
       sum + (Array.isArray(sale.items) ? sale.items.reduce((itemSum: number, item) => itemSum + (item.unit_price * item.quantity), 0) : 0), 0) : 0;
     const medicationSalesCost = Array.isArray(medicationSales) ? medicationSales.reduce((sum, sale) => 
       sum + (sale.unit_price * sale.quantity), 0) : 0;
     return regularSalesCost + medicationSalesCost;
-  }, [sales, medicationSales]);
+  }, [filteredSales, medicationSales]);
 
   const totalProfit = totalRevenue - totalCost;
   const averageMargin = totalCost > 0 ? ((totalRevenue - totalCost) / totalCost) * 100 : 0;
-  
-  if (!isFeatureEnabled) {
-    return (
-      <div className="pharmacy-analytics-container">
-        <h2 className={`${isNarrowMobile ? 'xs-heading' : isMediumMobile ? 'sm-heading' : 'text-xl md:text-2xl'} font-bold text-gray-800 leading-tight mb-4`}>
-          Pharmacy Analytics Dashboard
-        </h2>
-        
-        <UpgradePrompt
-          requiredPlan="pro"
-          features={[
-            "Real-time sales analytics",
-            "Revenue tracking",
-            "Top-selling medications",
-            "Stock movement analysis"
-          ]}
-          variant="card"
-          popoverPosition="top-right"
-        >
-          <div className="space-y-4">
-            {/* Preview of Key Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {[
-                { title: "Total Revenue", value: "KES 0", icon: <DollarSign className="h-4 w-4 text-emerald-600" /> },
-                { title: "Total Profit", value: "KES 0", icon: <TrendingUp className="h-4 w-4 text-indigo-600" /> },
-                { title: "Average Margin", value: "0%", icon: <Activity className="h-4 w-4 text-blue-600" /> },
-                { title: "Items Needing Reorder", value: "0", icon: <AlertTriangle className="h-4 w-4 text-amber-600" /> }
-              ].map((metric, index) => (
-                <div key={index} className="bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    {metric.icon}
-                    <h3 className="text-sm font-medium text-gray-600">{metric.title}</h3>
-                  </div>
-                  <p className="text-lg font-semibold text-gray-700">{metric.value}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Preview of Analytics Tabs */}
-            <div className="bg-white rounded-lg border border-gray-200">
-              <div className="border-b border-gray-200">
-                <div className="flex space-x-4 p-4">
-                  {["Overview", "Top Selling", "Profit Margins", "Reorder Alerts"].map((tab) => (
-                    <button
-                      key={tab}
-                      className="px-3 py-2 text-sm font-medium text-gray-500"
-                      disabled
-                    >
-                      {tab}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              
-              <div className="p-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {/* Preview Cards */}
-                  {[
-                    { title: "Top 5 Selling Medications", icon: <Package2 className="h-5 w-5 text-emerald-600" /> },
-                    { title: "Top 5 Profit Margin Medications", icon: <TrendingUp className="h-5 w-5 text-indigo-600" /> },
-                    { title: "Items Needing Reorder", icon: <AlertTriangle className="h-5 w-5 text-amber-600" /> },
-                    { title: "Revenue Breakdown", icon: <BarChart className="h-5 w-5 text-blue-600" /> }
-                  ].map((card, index) => (
-                    <div key={index} className="bg-gray-50 rounded-lg p-4">
-                      <div className="flex items-center gap-2 mb-3">
-                        {card.icon}
-                        <h3 className="font-medium text-gray-700">{card.title}</h3>
-                      </div>
-                      <div className="h-32 bg-gray-100 rounded-md flex items-center justify-center">
-                        <p className="text-sm text-gray-500">Preview content</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </UpgradePrompt>
-      </div>
-    );
-  }
   
   const error = topSellingError || profitError;
   if (error) {

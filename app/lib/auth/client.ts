@@ -2,7 +2,7 @@ import { createClient } from '../supabase/client';
 import { TenantContext } from './types';
 import { useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
-import { clearCache, invalidateCacheByTenant } from '@/lib/server/salesCache';
+import { useQueryClient } from '@tanstack/react-query';
 
 export const supabase = createClient();
 
@@ -13,6 +13,7 @@ export function useAuth() {
   const [tenantContext, setTenantContext] = useState<TenantContext | null>(null);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     let refreshInterval: NodeJS.Timeout;
@@ -45,10 +46,15 @@ export function useAuth() {
                 role: (profile.role as TenantContext['role']) || 'user',
               };
               
-              // Invalidate cache for old tenant if switching
+              // Invalidate queries for old tenant if switching
               const oldContext = getStoredTenantContext();
               if (oldContext && oldContext.id !== tenant.id) {
-                await invalidateCacheByTenant(oldContext.id);
+                queryClient.invalidateQueries({ queryKey: ['medications', oldContext.id] });
+                queryClient.invalidateQueries({ queryKey: ['patients', oldContext.id] });
+                queryClient.invalidateQueries({ queryKey: ['sales', oldContext.id] });
+                queryClient.invalidateQueries({ queryKey: ['batches', oldContext.id] });
+                queryClient.invalidateQueries({ queryKey: ['topSelling', oldContext.id] });
+                queryClient.invalidateQueries({ queryKey: ['profitMargins', oldContext.id] });
               }
               
               setStoredTenantContext(context);
@@ -65,14 +71,17 @@ export function useAuth() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        refreshSession();
+        refreshSession().finally(() => {
+          setLoading(false);
+        });
+      } else {
+        setLoading(false);
       }
     });
 
     // Get initial tenant context
     const context = getStoredTenantContext();
     setTenantContext(context);
-    setLoading(false);
 
     // Set up session refresh interval
     refreshInterval = setInterval(refreshSession, SESSION_REFRESH_INTERVAL);
@@ -84,12 +93,16 @@ export function useAuth() {
       if (event === 'SIGNED_IN' && session) {
         await refreshSession();
       } else if (event === 'SIGNED_OUT') {
-        // Clear cache and tenant context on sign out
+        // Clear tenant context and invalidate queries on sign out
         const oldContext = getStoredTenantContext();
         if (oldContext) {
-          await invalidateCacheByTenant(oldContext.id);
+          queryClient.invalidateQueries({ queryKey: ['medications', oldContext.id] });
+          queryClient.invalidateQueries({ queryKey: ['patients', oldContext.id] });
+          queryClient.invalidateQueries({ queryKey: ['sales', oldContext.id] });
+          queryClient.invalidateQueries({ queryKey: ['batches', oldContext.id] });
+          queryClient.invalidateQueries({ queryKey: ['topSelling', oldContext.id] });
+          queryClient.invalidateQueries({ queryKey: ['profitMargins', oldContext.id] });
         }
-        await clearCache();
         clearStoredTenantContext();
         setTenantContext(null);
       }
@@ -109,7 +122,7 @@ export function useAuth() {
       clearInterval(refreshInterval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, []);
+  }, [queryClient]);
 
   return {
     user,

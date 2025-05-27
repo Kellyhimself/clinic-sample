@@ -723,4 +723,62 @@ END;
 
 
 both functions were expecting a tenantID paramenter/argument
+get_top_selling_medications
+BEGIN
+    RETURN QUERY
+    SELECT 
+        si.medication_id,
+        CAST(m.name AS text) AS medication_name,
+        SUM(si.quantity)::bigint AS total_quantity
+    FROM sale_items si
+    LEFT JOIN medications m ON m.id = si.medication_id
+    WHERE si.tenant_id = p_tenant_id
+    GROUP BY si.medication_id, m.name
+    ORDER BY total_quantity DESC;
+END;
 
+get_medication_profit_margins(tenantID)
+BEGIN
+    RETURN QUERY
+    SELECT 
+        m.id as medication_id,
+        m.name::TEXT as medication_name,
+        si.batch_id,
+        mb.batch_number::TEXT as batch_number,
+        si.quantity::BIGINT,
+        si.total_price,
+        mb.purchase_price,
+        mb.unit_price,
+        CASE 
+            WHEN mb.purchase_price > 0 THEN mb.purchase_price 
+            ELSE (mb.unit_price * 0.7) 
+        END as effective_cost,
+        (si.quantity * CASE 
+            WHEN mb.purchase_price > 0 THEN mb.purchase_price 
+            ELSE (mb.unit_price * 0.7) 
+        END) as total_cost,
+        (si.total_price - (si.quantity * CASE 
+            WHEN mb.purchase_price > 0 THEN mb.purchase_price 
+            ELSE (mb.unit_price * 0.7) 
+        END)) as profit,
+        CASE 
+            WHEN (si.quantity * CASE 
+                WHEN mb.purchase_price > 0 THEN mb.purchase_price 
+                ELSE (mb.unit_price * 0.7) 
+            END) > 0 
+            THEN ((si.total_price - (si.quantity * CASE 
+                WHEN mb.purchase_price > 0 THEN mb.purchase_price 
+                ELSE (mb.unit_price * 0.7) 
+            END)) / (si.quantity * CASE 
+                WHEN mb.purchase_price > 0 THEN mb.purchase_price 
+                ELSE (mb.unit_price * 0.7) 
+            END)) * 100 
+            ELSE 100 
+        END as profit_margin,
+        si.created_at
+    FROM sale_items si
+    JOIN medications m ON si.medication_id = m.id
+    JOIN medication_batches mb ON si.batch_id = mb.id
+    WHERE si.tenant_id = p_tenant_id
+    ORDER BY m.name, si.created_at DESC;
+END;
